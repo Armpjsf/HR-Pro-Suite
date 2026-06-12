@@ -1,0 +1,81 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { authHeaders } from '@/components/hr/exportUtils';
+
+const LEAVE_LABELS = { annual: 'ลาพักร้อน', sick: 'ลาป่วย', personal: 'ลากิจ' };
+
+export default function HrDashboardPage() {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/hr/dashboard', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => { if (d.stats) setData(d); })
+      .catch(() => {});
+  }, []);
+
+  if (!data) return <div className="hr-empty">กำลังโหลด...</div>;
+
+  const { stats, announcements, pendingLeaveList } = data;
+
+  const cards = [
+    { icon: '👥', value: stats.employees, label: 'พนักงานทั้งหมด', href: '/hr/employees' },
+    { icon: '🏖️', value: stats.pendingLeave, label: 'ใบลารออนุมัติ', href: '/hr/leave' },
+    { icon: '🧾', value: stats.pendingExpenses, label: 'เบิกจ่ายรออนุมัติ', href: '/hr/expenses' },
+    { icon: '📣', value: stats.openJobs, label: 'ตำแหน่งเปิดรับ', href: '/hr/recruitment' },
+    { icon: '🎦', value: stats.todayBookings, label: 'จองห้องวันนี้', href: '/hr/rooms' },
+    { icon: '💰', value: stats.payrollTotal.toLocaleString('th-TH') + ' ฿', label: `เงินเดือนงวด ${stats.period}`, href: '/hr/payroll' },
+  ];
+
+  return (
+    <div>
+      <div className="hr-stat-row">
+        {cards.map((c) => (
+          <Link key={c.label} href={c.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="hr-stat-card">
+              <div className="hr-stat-icon">{c.icon}</div>
+              <div>
+                <div className="hr-stat-value">{c.value}</div>
+                <div className="hr-stat-label">{c.label}</div>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        <div className="hr-card">
+          <h3 className="hr-section-title">🏖️ ใบลารออนุมัติล่าสุด</h3>
+          {pendingLeaveList.length === 0 && <div className="hr-empty">ไม่มีใบลารออนุมัติ</div>}
+          {pendingLeaveList.map((l) => (
+            <div key={l.id} className="hr-emp-row">
+              <span className="k">{l.employee_id} · {LEAVE_LABELS[l.leave_type] || l.leave_type} {l.days} วัน</span>
+              <span className="v">{l.start_date}</span>
+            </div>
+          ))}
+          {pendingLeaveList.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <Link href="/hr/leave" className="hr-btn">ไปหน้าอนุมัติ →</Link>
+            </div>
+          )}
+        </div>
+
+        <div className="hr-card">
+          <h3 className="hr-section-title">📢 ประกาศล่าสุด</h3>
+          {announcements.length === 0 && <div className="hr-empty">ยังไม่มีประกาศ</div>}
+          {announcements.map((a) => (
+            <div key={a.id} className="hr-emp-row">
+              <span className="k">{a.pinned ? '📌 ' : ''}{a.title}</span>
+              <span className="v">{a.publish_date || ''}</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 12 }}>
+            <Link href="/hr/announcements" className="hr-btn">จัดการประกาศ →</Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
