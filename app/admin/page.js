@@ -79,6 +79,9 @@ export default function AdminPage() {
         <div className="glass-card" style={{ padding: '24px', marginBottom: '24px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>🚀 เมนูด่วน</h3>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" style={{ backgroundColor: '#4f46e5', borderColor: '#4f46e5' }} onClick={() => router.push('/hr')}>
+              🏢 ระบบจัดการ HR (HR Pro)
+            </button>
             <button className="btn btn-primary" onClick={() => router.push('/admin/documents')}>
               📤 จัดการเอกสาร
             </button>

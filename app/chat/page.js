@@ -20,8 +20,9 @@ const NAV_ITEMS = [
 ];
 
 const ADMIN_NAV = [
-  { icon: '⚙️', label: 'แดชบอร์ด', id: 'admin', href: '/admin' },
-  { icon: '📤', label: 'จัดการเอกสาร', id: 'admin-docs', href: '/admin/documents' },
+  { icon: '🏢', label: 'ระบบจัดการ HR (HR Pro)', id: 'hr-suite', href: '/hr' },
+  { icon: '⚙️', label: 'แดชบอร์ดผู้ดูแล', id: 'admin', href: '/admin' },
+  { icon: '📤', label: 'จัดการเอกสาร AI', id: 'admin-docs', href: '/admin/documents' },
   { icon: '👥', label: 'จัดการผู้ใช้', id: 'admin-users', href: '/admin/users' },
 ];
 
