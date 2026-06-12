@@ -1,0 +1,11 @@
+services:
+  hr-chatbot:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    volumes:
+      # เก็บข้อมูล (users/เอกสาร/วันลา) ไว้นอก container — redeploy แล้วข้อมูลไม่หาย
+      - ./data:/app/data
+    restart: unless-stopped

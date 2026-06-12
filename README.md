@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HR AI Chatbot
 
-## Getting Started
+ระบบผู้ช่วย HR อัจฉริยะ — ตอบคำถามระเบียบบริษัท แจกเอกสาร/Template ตรวจสอบวันลา ผ่านเว็บ (PWA) และ LINE Bot โดยควบคุมสิทธิ์ตาม role (admin / hr / employee)
 
-First, run the development server:
+## เริ่มใช้งาน
 
 ```bash
+# 1. ติดตั้ง dependencies
+npm install
+
+# 2. ตั้งค่า environment (คัดลอกแล้วใส่ค่าจริง)
+cp .env.example .env.local
+
+# 3. รัน
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+เปิด [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+**บัญชีเริ่มต้น:** username `admin` / password `admin123` — ⚠️ เปลี่ยนรหัสผ่านทันทีหลัง login ครั้งแรก (จัดการผู้ใช้ → แก้ไข)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## การตั้งค่า (.env.local)
 
-## Learn More
+| ตัวแปร | จำเป็น | คำอธิบาย |
+|---|---|---|
+| `GEMINI_API_KEY` | แนะนำ | ขอฟรีที่ [aistudio.google.com](https://aistudio.google.com/apikey) — ถ้าไม่ใส่ ระบบตอบจากเนื้อหาเอกสารโดยตรง |
+| `JWT_SECRET` | จำเป็น (production) | ค่าสุ่มยาว ๆ สำหรับเซ็น token |
+| `LINE_CHANNEL_SECRET` | ถ้าใช้ LINE | จาก [LINE Developers Console](https://developers.line.biz/console/) |
+| `LINE_CHANNEL_ACCESS_TOKEN` | ถ้าใช้ LINE | จาก LINE Developers Console |
 
-To learn more about Next.js, take a look at the following resources:
+## ขั้นตอนใช้งานครั้งแรก
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Login ด้วยบัญชี admin
+2. **จัดการผู้ใช้** — เพิ่มพนักงาน/HR พร้อมกำหนดรหัสพนักงาน (เช่น EMP001)
+3. **จัดการเอกสาร** — อัพโหลดระเบียบบริษัท, Template, ประกาศ (PDF/Excel/Word/Text) ระบบจะดึงข้อความจาก PDF/Excel/Text ให้ AI ใช้ตอบอัตโนมัติ
+4. ทดสอบถามในหน้าแชท
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## LINE Bot
 
-## Deploy on Vercel
+1. สร้าง Messaging API channel ใน LINE Developers Console
+2. ตั้ง Webhook URL: `https://<โดเมนของคุณ>/api/line/webhook`
+3. ใส่ secret/token ใน `.env.local`
+4. พนักงานแอดเพื่อน แล้วพิมพ์ `ลงทะเบียน EMP001` (รหัสพนักงานต้องมีในระบบ)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## โครงสร้างข้อมูล
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+ข้อมูลทั้งหมดเก็บเป็นไฟล์ JSON ในโฟลเดอร์ `data/`:
+
+- `users.json` — ผู้ใช้ (รหัสผ่าน hash ด้วย bcrypt)
+- `knowledge-base.json` — เอกสาร + ข้อมูลพนักงาน (วันลา ฯลฯ)
+- `line-mappings.json` — การผูกบัญชี LINE
+- `audit-log.json` — บันทึกกิจกรรม
+- `files/` — ไฟล์เอกสารจริงที่อัพโหลด
+
+💡 สำรองข้อมูลด้วยการ copy โฟลเดอร์ `data/` ทั้งหมด
+
+## ข้อมูลวันลาพนักงาน
+
+แก้ `knowledge-base.json` ส่วน `employeeData` ตามรูปแบบ:
+
+```json
+{
+  "employeeData": {
+    "EMP001": {
+      "name": "สมชาย ใจดี",
+      "department": "Engineering",
+      "position": "Developer",
+      "startDate": "2023-01-15",
+      "leave": {
+        "annual": { "total": 10, "used": 3, "remaining": 7 },
+        "sick": { "total": 30, "used": 1, "remaining": 29 },
+        "personal": { "total": 5, "used": 0, "remaining": 5 }
+      }
+    }
+  }
+}
+```
+
+## Deploy
+
+ระบบเขียนไฟล์ลงดิสก์ (`data/`) จึงต้อง deploy บนเซิร์ฟเวอร์ที่มี persistent storage เช่น VPS/Docker (`npm run build && npm start`) — **ไม่เหมาะกับ Vercel/serverless** เว้นแต่เปลี่ยนชั้นจัดเก็บข้อมูลเป็นฐานข้อมูลภายนอก

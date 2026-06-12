@@ -1,0 +1,14 @@
+[
+  {
+    "id": "admin-001",
+    "username": "admin",
+    "password": "$2b$10$cZ..V8CnAuUSdf8cEKhyAuGjUrKEN126jNy60y1QqmYAKt0FYKp8u",
+    "name": "ผู้ดูแลระบบ",
+    "nameEn": "System Administrator",
+    "email": "admin@company.com",
+    "role": "admin",
+    "employeeId": "admin-001",
+    "department": "IT",
+    "avatar": "👑"
+  }
+]
