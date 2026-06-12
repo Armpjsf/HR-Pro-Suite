@@ -9,7 +9,12 @@ export async function GET(request) {
   const { error, status } = requireRole(request, ['admin', 'hr']);
   if (error) return NextResponse.json({ error }, { status });
 
-  const log = getAuditLog();
+  const [log, documents, users, lineMappings] = await Promise.all([
+    getAuditLog(),
+    getDocuments(),
+    getUsers(),
+    getLineMappings(),
+  ]);
   const today = new Date().toISOString().split('T')[0];
   const chatsToday = log.filter(
     (e) => e.type === 'chat' && e.at?.startsWith(today)
@@ -17,10 +22,10 @@ export async function GET(request) {
 
   return NextResponse.json({
     stats: {
-      documents: getDocuments().length,
-      users: getUsers().length,
+      documents: documents.length,
+      users: users.length,
       chatsToday,
-      lineUsers: Object.keys(getLineMappings()).length,
+      lineUsers: Object.keys(lineMappings).length,
     },
     recentActivity: log.slice(0, 10).map((e) => ({
       time: e.at

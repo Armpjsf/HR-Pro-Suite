@@ -9,5 +9,5 @@ export async function GET(request) {
   const { error, status } = requireRole(request, ['admin', 'hr']);
   if (error) return NextResponse.json({ error }, { status });
 
-  return NextResponse.json({ mappings: getLineMappings() });
+  return NextResponse.json({ mappings: await getLineMappings() });
 }

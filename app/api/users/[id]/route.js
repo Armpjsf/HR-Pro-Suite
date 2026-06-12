@@ -18,7 +18,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const users = getUsers();
+    const users = await getUsers();
     const index = users.findIndex((u) => u.id === id);
 
     if (index === -1) {
@@ -55,8 +55,8 @@ export async function PUT(request, { params }) {
     }
 
     users[index] = updated;
-    saveUsers(users);
-    addAuditEntry({ user: admin.name, action: `แก้ไขผู้ใช้ "${updated.name}"`, channel: 'PWA' });
+    await saveUsers(users);
+    await addAuditEntry({ user: admin.name, action: `แก้ไขผู้ใช้ "${updated.name}"`, channel: 'PWA' });
 
     return NextResponse.json({ success: true, user: sanitize(updated) });
   } catch (err) {
@@ -78,15 +78,15 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: 'ไม่สามารถลบบัญชีของตัวเองได้' }, { status: 400 });
   }
 
-  const users = getUsers();
+  const users = await getUsers();
   const target = users.find((u) => u.id === id);
 
   if (!target) {
     return NextResponse.json({ error: 'ไม่พบผู้ใช้' }, { status: 404 });
   }
 
-  saveUsers(users.filter((u) => u.id !== id));
-  addAuditEntry({ user: admin.name, action: `ลบผู้ใช้ "${target.name}"`, channel: 'PWA' });
+  await saveUsers(users.filter((u) => u.id !== id));
+  await addAuditEntry({ user: admin.name, action: `ลบผู้ใช้ "${target.name}"`, channel: 'PWA' });
 
   return NextResponse.json({ success: true });
 }

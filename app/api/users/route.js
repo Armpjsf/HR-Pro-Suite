@@ -15,7 +15,8 @@ export async function GET(request) {
   const { error, status } = requireRole(request, ['admin', 'hr']);
   if (error) return NextResponse.json({ error }, { status });
 
-  return NextResponse.json({ users: getUsers().map(sanitize) });
+  const users = await getUsers();
+  return NextResponse.json({ users: users.map(sanitize) });
 }
 
 /**
@@ -47,7 +48,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'บทบาทไม่ถูกต้อง' }, { status: 400 });
     }
 
-    const users = getUsers();
+    const users = await getUsers();
 
     if (users.some((u) => u.username === username)) {
       return NextResponse.json({ error: 'Username นี้ถูกใช้แล้ว' }, { status: 409 });
@@ -76,8 +77,8 @@ export async function POST(request) {
     };
 
     users.push(newUser);
-    saveUsers(users);
-    addAuditEntry({ user: admin.name, action: `เพิ่มผู้ใช้ "${name}"`, channel: 'PWA' });
+    await saveUsers(users);
+    await addAuditEntry({ user: admin.name, action: `เพิ่มผู้ใช้ "${name}"`, channel: 'PWA' });
 
     return NextResponse.json({ success: true, user: sanitize(newUser) });
   } catch (err) {

@@ -10,12 +10,12 @@ export async function DELETE(request, { params }) {
   if (error) return NextResponse.json({ error }, { status });
 
   const { lineId } = await params;
-  const deleted = deleteLineMapping(decodeURIComponent(lineId));
+  const deleted = await deleteLineMapping(decodeURIComponent(lineId));
 
   if (!deleted) {
     return NextResponse.json({ error: 'ไม่พบการผูกบัญชีนี้' }, { status: 404 });
   }
 
-  addAuditEntry({ user: user.name, action: 'ยกเลิกการผูกบัญชี LINE', channel: 'PWA' });
+  await addAuditEntry({ user: user.name, action: 'ยกเลิกการผูกบัญชี LINE', channel: 'PWA' });
   return NextResponse.json({ success: true });
 }

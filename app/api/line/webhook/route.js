@@ -168,7 +168,7 @@ export async function POST(request) {
         // Check registration — ตรวจรหัสพนักงานกับระบบจริง แล้วบันทึกการผูกบัญชี
         if (text.startsWith('ลงทะเบียน')) {
           const empId = text.replace('ลงทะเบียน', '').trim().toUpperCase();
-          const employee = findUserByEmployeeId(empId);
+          const employee = await findUserByEmployeeId(empId);
 
           if (!employee) {
             await replyMessage(event.replyToken, [{
@@ -178,13 +178,13 @@ export async function POST(request) {
             continue;
           }
 
-          setLineMapping(userId, {
+          await setLineMapping(userId, {
             employeeId: employee.employeeId,
             name: employee.name,
             role: employee.role,
             registeredAt: new Date().toISOString(),
           });
-          addAuditEntry({ user: employee.name, action: 'ลงทะเบียน LINE', channel: 'LINE' });
+          await addAuditEntry({ user: employee.name, action: 'ลงทะเบียน LINE', channel: 'LINE' });
 
           await replyMessage(event.replyToken, [{
             type: 'text',
@@ -195,7 +195,8 @@ export async function POST(request) {
         }
 
         // Check if user is registered
-        const userMapping = getLineMappings()[userId];
+        const lineMappings = await getLineMappings();
+        const userMapping = lineMappings[userId];
         if (!userMapping) {
           await replyMessage(event.replyToken, [createRegistrationPrompt()]);
           continue;
@@ -207,7 +208,7 @@ export async function POST(request) {
           id: userId,
         });
 
-        addAuditEntry({
+        await addAuditEntry({
           user: userMapping.name,
           action: text.slice(0, 80),
           channel: 'LINE',

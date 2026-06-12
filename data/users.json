@@ -10,5 +10,16 @@
     "employeeId": "admin-001",
     "department": "IT",
     "avatar": "👑"
+  },
+  {
+    "id": "user-1781237216204",
+    "username": "arm",
+    "password": "$2b$10$1JGeBre20Jk3/iZMHZZUkulfZOdS55toWwtBIdkN2S35J1SReuhIG",
+    "name": "พงษ์อมร วิชิตแย้ม",
+    "email": "pongamon08@gmail.com",
+    "role": "employee",
+    "employeeId": "DD-001",
+    "department": "ธุรการขนส่ง",
+    "avatar": "👤"
   }
 ]

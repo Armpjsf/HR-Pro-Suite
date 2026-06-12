@@ -18,7 +18,8 @@ export async function GET(request, { params }) {
   if (error) return NextResponse.json({ error }, { status });
 
   const { id } = await params;
-  const doc = getDocuments().find((d) => d.id === id);
+  const docs = await getDocuments();
+  const doc = docs.find((d) => d.id === id);
 
   if (!doc) {
     return NextResponse.json({ error: 'ไม่พบเอกสาร' }, { status: 404 });
@@ -34,12 +35,12 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'เอกสารนี้ไม่มีไฟล์แนบ' }, { status: 404 });
   }
 
-  const buffer = readStoredFile(doc.storedFileName);
+  const buffer = await readStoredFile(doc.storedFileName);
   if (!buffer) {
     return NextResponse.json({ error: 'ไฟล์หายไปจากระบบ' }, { status: 404 });
   }
 
-  addAuditEntry({ user: user.name, action: `ดาวน์โหลด "${doc.name}"`, channel: 'PWA' });
+  await addAuditEntry({ user: user.name, action: `ดาวน์โหลด "${doc.name}"`, channel: 'PWA' });
 
   return new NextResponse(buffer, {
     headers: {

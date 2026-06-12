@@ -24,7 +24,7 @@ export async function GET(request) {
   const { user, error, status } = requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
-  const docs = filterDocumentsByRole(getDocuments(), user.role, user.employeeId);
+  const docs = filterDocumentsByRole(await getDocuments(), user.role, user.employeeId);
   // ไม่ส่ง content เต็มกลับไป (ลดขนาด response)
   const list = docs.map(({ content, ...rest }) => ({
     ...rest,
@@ -75,7 +75,7 @@ export async function POST(request) {
     // เก็บไฟล์จริง
     const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const ext = file.name.split('.').pop();
-    const storedFileName = writeStoredFile(`${docId}.${ext}`, buffer);
+    const storedFileName = await writeStoredFile(`${docId}.${ext}`, buffer);
 
     const doc = {
       id: docId,
@@ -92,8 +92,8 @@ export async function POST(request) {
       uploadedBy: user.name,
     };
 
-    addDocument(doc);
-    addAuditEntry({ user: user.name, action: `อัพโหลดเอกสาร "${doc.name}"`, channel: 'PWA' });
+    await addDocument(doc);
+    await addAuditEntry({ user: user.name, action: `อัพโหลดเอกสาร "${doc.name}"`, channel: 'PWA' });
 
     const { content: _c, ...docMeta } = doc;
     return NextResponse.json({

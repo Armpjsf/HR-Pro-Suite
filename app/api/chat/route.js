@@ -21,7 +21,7 @@ export async function POST(request) {
 
     const response = await generateResponse(message.trim(), user);
 
-    addAuditEntry({
+    await addAuditEntry({
       user: user.name,
       action: message.trim().slice(0, 80),
       channel: 'PWA',

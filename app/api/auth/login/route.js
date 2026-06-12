@@ -14,7 +14,7 @@ export async function POST(request) {
       );
     }
 
-    const user = findUserByUsername(username);
+    const user = await findUserByUsername(username);
     const valid = user && (await bcrypt.compare(password, user.password || ''));
 
     if (!valid) {
@@ -26,7 +26,7 @@ export async function POST(request) {
 
     const token = createToken(user);
 
-    addAuditEntry({
+    await addAuditEntry({
       user: user.name,
       action: 'เข้าสู่ระบบ',
       channel: 'PWA',
