@@ -1,13 +1,13 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "HR AI Assistant — ระบบตอบข้อมูล HR อัจฉริยะ",
-  description: "ระบบ AI Chatbot สำหรับสอบถามข้อมูล HR ขอเอกสาร Template และตรวจสอบข้อมูลพนักงาน",
+  title: "HR Pro Suite — ระบบบริหารงาน HR อัจฉริยะ",
+  description: "ระบบ HR ครบวงจร — จัดการพนักงาน เข้า-ออกงาน ลางาน เงินเดือน ประเมินผล AI Chatbot",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "HR AI Assistant",
+    title: "HR Pro Suite",
   },
   icons: {
     icon: "/icons/icon-192.png",
@@ -20,7 +20,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#6366f1",
+  themeColor: "#6d5ef5",
 };
 
 export default function RootLayout({ children }) {

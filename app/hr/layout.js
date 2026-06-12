@@ -7,6 +7,7 @@ import './hr.css';
 
 const MENUS = [
   { href: '/hr', icon: '📊', label: 'Dashboard' },
+  { href: '/hr/chat', icon: '💬', label: 'แชท AI' },
   { href: '/hr/employees', icon: '👥', label: 'พนักงาน' },
   { href: '/hr/departments', icon: '🏢', label: 'แผนก' },
   { href: '/hr/positions', icon: '💼', label: 'ตำแหน่งงาน' },
@@ -29,6 +30,7 @@ const MENUS = [
   { href: '/hr/rooms', icon: '🎦', label: 'ห้องประชุม' },
   { href: '/hr/trips', icon: '✈️', label: 'ทริปบริษัท' },
   { href: '/hr/announcements', icon: '📢', label: 'ประกาศ' },
+  { href: '/hr/locations', icon: '📍', label: 'จุดปักหมุด GPS' },
   { href: '/hr/reports', icon: '📑', label: 'รายงาน' },
   { href: '/admin/users', icon: '🛡️', label: 'จัดการผู้ใช้' },
 ];

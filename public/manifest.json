@@ -1,11 +1,11 @@
 {
-  "name": "HR AI Assistant",
-  "short_name": "HR Bot",
-  "description": "ระบบตอบข้อมูล HR อัจฉริยะ — สอบถาม ขอเอกสาร ตรวจสอบวันลา",
-  "start_url": "/chat",
+  "name": "HR Pro Suite",
+  "short_name": "HR Pro",
+  "description": "ระบบบริหารงาน HR อัจฉริยะ — จัดการพนักงาน เข้า-ออกงาน ลางาน สลิปเงินเดือน AI Chatbot",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a14",
-  "theme_color": "#6366f1",
+  "background_color": "#f4f5fb",
+  "theme_color": "#6d5ef5",
   "orientation": "portrait",
   "categories": ["business", "productivity"],
   "icons": [

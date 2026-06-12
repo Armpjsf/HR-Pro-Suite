@@ -13,10 +13,20 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
-    // Check if already logged in
+    // Check if already logged in — redirect by role
     const token = getCookie('hr-token');
     if (token) {
-      router.push('/chat');
+      try {
+        const storedUser = localStorage.getItem('hr-user');
+        const u = storedUser ? JSON.parse(storedUser) : null;
+        if (u?.role === 'admin' || u?.role === 'hr') {
+          router.push('/hr');
+        } else {
+          router.push('/me');
+        }
+      } catch {
+        router.push('/me');
+      }
     }
     // Register service worker
     if ('serviceWorker' in navigator) {
@@ -54,7 +64,12 @@ export default function LoginPage() {
       localStorage.setItem('hr-user', JSON.stringify(data.user));
       localStorage.setItem('hr-token', data.token);
       
-      router.push('/chat');
+      // Redirect by role
+      if (data.user.role === 'admin' || data.user.role === 'hr') {
+        router.push('/hr');
+      } else {
+        router.push('/me');
+      }
     } catch (err) {
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
       setLoading(false);

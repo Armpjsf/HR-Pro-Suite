@@ -1,6 +1,8 @@
-const CACHE_NAME = 'hr-ai-v1';
+const CACHE_NAME = 'hr-pro-v2';
 const STATIC_ASSETS = [
   '/',
+  '/me',
+  '/hr',
   '/chat',
   '/manifest.json',
   '/icons/icon-192.png',

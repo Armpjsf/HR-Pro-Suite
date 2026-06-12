@@ -13,12 +13,13 @@ export async function GET(request) {
   const employeeId = user.employeeId;
   const monthStart = new Date().toISOString().slice(0, 7) + '-01';
 
-  const [record, leaves, slips, shifts, announcements] = await Promise.all([
+  const [record, leaves, slips, shifts, announcements, todayClockResult] = await Promise.all([
     supabase.from('employee_records').select('*').eq('employee_id', employeeId).maybeSingle(),
     supabase.from('leave_requests').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false }).limit(20),
     supabase.from('payroll_slips').select('*').eq('employee_id', employeeId).order('period', { ascending: false }).limit(12),
     supabase.from('shifts').select('*').eq('employee_id', employeeId).gte('shift_date', monthStart).order('shift_date'),
     supabase.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(10),
+    supabase.from('time_records').select('*').eq('employee_id', employeeId).eq('work_date', new Date().toISOString().slice(0, 10)).maybeSingle(),
   ]);
 
   const rec = record.data || {};
@@ -54,5 +55,6 @@ export async function GET(request) {
     payslips: slips.data || [],
     shifts: shifts.data || [],
     announcements: announcements.data || [],
+    todayClock: todayClockResult.data || null,
   });
 }

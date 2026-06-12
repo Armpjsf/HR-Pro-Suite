@@ -244,3 +244,36 @@ create table if not exists announcements (
   author text,
   created_at timestamptz not null default now()
 );
+
+-- ===== Employee Mobile App — additional tables =====
+
+-- จุดปักหมุดสำหรับ GPS check-in (สำนักงาน / สาขา)
+create table if not exists check_locations (
+  id bigserial primary key,
+  name text not null,
+  latitude numeric not null,
+  longitude numeric not null,
+  radius_meters int not null default 200,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+-- ประเมินเพื่อนร่วมงาน (360°)
+create table if not exists peer_evaluations (
+  id bigserial primary key,
+  evaluator_id text not null,
+  target_id text not null,
+  period text not null,
+  scores jsonb,
+  comments text,
+  status text not null default 'draft',
+  created_at timestamptz not null default now()
+);
+
+-- เพิ่ม GPS columns ให้ time_records
+alter table time_records add column if not exists clock_in_lat numeric;
+alter table time_records add column if not exists clock_in_lng numeric;
+alter table time_records add column if not exists clock_out_lat numeric;
+alter table time_records add column if not exists clock_out_lng numeric;
+alter table time_records add column if not exists check_type text default 'office';
+alter table time_records add column if not exists location_name text;
