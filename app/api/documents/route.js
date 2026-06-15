@@ -3,6 +3,7 @@ import { requireAuth, requireRole } from '@/lib/auth';
 import { filterDocumentsByRole } from '@/lib/permissions';
 import { getDocuments, addDocument, writeStoredFile, addAuditEntry } from '@/lib/db';
 import { detectFileType, extractText } from '@/lib/extract';
+import { indexDocument } from '@/lib/rag';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -93,6 +94,17 @@ export async function POST(request) {
     };
 
     await addDocument(doc);
+
+    // สร้าง RAG index (ตัดเป็นชิ้น + embedding) เพื่อให้ AI ตอบเฉพาะจุด
+    // ถ้าล้มเหลว (เช่น embedding quota หมด) ไม่ให้กระทบการอัปโหลด — chat จะ fallback ใช้เนื้อหาเต็ม
+    if (content) {
+      try {
+        await indexDocument(docId, content);
+      } catch (err) {
+        console.error('indexDocument failed (upload still ok):', err);
+      }
+    }
+
     await addAuditEntry({ user: user.name, action: `อัพโหลดเอกสาร "${doc.name}"`, channel: 'PWA' });
 
     const { content: _c, ...docMeta } = doc;
