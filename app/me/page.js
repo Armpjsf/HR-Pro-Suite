@@ -313,7 +313,7 @@ function ChatTab({ user }) {
         body: JSON.stringify({ message: text.trim() }),
       });
       const d = await res.json();
-      setMessages((p) => [...p, { id: Date.now() + 1, role: 'ai', content: d.reply || d.error || 'เกิดข้อผิดพลาด', time }]);
+      setMessages((p) => [...p, { id: Date.now() + 1, role: 'ai', content: d.reply || d.error || 'เกิดข้อผิดพลาด', documents: d.documents || [], time }]);
     } catch {
       setMessages((p) => [...p, { id: Date.now() + 1, role: 'ai', content: '❌ ไม่สามารถเชื่อมต่อได้', time }]);
     } finally { setLoading(false); }
@@ -346,6 +346,27 @@ function ChatTab({ user }) {
               whiteSpace: 'pre-wrap',
             }}>
               {m.content}
+              {m.documents?.length > 0 && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {m.documents.map((doc) => (
+                    <button
+                      key={doc.id}
+                      onClick={() => {
+                        const token = localStorage.getItem('hr-token');
+                        window.open(`/api/documents/${doc.id}/download?token=${encodeURIComponent(token || '')}`, '_blank');
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
+                        borderRadius: 12, border: '1px solid #e7e9f4', background: '#fff',
+                        cursor: 'pointer', fontSize: 13, color: '#1d2433', textAlign: 'left',
+                      }}
+                    >
+                      <span>⬇️</span>
+                      <span style={{ flex: 1 }}>{doc.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: 'right' }}>{m.time}</div>
             </div>
           </div>
