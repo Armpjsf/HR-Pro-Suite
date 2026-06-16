@@ -3,11 +3,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { COMPANY } from '@/lib/company';
+import { deductionBreakdown as slipDeductionBreakdown } from '@/lib/payroll';
 import './me.css';
 
 /* ─── Constants ─── */
 const LEAVE_LABELS = { annual: 'พักร้อน', sick: 'ลาป่วย', personal: 'ลากิจ' };
 const LEAVE_ICONS = { annual: '🏖️', sick: '🏥', personal: '📋' };
+function leaveLabel(key, val, leaveTypes = []) {
+  return val?.label || leaveTypes.find((t) => t.code === key)?.name || LEAVE_LABELS[key] || key;
+}
 const EXPENSE_CATS = [
   { value: 'travel', label: 'ค่าเดินทาง' },
   { value: 'meal', label: 'ค่าอาหาร' },
@@ -174,9 +178,9 @@ function HomeTab({ data, setData, showToast }) {
       <div className="me-leave-grid">
         {Object.entries(data.leaveBalance || {}).map(([key, val]) => (
           <div key={key} className="me-leave-card">
-            <div className="me-leave-icon">{LEAVE_ICONS[key]}</div>
+            <div className="me-leave-icon">{LEAVE_ICONS[key] || '📅'}</div>
             <div className="me-leave-remain">{val.remaining}</div>
-            <div className="me-leave-label">{LEAVE_LABELS[key]}</div>
+            <div className="me-leave-label">{leaveLabel(key, val, data.leaveTypes)}</div>
           </div>
         ))}
       </div>
@@ -198,7 +202,11 @@ function HomeTab({ data, setData, showToast }) {
 
 /* ═══════════════════ LEAVE TAB ═══════════════════ */
 function LeaveTab({ data, setData, showToast }) {
-  const [form, setForm] = useState({ leave_type: 'annual', start_date: '', end_date: '', days: 1, reason: '' });
+  const balanceOptions = Object.entries(data.leaveBalance || {}).map(([code, val]) => ({ code, name: leaveLabel(code, val, data.leaveTypes), deduct_balance: true }));
+  const leaveOptions = (data.leaveTypes?.length ? data.leaveTypes : balanceOptions)
+    .filter((t) => data.leaveBalance?.[t.code] || !t.deduct_balance);
+  const firstLeaveType = leaveOptions[0]?.code || Object.keys(data.leaveBalance || {})[0] || 'annual';
+  const [form, setForm] = useState({ leave_type: firstLeaveType, start_date: '', end_date: '', days: 1, reason: '' });
   const [loading, setLoading] = useState(false);
   const [leaves, setLeaves] = useState(data.leaves || []);
 
@@ -215,7 +223,7 @@ function LeaveTab({ data, setData, showToast }) {
       if (!res.ok) { showToast(d.error, true); return; }
       showToast('ยื่นใบลาเรียบร้อย');
       setLeaves((prev) => [d.item, ...prev]);
-      setForm({ leave_type: 'annual', start_date: '', end_date: '', days: 1, reason: '' });
+      setForm({ leave_type: firstLeaveType, start_date: '', end_date: '', days: 1, reason: '' });
     } catch { showToast('เกิดข้อผิดพลาด', true); }
     finally { setLoading(false); }
   };
@@ -226,9 +234,9 @@ function LeaveTab({ data, setData, showToast }) {
       <div className="me-leave-grid" style={{ marginTop: 0, padding: 0 }}>
         {Object.entries(data.leaveBalance || {}).map(([key, val]) => (
           <div key={key} className="me-leave-card">
-            <div className="me-leave-icon">{LEAVE_ICONS[key]}</div>
+            <div className="me-leave-icon">{LEAVE_ICONS[key] || '📅'}</div>
             <div className="me-leave-remain">{val.remaining}<span style={{ fontSize: 11, fontWeight: 400, color: '#9aa1b5' }}>/{val.total}</span></div>
-            <div className="me-leave-label">{LEAVE_LABELS[key]}</div>
+            <div className="me-leave-label">{leaveLabel(key, val, data.leaveTypes)}</div>
           </div>
         ))}
       </div>
@@ -240,9 +248,7 @@ function LeaveTab({ data, setData, showToast }) {
           <div className="me-field">
             <label>ประเภทการลา</label>
             <select value={form.leave_type} onChange={(e) => setForm({ ...form, leave_type: e.target.value })}>
-              <option value="annual">ลาพักร้อน</option>
-              <option value="sick">ลาป่วย</option>
-              <option value="personal">ลากิจ</option>
+              {leaveOptions.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -398,8 +404,30 @@ function PayslipTab({ data }) {
   const slips = data.payslips || [];
   const [selected, setSelected] = useState(slips[0] || null);
   const [showDoc, setShowDoc] = useState(false);
+  const [allowanceData, setAllowanceData] = useState({});
 
   const num = (v) => Number(v || 0).toLocaleString();
+
+  // เปิดสลิป → คำนวณ YTD (ยอดสะสมต้นปี) + ดึงลดหย่อนของปีนั้นมาทำรายการลดหย่อนในสลิป
+  async function openSlip(s) {
+    setSelected(s);
+    const year = Number(s.period.slice(0, 4)) + 543;
+    if (allowanceData[year] === undefined) {
+      try {
+        const r = await fetch(`/api/me/allowances?year=${year}`, { headers: authHeaders() });
+        const d = await r.json();
+        setAllowanceData((p) => ({ ...p, [year]: d.allowance?.data || {} }));
+      } catch { setAllowanceData((p) => ({ ...p, [year]: {} })); }
+    }
+    setShowDoc(true);
+  }
+
+  function computeYtd(slip) {
+    const yr = slip.period.slice(0, 4);
+    const upTo = slips.filter((s) => s.period.slice(0, 4) === yr && s.period <= slip.period);
+    const sum = (k) => upTo.reduce((a, s) => a + (Number(s[k]) || 0), 0);
+    return { income: sum('base_salary') + sum('ot_pay') + sum('bonus'), tax: sum('tax'), sso: sum('sso') };
+  }
 
   return (
     <>
@@ -416,30 +444,43 @@ function PayslipTab({ data }) {
             <span className="k" style={{ fontWeight: 700 }}>รับสุทธิ</span>
             <span className="me-slip-net">{num(selected.net)} ฿</span>
           </div>
-          <button className="me-btn" style={{ marginTop: 12 }} onClick={() => setShowDoc(true)}>🖨️ ดู/พิมพ์สลิป (PDF)</button>
+          <button className="me-btn" style={{ marginTop: 12 }} onClick={() => openSlip(selected)}>🖨️ ดู/พิมพ์สลิป (PDF)</button>
         </div>
       )}
       <div className="me-card">
         <div className="me-section-title">📋 สลิปย้อนหลัง</div>
         {slips.length === 0 && <div className="me-empty">ยังไม่มีข้อมูล</div>}
         {slips.map((s) => (
-          <div key={s.id} className="me-row" style={{ cursor: 'pointer' }} onClick={() => setSelected(s)}>
-            <span className="k">งวด {s.period}</span>
+          <div key={s.id} className="me-row" style={{ cursor: 'pointer' }} onClick={() => openSlip(s)}>
+            <span className="k">งวด {periodThai(s.period)}</span>
             <span className="v">{num(s.net)} ฿</span>
           </div>
         ))}
       </div>
 
-      {showDoc && selected && (
-        <SlipDocument slip={selected} profile={data.profile} onClose={() => setShowDoc(false)} />
-      )}
+      {showDoc && selected && (() => {
+        const year = Number(selected.period.slice(0, 4)) + 543;
+        const a = allowanceData[year] || {};
+        const ytd = computeYtd(selected);
+        const deductions = slipDeductionBreakdown(ytd.income, ytd.sso, a);
+        return <SlipDocument slip={selected} profile={data.profile} ytd={ytd} deductions={deductions} onClose={() => setShowDoc(false)} />;
+      })()}
     </>
   );
 }
 
 /* ─── เอกสารสลิปเงินเดือน (พิมพ์ได้) ─── */
-function SlipDocument({ slip, profile, onClose }) {
+const THAI_MONTHS_FULL = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+function periodThai(p) {
+  if (!p) return '-';
+  const [y, m] = p.split('-').map(Number);
+  return `${THAI_MONTHS_FULL[m - 1] || ''} ${y + 543}`;
+}
+
+function SlipDocument({ slip, profile, ytd, deductions, onClose }) {
   const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const income = Number(slip.base_salary) + Number(slip.ot_pay) + Number(slip.bonus);
+  const totalDed = Number(slip.tax) + Number(slip.sso) + Number(slip.deduction);
   return (
     <div className="me-doc-overlay">
       <div className="me-doc-actions">
@@ -448,38 +489,65 @@ function SlipDocument({ slip, profile, onClose }) {
       </div>
       <div className="me-doc-print">
         <div className="me-doc">
-          <div className="me-doc-head">
-            <div className="me-doc-co">{COMPANY.name}</div>
+          <div className="me-doc-head" style={{ position: 'relative' }}>
+            <div style={{ position: 'absolute', right: 0, top: 0, fontSize: 10, color: '#dc2626', fontWeight: 700 }}>STRICTLY CONFIDENTIAL</div>
+            <div className="me-doc-title" style={{ marginTop: 0, fontSize: 16 }}>สลิปเงินเดือน</div>
+            <div className="me-doc-co" style={{ marginTop: 6 }}>{COMPANY.name}</div>
             <div className="me-doc-addr">{COMPANY.address}</div>
-            <div className="me-doc-title">สลิปเงินเดือน (Pay Slip) งวด {slip.period}</div>
+            <div className="me-doc-addr">Tax ID: {COMPANY.taxId}</div>
           </div>
+
           <table className="me-doc-meta">
             <tbody>
-              <tr><td>ชื่อพนักงาน</td><td>{profile.name}</td><td>รหัส</td><td>{profile.employeeId}</td></tr>
-              <tr><td>ตำแหน่ง</td><td>{profile.position || '-'}</td><td>แผนก</td><td>{profile.department || '-'}</td></tr>
-              <tr><td>ธนาคาร</td><td>{profile.bankName || '-'}</td><td>เลขบัญชี</td><td>{profile.bankAccount || '-'}</td></tr>
+              <tr><td>ชื่อ-สกุล</td><td>{profile.name} ({profile.employeeId})</td><td>ประจำงวด</td><td>{periodThai(slip.period)}</td></tr>
+              <tr><td>ตำแหน่ง</td><td>{profile.position || '-'}</td><td>ฝ่าย/แผนก</td><td>{profile.department || '-'}</td></tr>
+              <tr><td>วันที่เริ่มงาน</td><td>{profile.startDate || '-'}</td><td>เลขที่บัญชี</td><td>{profile.bankAccount || '-'}</td></tr>
             </tbody>
           </table>
+
           <table className="me-doc-table">
-            <thead><tr><th>รายได้</th><th className="r">จำนวน (บาท)</th><th>รายการหัก</th><th className="r">จำนวน (บาท)</th></tr></thead>
+            <thead><tr><th>เงินได้</th><th className="r">จำนวน</th><th>เงินหัก</th><th className="r">จำนวน</th></tr></thead>
             <tbody>
-              <tr><td>เงินเดือน</td><td className="r">{num(slip.base_salary)}</td><td>ภาษี ณ ที่จ่าย</td><td className="r">{num(slip.tax)}</td></tr>
-              <tr><td>ค่าล่วงเวลา (OT)</td><td className="r">{num(slip.ot_pay)}</td><td>ประกันสังคม</td><td className="r">{num(slip.sso)}</td></tr>
+              <tr><td>เงินเดือน / ค่าจ้าง</td><td className="r">{num(slip.base_salary)}</td><td>ประกันสังคม</td><td className="r">{num(slip.sso)}</td></tr>
+              <tr><td>ค่าล่วงเวลา (OT)</td><td className="r">{num(slip.ot_pay)}</td><td>ภาษี ณ ที่จ่าย</td><td className="r">{num(slip.tax)}</td></tr>
               <tr><td>โบนัส</td><td className="r">{num(slip.bonus)}</td><td>หักอื่นๆ</td><td className="r">{num(slip.deduction)}</td></tr>
             </tbody>
             <tfoot>
-              <tr>
-                <td>รวมรายได้</td><td className="r">{num(Number(slip.base_salary) + Number(slip.ot_pay) + Number(slip.bonus))}</td>
-                <td>รวมหัก</td><td className="r">{num(Number(slip.tax) + Number(slip.sso) + Number(slip.deduction))}</td>
-              </tr>
+              <tr><td>รวมเงินได้</td><td className="r">{num(income)}</td><td>รวมเงินหัก</td><td className="r">{num(totalDed)}</td></tr>
             </tfoot>
           </table>
-          <div className="me-doc-net">เงินได้สุทธิ: {num(slip.net)} บาท</div>
+
+          <div className="me-doc-net">เงินสุทธิ: {num(slip.net)} บาท</div>
+
+          {ytd && (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 12.5, margin: '6px 0 4px' }}>เงินสะสมตั้งแต่ต้นปี</div>
+              <table className="me-doc-table">
+                <tbody>
+                  <tr><td>เงินได้คำนวณภาษี</td><td className="r">{num(ytd.income)}</td></tr>
+                  <tr><td>ภาษี</td><td className="r">{num(ytd.tax)}</td></tr>
+                  <tr><td>ประกันสังคม</td><td className="r">{num(ytd.sso)}</td></tr>
+                </tbody>
+              </table>
+            </>
+          )}
+
+          {deductions && deductions.length > 0 && (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 12.5, margin: '6px 0 4px' }}>รายการลดหย่อนภาษี</div>
+              <table className="me-doc-table">
+                <tbody>
+                  {deductions.map((d, i) => <tr key={i}><td>{d.label}</td><td className="r">{num(d.amount)}</td></tr>)}
+                </tbody>
+              </table>
+            </>
+          )}
+
           <div className="me-doc-sign">
             <div>ลงชื่อ ......................................... พนักงาน</div>
             <div>ลงชื่อ ......................................... ฝ่ายบุคคล</div>
           </div>
-          <div className="me-doc-foot">เอกสารนี้ออกโดยระบบ HR — ใช้ประกอบการอ้างอิงรายได้</div>
+          <div className="me-doc-foot">{COMPANY.legalName} — เอกสารลับเฉพาะบุคคล</div>
         </div>
       </div>
     </div>
@@ -623,6 +691,7 @@ function CalendarSection({ back }) {
   const daysInMonth = new Date(y, m, 0).getDate();
   const firstDow = new Date(y, m - 1, 1).getDay();
   const DOWS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+  const workDays = new Set((data?.workSettings?.work_days || '1,2,3,4,5').split(',').filter(Boolean).map(Number));
 
   const shiftMap = {};
   const leaveMap = {};
@@ -650,7 +719,7 @@ function CalendarSection({ back }) {
           <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none' }} onClick={() => changeMonth(1)}>▶</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center', fontSize: 12 }}>
-          {DOWS.map((d, i) => <div key={d} style={{ fontWeight: 600, color: i === 0 || i === 6 ? '#dc2626' : '#9aa1b5', padding: 4 }}>{d}</div>)}
+          {DOWS.map((d, i) => <div key={d} style={{ fontWeight: 600, color: !workDays.has(i) ? '#dc2626' : '#9aa1b5', padding: 4 }}>{d}</div>)}
           {Array.from({ length: firstDow }, (_, i) => <div key={`e${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => {
             const day = i + 1;
@@ -661,13 +730,14 @@ function CalendarSection({ back }) {
             const attend = attendMap[dateStr];
             const holiday = holidayMap[dateStr];
             const dow = new Date(y, m - 1, day).getDay();
+            const weeklyOff = !workDays.has(dow);
             return (
               <div key={day} style={{
                 padding: '6px 2px', borderRadius: 10, minHeight: 52,
                 border: isToday ? '2px solid #6d5ef5' : '1px solid #f1f2f8',
                 background: holiday ? '#fee2e2' : leave ? '#fef3c7' : attend ? '#f0fdf4' : '#fff',
               }}>
-                <div style={{ fontWeight: 600, color: holiday || dow === 0 || dow === 6 ? '#dc2626' : undefined, fontSize: 13 }}>{day}</div>
+                <div style={{ fontWeight: 600, color: holiday || weeklyOff ? '#dc2626' : undefined, fontSize: 13 }}>{day}</div>
                 {holiday && <div style={{ fontSize: 8.5, color: '#dc2626', lineHeight: 1.1 }} title={holiday.name}>🎌{holiday.name.length > 6 ? holiday.name.slice(0, 6) + '…' : holiday.name}</div>}
                 {attend && <div style={{ fontSize: 9, color: '#16a34a' }}>✅{attend.clock_in?.slice(0, 5)}</div>}
                 {leave && <div style={{ fontSize: 9, color: '#b45309' }}>🏖️{LEAVE_LABELS[leave.leave_type]?.[0] || 'ลา'}</div>}
@@ -840,6 +910,14 @@ function TaxCertSection({ back, profile }) {
 
 function TaxCertDocument({ cert, profile, onClose }) {
   const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const incomeRows = [
+    { no: '1.', label: 'เงินเดือน ค่าจ้าง เบี้ยเลี้ยง โบนัส ฯลฯ ตามมาตรา 40 (1)', amount: cert.totalIncome, tax: cert.totalTax },
+    { no: '2.', label: 'ค่าธรรมเนียม ค่านายหน้า ฯลฯ ตามมาตรา 40 (2)', amount: 0, tax: 0 },
+    { no: '3.', label: 'ค่าแห่งลิขสิทธิ์ ฯลฯ ตามมาตรา 40 (3)', amount: 0, tax: 0 },
+    { no: '4.', label: 'ดอกเบี้ย เงินปันผล ฯลฯ ตามมาตรา 40 (4)', amount: 0, tax: 0 },
+    { no: '5.', label: 'เงินได้ตามคำสั่งกรมสรรพากร (รางวัล ส่วนลด ฯลฯ)', amount: 0, tax: 0 },
+    { no: '6.', label: 'อื่น ๆ', amount: 0, tax: 0 },
+  ];
   return (
     <div className="me-doc-overlay">
       <div className="me-doc-actions">
@@ -847,29 +925,56 @@ function TaxCertDocument({ cert, profile, onClose }) {
         <button className="me-badge me-badge-purple" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => window.print()}>🖨️ พิมพ์ / บันทึก PDF</button>
       </div>
       <div className="me-doc-print">
-        <div className="me-doc">
-          <div className="me-doc-head">
-            <div className="me-doc-co">{COMPANY.name}</div>
-            <div className="me-doc-addr">{COMPANY.address}</div>
-            <div className="me-doc-title">หนังสือรับรองการหักภาษี ณ ที่จ่าย (ตามมาตรา 50 ทวิ) — ปีภาษี {cert.year}</div>
+        <div className="me-doc" style={{ fontSize: 12 }}>
+          <div style={{ textAlign: 'right', fontSize: 10, color: '#5b6478' }}>ฉบับที่ 1 (สำหรับผู้ถูกหักภาษี ณ ที่จ่าย ใช้แนบพร้อมแบบแสดงรายการภาษี)</div>
+          <div className="me-doc-head" style={{ borderBottom: 'none', marginBottom: 8 }}>
+            <div className="me-doc-title" style={{ marginTop: 4 }}>หนังสือรับรองการหักภาษี ณ ที่จ่าย</div>
+            <div style={{ fontSize: 11.5 }}>ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร</div>
           </div>
-          <table className="me-doc-meta">
-            <tbody>
-              <tr><td>ผู้มีเงินได้</td><td>{profile?.name || '-'}</td><td>รหัสพนักงาน</td><td>{profile?.employeeId || '-'}</td></tr>
-              <tr><td>เลขประจำตัวผู้เสียภาษี</td><td>{profile?.taxId || '-'}</td><td>เลขบัตรประชาชน</td><td>{profile?.nationalId || '-'}</td></tr>
-            </tbody>
-          </table>
+
+          <div style={{ border: '1px solid #1d2433', padding: '8px 10px', marginBottom: 6 }}>
+            <div style={{ fontWeight: 700 }}>ผู้มีหน้าที่หักภาษี ณ ที่จ่าย :</div>
+            <div>ชื่อ {COMPANY.legalName}</div>
+            <div>ที่อยู่ {COMPANY.address}</div>
+            <div>เลขประจำตัวผู้เสียภาษีอากร {COMPANY.taxId}</div>
+          </div>
+          <div style={{ border: '1px solid #1d2433', padding: '8px 10px', marginBottom: 8 }}>
+            <div style={{ fontWeight: 700 }}>ผู้ถูกหักภาษี ณ ที่จ่าย :</div>
+            <div>ชื่อ {profile?.name || '-'}</div>
+            <div>เลขประจำตัวผู้เสียภาษีอากร {profile?.taxId || profile?.nationalId || '-'}</div>
+          </div>
+
           <table className="me-doc-table">
-            <thead><tr><th>รายการ</th><th className="r">จำนวนเงิน (บาท)</th></tr></thead>
+            <thead>
+              <tr><th style={{ width: 24 }}></th><th>ประเภทเงินได้พึงประเมินที่จ่าย</th><th className="r" style={{ width: 70 }}>วันเดือนปีภาษี</th><th className="r" style={{ width: 90 }}>จำนวนเงินที่จ่าย</th><th className="r" style={{ width: 80 }}>ภาษีที่หักและนำส่ง</th></tr>
+            </thead>
             <tbody>
-              <tr><td>เงินได้พึงประเมินทั้งปี (เงินเดือน + OT + โบนัส)</td><td className="r">{num(cert.totalIncome)}</td></tr>
-              <tr><td>ภาษีที่หักและนำส่ง</td><td className="r">{num(cert.totalTax)}</td></tr>
-              <tr><td>เงินสมทบประกันสังคม</td><td className="r">{num(cert.totalSso)}</td></tr>
+              {incomeRows.map((r) => (
+                <tr key={r.no}>
+                  <td>{r.no}</td><td>{r.label}</td>
+                  <td className="r">{r.amount ? cert.year : ''}</td>
+                  <td className="r">{r.amount ? num(r.amount) : ''}</td>
+                  <td className="r">{r.amount ? num(r.tax) : ''}</td>
+                </tr>
+              ))}
             </tbody>
+            <tfoot>
+              <tr><td></td><td>รวมเงินภาษีที่หักนำส่ง</td><td></td><td className="r">{num(cert.totalIncome)}</td><td className="r">{num(cert.totalTax)}</td></tr>
+            </tfoot>
           </table>
-          <div className="me-doc-sign">
+
+          <div style={{ margin: '6px 0', fontSize: 11.5 }}>
+            เงินที่จ่ายเข้า กบข./กสจ./กองทุนสงเคราะห์ครูโรงเรียนเอกชน 0.00 บาท ·
+            กองทุนประกันสังคม {num(cert.totalSso)} บาท · กองทุนสำรองเลี้ยงชีพ 0.00 บาท
+          </div>
+          <div style={{ fontSize: 11.5, marginBottom: 10 }}>
+            ผู้จ่ายเงิน &nbsp; (1) ☑ หัก ณ ที่จ่าย &nbsp; (2) ☐ ออกให้ตลอดไป &nbsp; (3) ☐ ออกให้ครั้งเดียว &nbsp; (4) ☐ อื่น ๆ
+          </div>
+
+          <div style={{ fontSize: 11.5 }}>ขอรับรองว่าข้อความและตัวเลขดังกล่าวข้างต้นถูกต้องตรงกับความจริงทุกประการ</div>
+          <div className="me-doc-sign" style={{ marginTop: 22 }}>
             <div>ลงชื่อ ......................................... ผู้จ่ายเงิน</div>
-            <div>วันที่ ......./......./.........</div>
+            <div>วันที่ 31 / 12 / {cert.year}</div>
           </div>
           <div className="me-doc-foot">ออกให้เพื่อเป็นหลักฐานในการยื่นแบบแสดงรายการภาษีเงินได้บุคคลธรรมดา</div>
         </div>
@@ -878,59 +983,132 @@ function TaxCertDocument({ cert, profile, onClose }) {
   );
 }
 
-/* ─── แบบลดหย่อนภาษี (ลย.01) ─── */
-const ALLOWANCE_FIELDS = [
-  { key: 'spouse', label: 'คู่สมรสไม่มีเงินได้ (60,000)' },
-  { key: 'children', label: 'จำนวนบุตร (คนละ 30,000)' },
-  { key: 'parents', label: 'บิดามารดา (คนละ 30,000)' },
-  { key: 'life_insurance', label: 'เบี้ยประกันชีวิต (บาท)' },
-  { key: 'health_insurance', label: 'เบี้ยประกันสุขภาพ (บาท)' },
-  { key: 'provident_fund', label: 'กองทุนสำรองเลี้ยงชีพ (บาท)' },
-  { key: 'donation', label: 'เงินบริจาค (บาท)' },
-  { key: 'mortgage', label: 'ดอกเบี้ยกู้ซื้อบ้าน (บาท)' },
+/* ─── แบบลดหย่อนภาษี (ลย.01) — แบ่งเป็นหมวดเหมือนแอป HR ─── */
+const ALLOWANCE_GROUPS = [
+  {
+    key: 'family', icon: '🧑', title: 'ตนเองและครอบครัว',
+    desc: 'รายการลดหย่อนสำหรับตนเอง ครอบครัว ฝากครรภ์ บุตร และอุปการะเลี้ยงดูผู้พิการ',
+    fields: [
+      { key: 'spouse', label: 'คู่สมรสไม่มีเงินได้', type: 'check', value: 60000 },
+      { key: 'children', label: 'จำนวนบุตร (คนละ 30,000)', type: 'count', unit: 30000 },
+      { key: 'parents', label: 'อุปการะบิดามารดา (คนละ 30,000)', type: 'count', unit: 30000 },
+    ],
+  },
+  {
+    key: 'insurance', icon: '🛡️', title: 'ประกัน',
+    desc: 'รายการลดหย่อนสำหรับค่าประกันชีวิต ประกันชีวิตแบบบำนาญ และประกันสุขภาพ',
+    fields: [
+      { key: 'life_insurance', label: 'เบี้ยประกันชีวิต (สูงสุด 100,000)', type: 'baht' },
+      { key: 'health_insurance', label: 'เบี้ยประกันสุขภาพ (สูงสุด 25,000)', type: 'baht' },
+    ],
+  },
+  {
+    key: 'fund', icon: '💰', title: 'กองทุน',
+    desc: 'รายการลดหย่อนสำหรับกองทุนประกันสังคม RMF TESG และกองทุนสำรองเลี้ยงชีพ',
+    fields: [
+      { key: 'provident_fund', label: 'กองทุนสำรองเลี้ยงชีพ', type: 'baht' },
+    ],
+  },
+  {
+    key: 'other', icon: '⋯', title: 'อื่นๆ',
+    desc: 'รายการลดหย่อนอื่นๆ เช่น ค่าลดหย่อนที่อยู่อาศัย ค่าใช้จ่ายกลุ่มเงินบริจาค',
+    fields: [
+      { key: 'mortgage', label: 'ดอกเบี้ยกู้ซื้อบ้าน (สูงสุด 100,000)', type: 'baht' },
+      { key: 'donation', label: 'เงินบริจาค', type: 'baht' },
+    ],
+  },
 ];
+
+function groupTotal(group, form) {
+  let sum = 0;
+  for (const f of group.fields) {
+    if (f.type === 'check') sum += form[f.key] ? f.value : 0;
+    else if (f.type === 'count') sum += (Number(form[f.key]) || 0) * f.unit;
+    else sum += Number(form[f.key]) || 0;
+  }
+  return sum;
+}
 
 function AllowanceSection({ back, showToast }) {
   const thisYearBE = new Date().getFullYear() + 543;
   const [year, setYear] = useState(thisYearBE);
   const [form, setForm] = useState({});
+  const [open, setOpen] = useState(null);
   const [saving, setSaving] = useState(false);
+  const PERSONAL = 60000; // ลดหย่อนส่วนตัวอัตโนมัติ
 
   useEffect(() => {
     fetch(`/api/me/allowances?year=${year}`, { headers: authHeaders() })
       .then((r) => r.json()).then((d) => setForm(d.allowance?.data || {})).catch(() => {});
   }, [year]);
 
+  const num = (v) => Number(v || 0).toLocaleString();
+  const total = PERSONAL + ALLOWANCE_GROUPS.reduce((a, g) => a + groupTotal(g, form), 0);
+
   const save = async () => {
     setSaving(true);
-    const res = await fetch('/api/me/allowances', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ year, data: form }),
-    });
+    const res = await fetch('/api/me/allowances', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ year, data: form }) });
     setSaving(false);
     if (res.ok) showToast('บันทึกแบบลดหย่อนแล้ว ส่งให้ HR เรียบร้อย');
     else showToast('บันทึกไม่สำเร็จ', true);
   };
 
+  const setF = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
   return (
     <>
       <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div className="me-card">
-        <div className="me-section-title">📝 แบบแจ้งรายการลดหย่อนภาษี (ลย.01)</div>
-        <div className="me-field">
-          <label>ปีภาษี (พ.ศ.)</label>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {[thisYearBE, thisYearBE + 1].map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        {ALLOWANCE_FIELDS.map((f) => (
-          <div className="me-field" key={f.key}>
-            <label>{f.label}</label>
-            <input className="me-input" type="number" value={form[f.key] ?? ''}
-              onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value === '' ? '' : Number(e.target.value) }))} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="me-section-title" style={{ margin: 0 }}>ลดหย่อน</div>
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: 'auto', padding: '6px 10px', borderRadius: 10, border: '1px solid #e7e9f4' }}>
+          {[thisYearBE, thisYearBE + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+
+      {ALLOWANCE_GROUPS.map((g) => {
+        const gt = groupTotal(g, form) + (g.key === 'family' ? PERSONAL : 0);
+        const isOpen = open === g.key;
+        return (
+          <div className="me-card" key={g.key} style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, cursor: 'pointer' }} onClick={() => setOpen(isOpen ? null : g.key)}>
+              <div style={{ fontSize: 22 }}>{g.icon}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700 }}>{g.title}</div>
+                <div style={{ fontSize: 11.5, color: '#9aa1b5', lineHeight: 1.3 }}>{g.desc}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontWeight: 700, color: gt > 0 ? '#6d5ef5' : '#9aa1b5' }}>฿{num(gt)}</div>
+                <div style={{ fontSize: 14, color: '#9aa1b5' }}>{isOpen ? '▴' : '▾'}</div>
+              </div>
+            </div>
+            {isOpen && (
+              <div style={{ padding: '0 14px 14px', borderTop: '1px solid #f1f2f8' }}>
+                {g.key === 'family' && (
+                  <div className="me-row"><span className="k">ลดหย่อนส่วนตัว (อัตโนมัติ)</span><span className="v">฿{num(PERSONAL)}</span></div>
+                )}
+                {g.fields.map((f) => (
+                  <div className="me-field" key={f.key} style={{ marginTop: 10 }}>
+                    <label>{f.label}</label>
+                    {f.type === 'check'
+                      ? <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                          <input type="checkbox" checked={!!form[f.key]} onChange={(e) => setF(f.key, e.target.checked)} style={{ width: 'auto' }} /> มีสิทธิ์ (฿{num(f.value)})
+                        </label>
+                      : <input className="me-input" type="number" placeholder={f.type === 'count' ? 'จำนวน (คน)' : 'จำนวนเงิน'}
+                          value={form[f.key] ?? ''} onChange={(e) => setF(f.key, e.target.value === '' ? '' : Number(e.target.value))} />}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
-        <button className="me-btn" disabled={saving} onClick={save}>{saving ? 'กำลังบันทึก...' : '💾 บันทึกส่งให้ HR'}</button>
+        );
+      })}
+
+      <div style={{ position: 'sticky', bottom: 84, marginTop: 8, background: '#fff', border: '1px solid #e7e9f4', borderRadius: 14, padding: 14, display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 -2px 10px rgba(16,24,40,0.06)' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, color: '#9aa1b5' }}>ลดหย่อนรวม</div>
+          <div style={{ fontWeight: 800, fontSize: 18, color: '#6d5ef5' }}>฿{num(total)}</div>
+        </div>
+        <button className="me-btn" style={{ width: 'auto', padding: '12px 24px' }} disabled={saving} onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
       </div>
     </>
   );

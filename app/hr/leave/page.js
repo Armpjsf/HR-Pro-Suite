@@ -1,11 +1,26 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import ResourceTable from '@/components/hr/ResourceTable';
 import { authHeaders } from '@/components/hr/exportUtils';
 
 const LEAVE_LABELS = { annual: 'ลาพักร้อน', sick: 'ลาป่วย', personal: 'ลากิจ' };
 
 export default function LeavePage() {
+  const [leaveTypes, setLeaveTypes] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/hr/leave-types', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setLeaveTypes(d.items || []))
+      .catch(() => {});
+  }, []);
+
+  const labels = {
+    ...LEAVE_LABELS,
+    ...Object.fromEntries(leaveTypes.map((t) => [t.code, t.name])),
+  };
+
   async function act(row, action, reload, showToast) {
     const res = await fetch(`/api/hr/leave/${row.id}/approve`, {
       method: 'POST',
@@ -32,7 +47,7 @@ export default function LeavePage() {
           {
             key: 'leave_type', label: 'ประเภท',
             badge: { annual: 'blue', sick: 'red', personal: 'yellow' },
-            badgeLabels: LEAVE_LABELS,
+            badgeLabels: labels,
           },
           { key: 'start_date', label: 'ตั้งแต่' },
           { key: 'end_date', label: 'ถึง' },
@@ -54,7 +69,7 @@ export default function LeavePage() {
           { key: 'employee_id', label: 'พนักงาน', type: 'employee', required: true },
           {
             key: 'leave_type', label: 'ประเภทการลา', type: 'select', required: true,
-            options: Object.entries(LEAVE_LABELS).map(([value, label]) => ({ value, label })),
+            options: Object.entries(labels).map(([value, label]) => ({ value, label })),
           },
           { key: 'start_date', label: 'วันที่เริ่มลา', type: 'date', required: true },
           { key: 'end_date', label: 'ถึงวันที่', type: 'date', required: true },

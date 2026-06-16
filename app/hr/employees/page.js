@@ -28,6 +28,7 @@ const EMPTY_FORM = {
   leaveAnnualTotal: 0, leaveAnnualUsed: 0,
   leaveSickTotal: 0, leaveSickUsed: 0,
   leavePersonalTotal: 0, leavePersonalUsed: 0,
+  leaveBalances: [],
 };
 
 export default function EmployeesPage() {
@@ -38,6 +39,8 @@ export default function EmployeesPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [leaveYear, setLeaveYear] = useState(new Date().getFullYear());
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -49,7 +52,11 @@ export default function EmployeesPage() {
   const load = useCallback(async () => {
     const res = await fetch('/api/hr/employees', { headers: authHeaders() });
     const data = await res.json();
-    if (res.ok) setEmployees(data.employees || []);
+    if (res.ok) {
+      setEmployees(data.employees || []);
+      setLeaveTypes(data.leaveTypes || []);
+      if (data.year) setLeaveYear(data.year);
+    }
   }, []);
 
   useEffect(() => {
@@ -69,6 +76,39 @@ export default function EmployeesPage() {
   });
 
   const departments = [...new Set(employees.map((e) => e.department).filter(Boolean))];
+  const leaveTypeMap = new Map(leaveTypes.map((t) => [t.code, t]));
+
+  function leaveRowsForForm(emp) {
+    const existing = new Map((emp.leaveBalances || []).map((row) => [row.leave_type, row]));
+    const rows = leaveTypes
+      .filter((type) => type.deduct_balance || existing.has(type.code))
+      .map((type) => {
+        const row = existing.get(type.code);
+        return {
+          leave_type: type.code,
+          year: row?.year || leaveYear,
+          total_days: Number(row?.total_days) || 0,
+          used_days: Number(row?.used_days) || 0,
+          note: row?.note || '',
+          enabled: existing.has(type.code),
+        };
+      });
+    for (const row of emp.leaveBalances || []) {
+      if (!rows.some((x) => x.leave_type === row.leave_type)) rows.push({ ...row, enabled: true });
+    }
+    return rows;
+  }
+
+  function leaveSummary(emp, max = 3) {
+    const rows = emp.leaveBalances || [];
+    if (rows.length === 0) return '-';
+    return rows.slice(0, max).map((row) => {
+      const type = leaveTypeMap.get(row.leave_type);
+      const total = Number(row.total_days) || 0;
+      const used = Number(row.used_days) || 0;
+      return `${type?.name || row.leave_type}: ${total - used}/${total}`;
+    }).join(' · ');
+  }
 
   function openEdit(emp) {
     setEditing(emp);
@@ -80,16 +120,23 @@ export default function EmployeesPage() {
       leaveAnnualTotal: emp.leaveAnnualTotal, leaveAnnualUsed: emp.leaveAnnualUsed,
       leaveSickTotal: emp.leaveSickTotal, leaveSickUsed: emp.leaveSickUsed,
       leavePersonalTotal: emp.leavePersonalTotal, leavePersonalUsed: emp.leavePersonalUsed,
+      leaveBalances: leaveRowsForForm(emp),
     });
   }
 
   async function save(e) {
     e.preventDefault();
     setSaving(true);
+    const payload = {
+      ...form,
+      leaveBalances: (form.leaveBalances || [])
+        .filter((row) => row.enabled)
+        .map(({ enabled, ...row }) => ({ ...row, year: Number(row.year) || leaveYear })),
+    };
     const res = await fetch(`/api/hr/employees/${editing.employeeId}`, {
       method: 'PUT',
       headers: authHeaders(true),
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (res.ok) { setEditing(null); showToast('บันทึกข้อมูลพนักงานแล้ว'); load(); }
@@ -99,14 +146,12 @@ export default function EmployeesPage() {
 
   const set = (key) => (e) => setForm((p) => ({ ...p, [key]: e.target.value }));
 
-  function fieldNum(label, key) {
-    return (
-      <div className="hr-field">
-        <label>{label}</label>
-        <input className="hr-input" type="number" step="any" value={form[key]}
-          onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value === '' ? 0 : Number(e.target.value) }))} />
-      </div>
-    );
+  function updateLeaveBalance(index, key, value) {
+    setForm((prev) => {
+      const rows = [...(prev.leaveBalances || [])];
+      rows[index] = { ...rows[index], [key]: value };
+      return { ...prev, leaveBalances: rows };
+    });
   }
 
   return (
@@ -153,8 +198,8 @@ export default function EmployeesPage() {
               <div className="hr-emp-row"><span className="k">💼 ตำแหน่ง</span><span className="v">{emp.position || '-'}</span></div>
               <div className="hr-emp-row"><span className="k">📅 เริ่มงาน</span><span className="v">{emp.startDate || '-'}</span></div>
               <div className="hr-emp-row">
-                <span className="k">🏖️ พักร้อนคงเหลือ</span>
-                <span className="v">{emp.leaveAnnualTotal - emp.leaveAnnualUsed} / {emp.leaveAnnualTotal} วัน</span>
+                <span className="k">🏖️ สิทธิ์ลาคงเหลือ</span>
+                <span className="v">{leaveSummary(emp)}</span>
               </div>
               <div className="hr-emp-actions">
                 <button className="hr-btn" style={{ flex: 1 }} onClick={() => openEdit(emp)}>✏️ แก้ไข</button>
@@ -168,7 +213,7 @@ export default function EmployeesPage() {
             <thead>
               <tr>
                 <th>รหัส</th><th>ชื่อ</th><th>แผนก</th><th>ตำแหน่ง</th><th>เริ่มงาน</th>
-                <th>พักร้อน</th><th>ลาป่วย</th><th>ลากิจ</th><th></th>
+                <th>สิทธิ์ลาคงเหลือ</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -179,9 +224,7 @@ export default function EmployeesPage() {
                   <td>{emp.department || '-'}</td>
                   <td>{emp.position || '-'}</td>
                   <td>{emp.startDate || '-'}</td>
-                  <td>{emp.leaveAnnualTotal - emp.leaveAnnualUsed}/{emp.leaveAnnualTotal}</td>
-                  <td>{emp.leaveSickTotal - emp.leaveSickUsed}/{emp.leaveSickTotal}</td>
-                  <td>{emp.leavePersonalTotal - emp.leavePersonalUsed}/{emp.leavePersonalTotal}</td>
+                  <td>{leaveSummary(emp, 5)}</td>
                   <td><button className="hr-btn hr-btn-icon" onClick={() => openEdit(emp)}>✏️</button></td>
                 </tr>
               ))}
@@ -235,14 +278,57 @@ export default function EmployeesPage() {
               <div className="hr-field"><label>วันหมดสัญญาจ้าง</label><input className="hr-input" type="date" value={form.contractEnd} onChange={set('contractEnd')} /></div>
               <div className="hr-field"><label>วันหมดอายุใบขับขี่</label><input className="hr-input" type="date" value={form.licenseExpiry} onChange={set('licenseExpiry')} /></div>
 
-              <div className="hr-section-title" style={{ marginTop: 16 }}>สิทธิ์วันลา (chatbot ใช้ข้อมูลนี้ตอบพนักงาน)</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-                {fieldNum('พักร้อนทั้งหมด (วัน)', 'leaveAnnualTotal')}
-                {fieldNum('พักร้อนใช้ไป (วัน)', 'leaveAnnualUsed')}
-                {fieldNum('ลาป่วยทั้งหมด (วัน)', 'leaveSickTotal')}
-                {fieldNum('ลาป่วยใช้ไป (วัน)', 'leaveSickUsed')}
-                {fieldNum('ลากิจทั้งหมด (วัน)', 'leavePersonalTotal')}
-                {fieldNum('ลากิจใช้ไป (วัน)', 'leavePersonalUsed')}
+              <div className="hr-section-title" style={{ marginTop: 16 }}>สิทธิ์วันลารายพนักงาน ({leaveYear})</div>
+              <div className="hr-table-wrap" style={{ marginTop: 8 }}>
+                <table className="hr-table">
+                  <thead>
+                    <tr>
+                      <th>ใช้กับพนักงาน</th>
+                      <th>ประเภทการลา</th>
+                      <th>สิทธิ์ทั้งหมด</th>
+                      <th>ใช้ไป</th>
+                      <th>คงเหลือ</th>
+                      <th>หมายเหตุ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(form.leaveBalances || []).map((row, index) => {
+                      const type = leaveTypeMap.get(row.leave_type);
+                      const total = Number(row.total_days) || 0;
+                      const used = Number(row.used_days) || 0;
+                      return (
+                        <tr key={row.leave_type}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={!!row.enabled}
+                              onChange={(e) => updateLeaveBalance(index, 'enabled', e.target.checked)}
+                            />
+                          </td>
+                          <td>{type?.name || row.leave_type}</td>
+                          <td>
+                            <input className="hr-input" type="number" step="any" value={row.total_days}
+                              disabled={!row.enabled}
+                              onChange={(e) => updateLeaveBalance(index, 'total_days', e.target.value === '' ? 0 : Number(e.target.value))} />
+                          </td>
+                          <td>
+                            <input className="hr-input" type="number" step="any" value={row.used_days}
+                              disabled={!row.enabled}
+                              onChange={(e) => updateLeaveBalance(index, 'used_days', e.target.value === '' ? 0 : Number(e.target.value))} />
+                          </td>
+                          <td>{total - used}</td>
+                          <td>
+                            <input className="hr-input" value={row.note || ''} disabled={!row.enabled}
+                              onChange={(e) => updateLeaveBalance(index, 'note', e.target.value)} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {leaveTypes.length === 0 && (
+                  <div className="hr-empty">ตั้งค่าประเภทการลาก่อนที่เมนู “ตั้งค่าประเภทการลา”</div>
+                )}
               </div>
 
               <div className="hr-modal-actions">

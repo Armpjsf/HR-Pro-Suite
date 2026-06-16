@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { getWorkSettingsForEmployee } from '@/lib/work-calendar';
 
 /**
  * GET /api/me/calendar — ปฏิทินการทำงานรายเดือน (shifts + leave + attendance)
@@ -34,7 +35,7 @@ export async function GET(request) {
     ? holidayQuery.or(`branch_id.is.null,branch_id.eq.${branchId}`)
     : holidayQuery.is('branch_id', null);
 
-  const [shifts, leaves, attendance, holidays] = await Promise.all([
+  const [shifts, leaves, attendance, holidays, workSettings] = await Promise.all([
     supabase
       .from('shifts')
       .select('*')
@@ -58,6 +59,7 @@ export async function GET(request) {
       .lte('work_date', endDate)
       .order('work_date'),
     holidayQuery,
+    getWorkSettingsForEmployee(user.employeeId),
   ]);
 
   return NextResponse.json({
@@ -66,5 +68,6 @@ export async function GET(request) {
     leaves: leaves.data || [],
     attendance: attendance.data || [],
     holidays: holidays.data || [],
+    workSettings,
   });
 }

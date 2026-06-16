@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
+import { getWorkSettingsForEmployee } from '@/lib/work-calendar';
 
 /**
  * Haversine formula — คำนวณระยะทางระหว่างพิกัด 2 จุด (เมตร)
@@ -119,7 +120,7 @@ export async function POST(request) {
 
     // ตรวจสาย จากตั้งค่าเวลาทำงานบริษัท
     let clockStatus = 'normal';
-    const { data: ws } = await supabase.from('work_settings').select('*').eq('id', 1).maybeSingle();
+    const ws = await getWorkSettingsForEmployee(user.employeeId);
     if (ws?.standard_in) {
       const [sh, sm] = ws.standard_in.split(':').map(Number);
       const [nh, nm] = nowTime.split(':').map(Number);

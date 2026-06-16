@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
+import { currentLeaveYear } from '@/lib/leave-balances';
 
 const LEAVE_COL = {
   annual: 'leave_annual_used',
@@ -43,7 +44,39 @@ export async function POST(request, { params }) {
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
 
   if (action === 'approve') {
-    const col = LEAVE_COL[req.leave_type];
+    const { data: leaveType, error: typeErr } = await supabase
+      .from('leave_types')
+      .select('code, deduct_balance')
+      .eq('code', req.leave_type)
+      .maybeSingle();
+    if (typeErr) return NextResponse.json({ error: typeErr.message }, { status: 500 });
+
+    const shouldDeduct = leaveType ? leaveType.deduct_balance : !!LEAVE_COL[req.leave_type];
+    if (shouldDeduct) {
+      const year = Number(new Date(req.start_date).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }).slice(0, 4)) || currentLeaveYear();
+      const { data: balance, error: balanceErr } = await supabase
+        .from('employee_leave_balances')
+        .select('*')
+        .eq('employee_id', req.employee_id)
+        .eq('leave_type', req.leave_type)
+        .eq('year', year)
+        .maybeSingle();
+      if (balanceErr) return NextResponse.json({ error: balanceErr.message }, { status: 500 });
+
+      const usedDays = (Number(balance?.used_days) || 0) + Number(req.days);
+      const { error: balanceUpsertErr } = await supabase.from('employee_leave_balances').upsert({
+        employee_id: req.employee_id,
+        leave_type: req.leave_type,
+        year,
+        total_days: Number(balance?.total_days) || 0,
+        used_days: usedDays,
+        note: balance?.note || null,
+        updated_at: new Date().toISOString(),
+      });
+      if (balanceUpsertErr) return NextResponse.json({ error: balanceUpsertErr.message }, { status: 500 });
+    }
+
+    const col = shouldDeduct ? LEAVE_COL[req.leave_type] : null;
     if (col) {
       const { data: rec, error: recErr } = await supabase
         .from('employee_records')

@@ -14,6 +14,9 @@ export default function BranchesPage() {
           { key: 'name', label: 'ชื่อสาขา' },
           { key: 'province', label: 'จังหวัด' },
           { key: 'phone', label: 'โทร' },
+          { key: 'work_days', label: 'วันทำงาน' },
+          { key: 'standard_in', label: 'เข้างาน' },
+          { key: 'standard_out', label: 'เลิกงาน' },
           { key: 'address', label: 'ที่อยู่' },
         ],
         fields: [
@@ -22,6 +25,11 @@ export default function BranchesPage() {
           { key: 'province', label: 'จังหวัด', type: 'text' },
           { key: 'phone', label: 'เบอร์โทร', type: 'text' },
           { key: 'address', label: 'ที่อยู่', type: 'textarea' },
+          { key: 'standard_in', label: 'เวลาเข้างานของสาขา (เว้นว่าง = ใช้ค่ากลาง)', type: 'time' },
+          { key: 'standard_out', label: 'เวลาเลิกงานของสาขา (เว้นว่าง = ใช้ค่ากลาง)', type: 'time' },
+          { key: 'late_grace_min', label: 'ผ่อนผันมาสายของสาขา/นาที (เว้นว่าง = ใช้ค่ากลาง)', type: 'number' },
+          { key: 'work_days', label: 'วันทำงานของสาขา เช่น 1,2,3,4,5 (เว้นว่าง = ใช้ค่ากลาง)', type: 'text' },
+          { key: 'calendar_note', label: 'หมายเหตุปฏิทิน/ลูกค้าที่สาขาดูแล', type: 'textarea' },
         ],
       }}
     />

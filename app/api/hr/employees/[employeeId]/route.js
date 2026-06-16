@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
+import { currentLeaveYear, legacyTotalsFromBalanceRows } from '@/lib/leave-balances';
 
 /**
  * PUT /api/hr/employees/[employeeId] — แก้ไขข้อมูลพนักงาน
@@ -39,6 +40,24 @@ export async function PUT(request, { params }) {
     if (uErr) return NextResponse.json({ error: uErr.message }, { status: 500 });
   }
 
+  const balanceRows = Array.isArray(body.leaveBalances)
+    ? body.leaveBalances
+        .filter((row) => row.leave_type || row.leaveType)
+        .map((row) => ({
+          employee_id: employeeId,
+          leave_type: row.leave_type || row.leaveType,
+          year: Number(row.year) || currentLeaveYear(),
+          total_days: Number(row.total_days ?? row.totalDays) || 0,
+          used_days: Number(row.used_days ?? row.usedDays) || 0,
+          note: row.note || null,
+          updated_at: new Date().toISOString(),
+        }))
+    : null;
+
+  const legacyFromBalances = balanceRows ? legacyTotalsFromBalanceRows(balanceRows) : {};
+
+  const legacyValue = (key, fallback) => legacyFromBalances[key] ?? (Number(fallback) || 0);
+
   const recRow = {
     employee_id: employeeId,
     position: body.position || null,
@@ -52,16 +71,31 @@ export async function PUT(request, { params }) {
     probation_end: body.probationEnd || null,
     contract_end: body.contractEnd || null,
     license_expiry: body.licenseExpiry || null,
-    leave_annual_total: Number(body.leaveAnnualTotal) || 0,
-    leave_annual_used: Number(body.leaveAnnualUsed) || 0,
-    leave_sick_total: Number(body.leaveSickTotal) || 0,
-    leave_sick_used: Number(body.leaveSickUsed) || 0,
-    leave_personal_total: Number(body.leavePersonalTotal) || 0,
-    leave_personal_used: Number(body.leavePersonalUsed) || 0,
+    leave_annual_total: legacyValue('leave_annual_total', body.leaveAnnualTotal),
+    leave_annual_used: legacyValue('leave_annual_used', body.leaveAnnualUsed),
+    leave_sick_total: legacyValue('leave_sick_total', body.leaveSickTotal),
+    leave_sick_used: legacyValue('leave_sick_used', body.leaveSickUsed),
+    leave_personal_total: legacyValue('leave_personal_total', body.leavePersonalTotal),
+    leave_personal_used: legacyValue('leave_personal_used', body.leavePersonalUsed),
     updated_at: new Date().toISOString(),
   };
   const { error: rErr } = await supabase.from('employee_records').upsert(recRow);
   if (rErr) return NextResponse.json({ error: rErr.message }, { status: 500 });
+
+  if (balanceRows) {
+    const year = balanceRows[0]?.year || currentLeaveYear();
+    const { error: delErr } = await supabase
+      .from('employee_leave_balances')
+      .delete()
+      .eq('employee_id', employeeId)
+      .eq('year', year);
+    if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+
+    if (balanceRows.length > 0) {
+      const { error: bErr } = await supabase.from('employee_leave_balances').upsert(balanceRows);
+      if (bErr) return NextResponse.json({ error: bErr.message }, { status: 500 });
+    }
+  }
 
   return NextResponse.json({ success: true });
 }
