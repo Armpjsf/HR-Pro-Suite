@@ -177,7 +177,7 @@ export default function EmployeesPage() {
         <input className="hr-search" placeholder="ค้นหาชื่อ/แผนก/ตำแหน่ง..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <button className="hr-btn" onClick={() => exportExcel(filtered, EXPORT_COLUMNS, 'employees')}>📄 Excel</button>
         <button className="hr-btn" onClick={printPDF}>📑 PDF</button>
-        <Link href="/admin/users" className="hr-btn hr-btn-primary">+ เพิ่มพนักงาน</Link>
+        <Link href="/hr/users" className="hr-btn hr-btn-primary">+ เพิ่มพนักงาน</Link>
       </div>
 
       {view === 'cards' ? (

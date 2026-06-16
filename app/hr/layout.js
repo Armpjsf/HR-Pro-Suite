@@ -60,7 +60,9 @@ export default function HrLayout({ children }) {
     <div className="hr-root">
       <aside className="hr-sidebar">
         <div className="hr-logo">
-          <div className="hr-logo-icon">✦</div>
+          <div className="hr-logo-icon">
+            <img src="/brand/hr-pro-logo.svg" alt="HR Pro Suite" />
+          </div>
           <div>
             <div className="hr-logo-title">HR Pro Suite</div>
             <div className="hr-logo-sub">บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต</div>

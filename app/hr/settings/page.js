@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { authHeaders } from '@/components/hr/exportUtils';
 
 const DOWS = [
@@ -36,7 +37,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div style={{ maxWidth: 480 }}>
+    <div style={{ maxWidth: 680 }}>
       <div className="hr-card">
         <h3 className="hr-section-title">⏰ ตั้งค่าเวลาทำงาน</h3>
         <div className="hr-field"><label>เวลาเข้างานมาตรฐาน</label>
@@ -61,6 +62,7 @@ export default function SettingsPage() {
       <div className="hr-card">
         <p style={{ fontSize: 13, color: '#5b6478', margin: 0 }}>
           ระบบใช้ค่านี้ตัดสินสถานะ “สาย” ตอนพนักงานลงเวลาเข้างาน (เข้าหลังเวลามาตรฐาน + ผ่อนผัน = สาย)
+          หากแต่ละสาขามีเวลาทำงานหรือวันทำงานไม่เหมือนกัน ให้ตั้งที่หน้า <Link href="/hr/branches">ตั้งค่าสาขา</Link>
         </p>
       </div>
       {toast && <div className="hr-toast">{toast}</div>}

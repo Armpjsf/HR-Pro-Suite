@@ -9,6 +9,14 @@ export default function BranchesPage() {
         resource: 'branches',
         exportName: 'branches',
         searchPlaceholder: 'ค้นหารหัส/ชื่อสาขา...',
+        headerExtra: (
+          <div className="hr-card" style={{ marginBottom: 14 }}>
+            <div className="hr-section-title">🏬 ตั้งค่าสาขา</div>
+            <div style={{ color: '#5b6478', fontSize: 13, lineHeight: 1.6 }}>
+              ใช้สร้างสาขาที่ระบบอื่นอ้างอิง เช่น พนักงาน, รูปแบบกะ, วันหยุด, จุดปักหมุด GPS และเวลาทำงานเฉพาะสาขา
+            </div>
+          </div>
+        ),
         columns: [
           { key: 'code', label: 'รหัส' },
           { key: 'name', label: 'ชื่อสาขา' },

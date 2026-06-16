@@ -85,8 +85,8 @@ export default function AdminPage() {
             <button className="btn btn-primary" onClick={() => router.push('/admin/documents')}>
               📤 จัดการเอกสาร
             </button>
-            <button className="btn btn-success" onClick={() => router.push('/admin/users')}>
-              👥 จัดการผู้ใช้
+            <button className="btn btn-success" onClick={() => router.push('/hr/users')}>
+              👥 ตั้งค่าผู้ใช้งาน
             </button>
             <button className="btn btn-secondary" onClick={() => router.push('/chat')}>
               💬 ทดสอบแชท

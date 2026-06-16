@@ -60,7 +60,9 @@ export default function LoginPage() {
 
       <div className="lg-card">
         <div className="lg-brand">
-          <div className="lg-logo">✦</div>
+          <div className="lg-logo">
+            <img src="/brand/hr-pro-logo.svg" alt="HR Pro Suite" />
+          </div>
           <div>
             <div className="lg-title">HR Pro Suite</div>
             <div className="lg-sub">All-in-one HR Management</div>
@@ -122,10 +124,12 @@ export default function LoginPage() {
         .lg-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
         .lg-logo {
           width: 46px; height: 46px; border-radius: 13px;
-          background: linear-gradient(135deg, #6d5ef5, #8b7cf8);
+          background: #fff;
           display: flex; align-items: center; justify-content: center;
-          color: #fff; font-size: 22px;
+          overflow: hidden;
+          box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
         }
+        .lg-logo img { width: 100%; height: 100%; display: block; }
         .lg-title { font-weight: 800; font-size: 18px; background: linear-gradient(90deg,#38bdf8,#6d5ef5);
           -webkit-background-clip: text; background-clip: text; color: transparent; }
         .lg-sub { font-size: 11px; color: #9aa1b5; }

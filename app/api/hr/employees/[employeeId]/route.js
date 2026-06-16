@@ -7,7 +7,7 @@ import { currentLeaveYear, legacyTotalsFromBalanceRows } from '@/lib/leave-balan
  * PUT /api/hr/employees/[employeeId] — แก้ไขข้อมูลพนักงาน
  * เขียนทั้ง users (name, name_en, email, department) และ
  * employee_records (position, start_date, leave totals)
- * ไม่แตะ username/password/role — ไปจัดการที่ /admin/users
+ * ไม่แตะ username/password/role — ไปจัดการที่ /hr/users
  */
 export async function PUT(request, { params }) {
   const { error, status } = await requireMenu(request, 'employees');

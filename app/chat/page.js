@@ -23,7 +23,7 @@ const ADMIN_NAV = [
   { icon: '🏢', label: 'ระบบจัดการ HR (HR Pro)', id: 'hr-suite', href: '/hr' },
   { icon: '⚙️', label: 'แดชบอร์ดผู้ดูแล', id: 'admin', href: '/admin' },
   { icon: '📤', label: 'จัดการเอกสาร AI', id: 'admin-docs', href: '/admin/documents' },
-  { icon: '👥', label: 'จัดการผู้ใช้', id: 'admin-users', href: '/admin/users' },
+  { icon: '👥', label: 'ตั้งค่าผู้ใช้งาน', id: 'admin-users', href: '/hr/users' },
 ];
 
 export default function ChatPage() {
