@@ -5,8 +5,9 @@ import { authHeaders } from '@/components/hr/exportUtils';
 
 export default function LocationsPage() {
   const [items, setItems] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [toast, setToast] = useState(null);
-  const [form, setForm] = useState({ name: '', latitude: '', longitude: '', radius_meters: 200 });
+  const [form, setForm] = useState({ name: '', branch_id: '', latitude: '', longitude: '', radius_meters: 200 });
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -18,6 +19,12 @@ export default function LocationsPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    fetch('/api/hr/branches', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setBranches(d.items || []))
+      .catch(() => {});
+  }, []);
 
   const handleGetCurrentPosition = () => {
     if (!navigator.geolocation) { showToast('เบราว์เซอร์ไม่รองรับ GPS', true); return; }
@@ -39,7 +46,14 @@ export default function LocationsPage() {
         const res = await fetch('/api/hr/locations', {
           method: 'PUT',
           headers: authHeaders(),
-          body: JSON.stringify({ id: editing.id, ...form, latitude: Number(form.latitude), longitude: Number(form.longitude), radius_meters: Number(form.radius_meters) }),
+          body: JSON.stringify({
+            id: editing.id,
+            ...form,
+            branch_id: form.branch_id === '' ? null : Number(form.branch_id),
+            latitude: Number(form.latitude),
+            longitude: Number(form.longitude),
+            radius_meters: Number(form.radius_meters),
+          }),
         });
         const d = await res.json();
         if (!res.ok) { showToast(d.error, true); return; }
@@ -48,13 +62,13 @@ export default function LocationsPage() {
         const res = await fetch('/api/hr/locations', {
           method: 'POST',
           headers: authHeaders(),
-          body: JSON.stringify(form),
+          body: JSON.stringify({ ...form, branch_id: form.branch_id === '' ? null : Number(form.branch_id) }),
         });
         const d = await res.json();
         if (!res.ok) { showToast(d.error, true); return; }
         showToast('เพิ่มจุดปักหมุดเรียบร้อย');
       }
-      setForm({ name: '', latitude: '', longitude: '', radius_meters: 200 });
+      setForm({ name: '', branch_id: '', latitude: '', longitude: '', radius_meters: 200 });
       setEditing(null);
       load();
     } catch { showToast('เกิดข้อผิดพลาด', true); }
@@ -63,7 +77,13 @@ export default function LocationsPage() {
 
   const handleEdit = (item) => {
     setEditing(item);
-    setForm({ name: item.name, latitude: String(item.latitude), longitude: String(item.longitude), radius_meters: item.radius_meters });
+    setForm({
+      name: item.name,
+      branch_id: item.branch_id ?? '',
+      latitude: String(item.latitude),
+      longitude: String(item.longitude),
+      radius_meters: item.radius_meters,
+    });
   };
 
   const handleDelete = async (id) => {
@@ -94,6 +114,13 @@ export default function LocationsPage() {
               <input className="hr-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น สำนักงานใหญ่" required />
             </div>
             <div className="hr-field">
+              <label>สาขา</label>
+              <select value={form.branch_id} onChange={(e) => setForm({ ...form, branch_id: e.target.value })}>
+                <option value="">ใช้ได้ทุกสาขา</option>
+                {branches.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+              </select>
+            </div>
+            <div className="hr-field">
               <label>ละติจูด (Latitude)</label>
               <input className="hr-input" type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} placeholder="13.7563" required />
             </div>
@@ -111,7 +138,7 @@ export default function LocationsPage() {
             <button type="submit" className="hr-btn hr-btn-primary" disabled={loading}>
               {loading ? '⏳' : editing ? '✅ บันทึก' : '➕ เพิ่มจุดปักหมุด'}
             </button>
-            {editing && <button type="button" className="hr-btn" onClick={() => { setEditing(null); setForm({ name: '', latitude: '', longitude: '', radius_meters: 200 }); }}>✖ ยกเลิก</button>}
+            {editing && <button type="button" className="hr-btn" onClick={() => { setEditing(null); setForm({ name: '', branch_id: '', latitude: '', longitude: '', radius_meters: 200 }); }}>✖ ยกเลิก</button>}
           </div>
         </form>
       </div>
@@ -122,6 +149,7 @@ export default function LocationsPage() {
           <thead>
             <tr>
               <th>ชื่อสถานที่</th>
+              <th>สาขา</th>
               <th>Latitude</th>
               <th>Longitude</th>
               <th>รัศมี (ม.)</th>
@@ -131,11 +159,12 @@ export default function LocationsPage() {
           </thead>
           <tbody>
             {items.length === 0 && (
-              <tr><td colSpan={6} className="hr-empty">ยังไม่มีจุดปักหมุด</td></tr>
+              <tr><td colSpan={7} className="hr-empty">ยังไม่มีจุดปักหมุด</td></tr>
             )}
             {items.map((item) => (
               <tr key={item.id}>
                 <td style={{ fontWeight: 600 }}>📍 {item.name}</td>
+                <td>{item.branchName || 'ใช้ได้ทุกสาขา'}</td>
                 <td>{Number(item.latitude).toFixed(6)}</td>
                 <td>{Number(item.longitude).toFixed(6)}</td>
                 <td>{item.radius_meters}</td>

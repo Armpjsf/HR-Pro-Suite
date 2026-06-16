@@ -33,11 +33,21 @@ export async function GET(request) {
     .eq('work_date', today)
     .maybeSingle();
 
-  // ดึงรายชื่อจุดปักหมุด
-  const { data: locations } = await supabase
+  const { data: me } = await supabase
+    .from('users')
+    .select('branch_id')
+    .eq('employee_id', user.employeeId)
+    .maybeSingle();
+
+  // ดึงรายชื่อจุดปักหมุดที่พนักงานใช้ได้: จุดกลาง + จุดของสาขาตัวเอง
+  let locationQuery = supabase
     .from('check_locations')
     .select('*')
     .eq('is_active', true);
+  locationQuery = me?.branch_id
+    ? locationQuery.or(`branch_id.is.null,branch_id.eq.${me.branch_id}`)
+    : locationQuery.is('branch_id', null);
+  const { data: locations } = await locationQuery;
 
   return NextResponse.json({
     today: data || null,
@@ -68,15 +78,22 @@ export async function POST(request) {
 
   // Geofencing สำหรับ office check-in
   let locationName = check_type === 'wfh' ? 'Work From Home' : check_type === 'offsite' ? 'นอกสถานที่' : '';
+  let locationBranchId = null;
 
   if (check_type === 'office') {
     if (latitude == null || longitude == null) {
       return NextResponse.json({ error: 'กรุณาเปิด GPS เพื่อเช็คอิน' }, { status: 400 });
     }
 
+    const { data: me } = await supabase
+      .from('users')
+      .select('branch_id, branches(code, name)')
+      .eq('employee_id', user.employeeId)
+      .maybeSingle();
+
     const { data: locations } = await supabase
       .from('check_locations')
-      .select('*')
+      .select('*, branches(code, name)')
       .eq('is_active', true);
 
     if (!locations || locations.length === 0) {
@@ -85,6 +102,9 @@ export async function POST(request) {
 
     let nearest = null;
     let nearestDist = Infinity;
+    let nearestAllowed = null;
+    let nearestAllowedDist = Infinity;
+    const userBranchId = me?.branch_id ?? null;
 
     for (const loc of locations) {
       const dist = haversineDistance(latitude, longitude, Number(loc.latitude), Number(loc.longitude));
@@ -92,6 +112,28 @@ export async function POST(request) {
         nearestDist = dist;
         nearest = loc;
       }
+      const isAllowedLocation = loc.branch_id == null || (userBranchId != null && Number(loc.branch_id) === Number(userBranchId));
+      if (isAllowedLocation && dist < nearestAllowedDist) {
+        nearestAllowedDist = dist;
+        nearestAllowed = loc;
+      }
+    }
+
+    if (nearest && nearestDist <= nearest.radius_meters && nearest.branch_id != null && Number(nearest.branch_id) !== Number(userBranchId)) {
+      const locBranch = nearest.branches ? `${nearest.branches.code} · ${nearest.branches.name}` : `สาขา ${nearest.branch_id}`;
+      const myBranch = me?.branches ? `${me.branches.code} · ${me.branches.name}` : 'สาขาที่ผูกกับพนักงาน';
+      return NextResponse.json({
+        error: `คุณอยู่ที่จุดปักหมุด "${nearest.name}" ของ ${locBranch} แต่บัญชีของคุณผูกกับ ${myBranch} กรุณาเลือก "นอกสถานที่" หรือแจ้ง HR หากมาปฏิบัติงานข้ามสาขา`,
+        location: nearest.name,
+        locationBranch: locBranch,
+      }, { status: 403 });
+    }
+
+    nearest = nearestAllowed;
+    nearestDist = nearestAllowedDist;
+
+    if (!nearest) {
+      return NextResponse.json({ error: 'ไม่มีจุดปักหมุดที่ใช้ได้สำหรับสาขาของคุณ กรุณาแจ้ง HR' }, { status: 400 });
     }
 
     if (nearestDist > nearest.radius_meters) {
@@ -103,6 +145,7 @@ export async function POST(request) {
     }
 
     locationName = nearest.name;
+    locationBranchId = nearest.branch_id ?? null;
   }
 
   // ดึง record วันนี้
@@ -136,6 +179,7 @@ export async function POST(request) {
       clock_in_lng: longitude || null,
       check_type,
       location_name: locationName,
+      location_branch_id: locationBranchId,
       status: clockStatus,
     };
 

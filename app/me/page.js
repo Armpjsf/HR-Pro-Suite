@@ -91,7 +91,7 @@ export default function EmployeePage() {
           { id: 'home', icon: '🏠', label: 'หน้าแรก' },
           { id: 'leave', icon: '📅', label: 'ลางาน' },
           { id: 'chat', icon: '💬', label: 'แชท' },
-          { id: 'payslip', icon: '💰', label: 'สลิป' },
+          { id: 'payslip', icon: '💰', label: 'เงินเดือน' },
           { id: 'more', icon: '≡', label: 'เพิ่มเติม' },
         ].map((t) => (
           <button key={t.id} className={`me-tab${tab === t.id ? ' active' : ''}`} onClick={() => setTab(t.id)}>
@@ -141,6 +141,7 @@ function HomeTab({ data, setData, showToast }) {
 
   const clockedIn = !!clockStatus?.clock_in;
   const clockedOut = !!clockStatus?.clock_out;
+  const attendanceStats = data.attendanceStats || { late: 0, absent: 0 };
 
   return (
     <>
@@ -172,6 +173,20 @@ function HomeTab({ data, setData, showToast }) {
             {clockedOut && <> · ออกงาน {clockStatus.clock_out?.slice(0, 5)}</>}
           </div>
         )}
+      </div>
+
+      {/* Attendance summary */}
+      <div className="me-leave-grid" style={{ marginTop: 0, padding: '0 14px', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+        <div className="me-leave-card">
+          <div className="me-leave-icon">⏰</div>
+          <div className="me-leave-remain" style={{ color: '#d97706' }}>{attendanceStats.late || 0}</div>
+          <div className="me-leave-label">สายเดือนนี้</div>
+        </div>
+        <div className="me-leave-card">
+          <div className="me-leave-icon">🚫</div>
+          <div className="me-leave-remain" style={{ color: '#dc2626' }}>{attendanceStats.absent || 0}</div>
+          <div className="me-leave-label">ขาดงานเดือนนี้</div>
+        </div>
       </div>
 
       {/* Leave balance */}
@@ -444,12 +459,12 @@ function PayslipTab({ data }) {
             <span className="k" style={{ fontWeight: 700 }}>รับสุทธิ</span>
             <span className="me-slip-net">{num(selected.net)} ฿</span>
           </div>
-          <button className="me-btn" style={{ marginTop: 12 }} onClick={() => openSlip(selected)}>🖨️ ดู/พิมพ์สลิป (PDF)</button>
+          <button className="me-btn" style={{ marginTop: 12 }} onClick={() => openSlip(selected)}>🖨️ ดู/บันทึกสลิป PDF</button>
         </div>
       )}
       <div className="me-card">
         <div className="me-section-title">📋 สลิปย้อนหลัง</div>
-        {slips.length === 0 && <div className="me-empty">ยังไม่มีข้อมูล</div>}
+        {slips.length === 0 && <div className="me-empty">ยังไม่มีสลิปเงินเดือนที่ปล่อยแล้ว</div>}
         {slips.map((s) => (
           <div key={s.id} className="me-row" style={{ cursor: 'pointer' }} onClick={() => openSlip(s)}>
             <span className="k">งวด {periodThai(s.period)}</span>
@@ -564,7 +579,7 @@ function MoreTab({ user, router, showToast, data }) {
     { id: 'attendance', icon: '⏰', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติ Clock-in/out ย้อนหลัง' },
     { id: 'evaluation', icon: '⭐', label: 'ประเมินเพื่อนร่วมงาน', desc: 'ให้คะแนน + ดูผลประเมิน' },
     { id: 'assets', icon: '📦', label: 'ทรัพย์สิน/อุปกรณ์', desc: 'ดูอุปกรณ์ + ขอเบิก/คืน/เปลี่ยน' },
-    { id: 'taxcert', icon: '🧾', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้-ภาษีทั้งปี พิมพ์ได้' },
+    { id: 'taxcert', icon: '🧾', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้-ภาษีทั้งปี ดู/บันทึก PDF ได้' },
     { id: 'allowance', icon: '📝', label: 'แบบลดหย่อนภาษี (ลย.01)', desc: 'กรอกค่าลดหย่อนส่งให้ HR' },
     ...(data?.isManager ? [{ id: 'teamleave', icon: '✅', label: 'อนุมัติการลาทีม', desc: 'อนุมัติใบลาของลูกทีม (หัวหน้า)' }] : []),
   ];
@@ -898,7 +913,7 @@ function TaxCertSection({ back, profile }) {
             <div className="me-row"><span className="k">ประกันสังคมรวม</span><span className="v">{num(data.totalSso)} ฿</span></div>
             <div className="me-row"><span className="k">จำนวนงวด</span><span className="v">{data.months} งวด</span></div>
             {data.months > 0
-              ? <button className="me-btn" style={{ marginTop: 12 }} onClick={() => setShowDoc(true)}>🖨️ ดู/พิมพ์ 50 ทวิ (PDF)</button>
+              ? <button className="me-btn" style={{ marginTop: 12 }} onClick={() => setShowDoc(true)}>🖨️ ดู/บันทึก 50 ทวิ PDF</button>
               : <div className="me-empty">ยังไม่มีข้อมูลเงินเดือนในปีนี้</div>}
           </>
         )}

@@ -11,11 +11,15 @@ export async function GET(request) {
 
   const { data, error: dbError } = await supabase
     .from('check_locations')
-    .select('*')
+    .select('*, branches(code, name)')
     .order('created_at', { ascending: false });
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
-  return NextResponse.json({ items: data || [] });
+  const items = (data || []).map((item) => ({
+    ...item,
+    branchName: item.branch_id && item.branches ? `${item.branches.code} · ${item.branches.name}` : null,
+  }));
+  return NextResponse.json({ items });
 }
 
 /**
@@ -26,7 +30,7 @@ export async function POST(request) {
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();
-  const { name, latitude, longitude, radius_meters = 200 } = body;
+  const { name, latitude, longitude, radius_meters = 200, branch_id } = body;
 
   if (!name || latitude == null || longitude == null) {
     return NextResponse.json({ error: 'กรุณาระบุชื่อ, ละติจูด, ลองจิจูด' }, { status: 400 });
@@ -34,7 +38,13 @@ export async function POST(request) {
 
   const { data, error: dbError } = await supabase
     .from('check_locations')
-    .insert({ name, latitude: Number(latitude), longitude: Number(longitude), radius_meters: Number(radius_meters) })
+    .insert({
+      name,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      radius_meters: Number(radius_meters),
+      branch_id: branch_id === '' || branch_id == null ? null : Number(branch_id),
+    })
     .select()
     .single();
 
@@ -52,6 +62,9 @@ export async function PUT(request) {
   const body = await request.json();
   const { id, ...updates } = body;
   if (!id) return NextResponse.json({ error: 'ต้องระบุ id' }, { status: 400 });
+  if ('branch_id' in updates) {
+    updates.branch_id = updates.branch_id === '' || updates.branch_id == null ? null : Number(updates.branch_id);
+  }
 
   const { data, error: dbError } = await supabase
     .from('check_locations')

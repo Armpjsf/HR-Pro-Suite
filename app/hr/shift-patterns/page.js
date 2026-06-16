@@ -12,6 +12,7 @@ export default function ShiftPatternsPage() {
         exportName: 'shift_patterns',
         searchPlaceholder: 'ค้นหารูปแบบกะ...',
         columns: [
+          { key: 'branch_id', label: 'สาขา', branchLookup: true },
           { key: 'name', label: 'ชื่อรูปแบบ' },
           {
             key: 'shift_type', label: 'ประเภท',
@@ -22,6 +23,7 @@ export default function ShiftPatternsPage() {
           { key: 'end_time', label: 'ถึง' },
         ],
         fields: [
+          { key: 'branch_id', label: 'สาขา (เว้นว่าง = รูปแบบกลาง)', type: 'branch' },
           { key: 'name', label: 'ชื่อรูปแบบกะ (เช่น กะเช้า)', type: 'text', required: true },
           {
             key: 'shift_type', label: 'ประเภท', type: 'select', required: true,

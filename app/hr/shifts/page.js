@@ -46,8 +46,9 @@ export default function ShiftsPage() {
   const [month, setMonth] = useState(today.getMonth()); // 0-11
   const [shifts, setShifts] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [patterns, setPatterns] = useState([]);
   const [modalDate, setModalDate] = useState(null);
-  const [form, setForm] = useState({ employee_id: '', shift_type: 'morning', start_time: '', end_time: '' });
+  const [form, setForm] = useState({ employee_id: '', pattern_id: '', shift_type: 'morning', start_time: '', end_time: '' });
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'success') => {
@@ -67,6 +68,10 @@ export default function ShiftsPage() {
       .then((r) => r.json())
       .then((d) => setEmployees(d.employees || []))
       .catch(() => {});
+    fetch('/api/hr/shift-patterns', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setPatterns(d.items || []))
+      .catch(() => {});
   }, [load]);
 
   function nav(delta) {
@@ -82,6 +87,24 @@ export default function ShiftsPage() {
     const emp = employees.find((e) => e.employeeId === id);
     return emp ? emp.name.split(' ')[0] : id;
   };
+
+  const selectedEmployee = employees.find((e) => e.employeeId === form.employee_id);
+  const availablePatterns = patterns.filter((p) => !p.branch_id || (selectedEmployee?.branchId && Number(p.branch_id) === Number(selectedEmployee.branchId)));
+
+  function applyPattern(patternId) {
+    const pattern = patterns.find((p) => String(p.id) === String(patternId));
+    setForm((prev) => ({
+      ...prev,
+      pattern_id: patternId,
+      shift_type: pattern?.shift_type || prev.shift_type,
+      start_time: pattern?.start_time?.slice(0, 5) || prev.start_time,
+      end_time: pattern?.end_time?.slice(0, 5) || prev.end_time,
+    }));
+  }
+
+  function setEmployee(employeeId) {
+    setForm((prev) => ({ ...prev, employee_id: employeeId, pattern_id: '' }));
+  }
 
   async function addShift(e) {
     e.preventDefault();
@@ -138,7 +161,7 @@ export default function ShiftsPage() {
                 <div
                   key={ds}
                   className={`hr-cal-day${ds === todayStr ? ' today' : ''}`}
-                  onClick={() => { setForm({ employee_id: '', shift_type: 'morning', start_time: '', end_time: '' }); setModalDate(ds); }}
+                  onClick={() => { setForm({ employee_id: '', pattern_id: '', shift_type: 'morning', start_time: '', end_time: '' }); setModalDate(ds); }}
                 >
                   <div className={`hr-cal-date${dow === 0 || dow === 6 ? ' weekend' : ''}`}>{d}</div>
                   {dayShifts.slice(0, 3).map((s) => (
@@ -164,10 +187,21 @@ export default function ShiftsPage() {
             <form onSubmit={addShift}>
               <div className="hr-field">
                 <label>พนักงาน *</label>
-                <select value={form.employee_id} onChange={(e) => setForm((p) => ({ ...p, employee_id: e.target.value }))} required>
+                <select value={form.employee_id} onChange={(e) => setEmployee(e.target.value)} required>
                   <option value="">— เลือกพนักงาน —</option>
                   {employees.map((emp) => (
                     <option key={emp.employeeId} value={emp.employeeId}>{emp.employeeId} · {emp.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="hr-field">
+                <label>รูปแบบกะ</label>
+                <select value={form.pattern_id} onChange={(e) => applyPattern(e.target.value)} disabled={!form.employee_id}>
+                  <option value="">— เลือกรูปแบบกะ —</option>
+                  {availablePatterns.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {SHIFT_LABELS[p.shift_type] || p.shift_type} {p.branch_id ? '(สาขาพนักงาน)' : '(กลาง)'}
+                    </option>
                   ))}
                 </select>
               </div>
