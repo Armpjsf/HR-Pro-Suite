@@ -24,7 +24,7 @@ export async function GET(request) {
   const { user, error, status } = requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
   const { data } = await supabase
     .from('time_records')
     .select('*')
@@ -61,8 +61,9 @@ export async function POST(request) {
     return NextResponse.json({ error: 'action ต้องเป็น in หรือ out' }, { status: 400 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const nowTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  // ใช้เวลาไทย (Asia/Bangkok) เสมอ — ไม่อิงเวลาเซิร์ฟเวอร์ (Vercel เป็น UTC)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+  const nowTime = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
   // Geofencing สำหรับ office check-in
   let locationName = check_type === 'wfh' ? 'Work From Home' : check_type === 'offsite' ? 'นอกสถานที่' : '';

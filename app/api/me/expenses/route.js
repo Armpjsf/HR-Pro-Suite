@@ -49,7 +49,7 @@ export async function POST(request) {
       category,
       amount: Number(amount),
       description: description || null,
-      claim_date: claim_date || new Date().toISOString().slice(0, 10),
+      claim_date: claim_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),
       status: 'pending',
     })
     .select()

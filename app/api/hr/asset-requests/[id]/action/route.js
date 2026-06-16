@@ -32,7 +32,7 @@ export async function POST(request, { params }) {
       await supabase.from('assets').update({ status: 'available', assigned_to: null }).eq('id', req.asset_id);
     } else {
       // borrow / replace → จองให้พนักงาน + ย้ายสาขา
-      const upd = { status: 'assigned', assigned_to: req.employee_id, assigned_date: new Date().toISOString().slice(0, 10) };
+      const upd = { status: 'assigned', assigned_to: req.employee_id, assigned_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }) };
       if (req.target_branch_id) upd.branch_id = req.target_branch_id;
       await supabase.from('assets').update(upd).eq('id', req.asset_id);
     }

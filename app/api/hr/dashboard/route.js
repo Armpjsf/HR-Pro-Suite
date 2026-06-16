@@ -9,7 +9,7 @@ export async function GET(request) {
   const { error, status } = await requireMenu(request, 'dashboard');
   if (error) return NextResponse.json({ error }, { status });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
   const period = today.slice(0, 7); // '2026-06'
 
   const [

@@ -11,7 +11,7 @@ export async function GET(request) {
   if (error) return NextResponse.json({ error }, { status });
 
   const employeeId = user.employeeId;
-  const monthStart = new Date().toISOString().slice(0, 7) + '-01';
+  const monthStart = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }).slice(0, 7) + '-01';
 
   const [record, leaves, slips, shifts, announcements, todayClockResult] = await Promise.all([
     supabase.from('employee_records').select('*').eq('employee_id', employeeId).maybeSingle(),
@@ -19,7 +19,7 @@ export async function GET(request) {
     supabase.from('payroll_slips').select('*').eq('employee_id', employeeId).order('period', { ascending: false }).limit(12),
     supabase.from('shifts').select('*').eq('employee_id', employeeId).gte('shift_date', monthStart).order('shift_date'),
     supabase.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(10),
-    supabase.from('time_records').select('*').eq('employee_id', employeeId).eq('work_date', new Date().toISOString().slice(0, 10)).maybeSingle(),
+    supabase.from('time_records').select('*').eq('employee_id', employeeId).eq('work_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })).maybeSingle(),
   ]);
 
   // เป็นหัวหน้าหรือไม่ (มีลูกทีมที่ตั้ง manager_id เป็นเรา)
