@@ -10,7 +10,7 @@ export async function POST(request) {
   }
 
   try {
-    const { message } = await request.json();
+    const { message, history = [] } = await request.json();
 
     if (!message || !message.trim()) {
       return NextResponse.json(
@@ -19,7 +19,10 @@ export async function POST(request) {
       );
     }
 
-    const response = await generateResponse(message.trim(), user);
+    const response = await generateResponse(message.trim(), user, {
+      channel: 'PWA',
+      history,
+    });
 
     await addAuditEntry({
       user: user.name,
@@ -33,6 +36,7 @@ export async function POST(request) {
       reply: response.text,
       documents: response.documents || [],
       intent: response.intent,
+      source: response.source,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {

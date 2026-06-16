@@ -28,14 +28,16 @@ export default function HrChatPage() {
   const send = async (text) => {
     if (!text.trim() || loading) return;
     const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-    setMessages((p) => [...p, { id: Date.now(), role: 'user', content: text.trim(), time }]);
+    const outgoing = text.trim();
+    const history = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+    setMessages((p) => [...p, { id: Date.now(), role: 'user', content: outgoing, time }]);
     setInput('');
     setLoading(true);
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ message: text.trim() }),
+        body: JSON.stringify({ message: outgoing, history }),
       });
       const d = await res.json();
       setMessages((p) => [...p, {
@@ -43,6 +45,7 @@ export default function HrChatPage() {
         role: 'ai',
         content: d.reply || d.error || 'เกิดข้อผิดพลาด',
         documents: d.documents || [],
+        source: d.source,
         time,
       }]);
     } catch {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth';
-import { getDocuments } from '@/lib/db';
+import { getDocuments, readStoredFile, updateDocumentContent } from '@/lib/db';
+import { detectFileType, extractText } from '@/lib/extract';
 import { indexDocument } from '@/lib/rag';
 
 /**
@@ -16,12 +17,27 @@ export async function POST(request) {
   let totalChunks = 0;
 
   for (const d of docs) {
-    if (!d.content) {
-      results.push({ name: d.name, chunks: 0, skipped: true });
+    let content = d.content || '';
+
+    if (d.storedFileName) {
+      const fileBuffer = await readStoredFile(d.storedFileName);
+      if (fileBuffer) {
+        const fileType = d.type || detectFileType(d.fileName || d.storedFileName);
+        const extracted = await extractText(fileBuffer, fileType);
+        if (extracted && extracted !== content) {
+          content = extracted;
+          await updateDocumentContent(d.id, content);
+        }
+      }
+    }
+
+    if (!content) {
+      results.push({ name: d.name, chunks: 0, skipped: true, reason: 'no readable content' });
       continue;
     }
+
     try {
-      const n = await indexDocument(d.id, d.content);
+      const n = await indexDocument(d.id, content);
       totalChunks += n;
       results.push({ name: d.name, chunks: n });
     } catch (err) {

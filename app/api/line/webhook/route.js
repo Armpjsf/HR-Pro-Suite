@@ -5,6 +5,20 @@ import { getLineMappings, setLineMapping, findUserByEmployeeId, addAuditEntry } 
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || '';
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
+const lineMemory = new Map();
+
+function getLineHistory(userId) {
+  return lineMemory.get(userId) || [];
+}
+
+function rememberLineTurn(userId, userText, assistantText) {
+  const next = [
+    ...getLineHistory(userId),
+    { role: 'user', content: userText },
+    { role: 'ai', content: assistantText },
+  ].slice(-8);
+  lineMemory.set(userId, next);
+}
 
 /**
  * Verify LINE webhook signature
@@ -27,7 +41,7 @@ async function replyMessage(replyToken, messages) {
     return;
   }
 
-  await fetch('https://api.line.me/v2/bot/message/reply', {
+  const res = await fetch('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -35,6 +49,10 @@ async function replyMessage(replyToken, messages) {
     },
     body: JSON.stringify({ replyToken, messages }),
   });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`LINE reply failed: ${res.status} ${detail}`);
+  }
 }
 
 /**
@@ -56,7 +74,7 @@ function createFlexResponse(text, documents = []) {
       contents: [
         {
           type: 'text',
-          text: text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n').slice(0, 500),
+          text: `${text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n')}${documents.length > 0 ? '\n\nเปิดเมนูเอกสาร HR ในเว็บเพื่อดาวน์โหลดไฟล์' : ''}`.slice(0, 700),
           wrap: true,
           size: 'sm',
           color: '#333333',
@@ -75,8 +93,8 @@ function createFlexResponse(text, documents = []) {
         type: 'button',
         action: {
           type: 'message',
-          label: `📥 ${doc.name.slice(0, 20)}`,
-          text: `ขอดาวน์โหลด ${doc.name}`,
+          label: `📄 ${doc.name.slice(0, 20)}`,
+          text: `เปิดเมนูเอกสาร HR เพื่อดาวน์โหลด ${doc.name}`,
         },
         style: 'secondary',
         height: 'sm',
@@ -206,7 +224,11 @@ export async function POST(request) {
         const response = await generateResponse(text, {
           ...userMapping,
           id: userId,
+        }, {
+          channel: 'LINE',
+          history: getLineHistory(userId),
         });
+        rememberLineTurn(userId, text, response.text);
 
         await addAuditEntry({
           user: userMapping.name,
