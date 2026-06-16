@@ -78,7 +78,20 @@
 .me-section-title { font-size: 15px; font-weight: 700; margin: 0 0 12px; }
 
 /* Leave balance cards */
-.me-leave-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: -18px; padding: 0 14px; position: relative; }
+.me-leave-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 0;
+  position: relative;
+}
+.me-attendance-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 4px 0 14px;
+}
+.me-balance-grid {
+  margin: 0 0 18px;
+}
 
 .me-leave-card {
   background: var(--me-card);

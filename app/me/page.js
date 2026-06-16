@@ -176,7 +176,7 @@ function HomeTab({ data, setData, showToast }) {
       </div>
 
       {/* Attendance summary */}
-      <div className="me-leave-grid" style={{ marginTop: 0, padding: '0 14px', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+      <div className="me-leave-grid me-attendance-grid">
         <div className="me-leave-card">
           <div className="me-leave-icon">⏰</div>
           <div className="me-leave-remain" style={{ color: '#d97706' }}>{attendanceStats.late || 0}</div>
@@ -190,7 +190,7 @@ function HomeTab({ data, setData, showToast }) {
       </div>
 
       {/* Leave balance */}
-      <div className="me-leave-grid">
+      <div className="me-leave-grid me-balance-grid">
         {Object.entries(data.leaveBalance || {}).map(([key, val]) => (
           <div key={key} className="me-leave-card">
             <div className="me-leave-icon">{LEAVE_ICONS[key] || '📅'}</div>
