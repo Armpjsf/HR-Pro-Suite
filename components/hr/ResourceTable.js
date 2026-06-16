@@ -3,6 +3,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { exportExcel, printPDF, authHeaders } from './exportUtils';
 
+const WEEKDAY_OPTIONS = [
+  { value: '1', label: 'จันทร์' },
+  { value: '2', label: 'อังคาร' },
+  { value: '3', label: 'พุธ' },
+  { value: '4', label: 'พฤหัส' },
+  { value: '5', label: 'ศุกร์' },
+  { value: '6', label: 'เสาร์' },
+  { value: '0', label: 'อาทิตย์' },
+];
+
+function formatWeekdays(value) {
+  const days = String(value || '').split(',').filter(Boolean);
+  if (days.length === 0) return '-';
+  const byValue = new Map(WEEKDAY_OPTIONS.map((d) => [d.value, d.label]));
+  return days.map((day) => byValue.get(day) || day).join(', ');
+}
+
 /**
  * ตาราง CRUD อเนกประสงค์สำหรับทุกหน้า /hr — ขับเคลื่อนด้วย config:
  * {
@@ -141,6 +158,7 @@ export default function ResourceTable({ config }) {
       const b = branches.find((x) => x.id === value);
       return b ? `${b.code} · ${b.name}` : value;
     }
+    if (col.type === 'weekdays') return formatWeekdays(value);
     if (col.badge) {
       const color = col.badge[value] || 'gray';
       return <span className={`hr-badge hr-badge-${color}`}>{col.badgeLabels?.[value] || value || '-'}</span>;
@@ -195,6 +213,32 @@ export default function ResourceTable({ config }) {
           style={{ width: 'auto' }}
           className="hr-input"
         />
+      );
+    }
+    if (f.type === 'weekdays') {
+      const selected = new Set(String(value || '').split(',').filter(Boolean));
+      const toggle = (day) => {
+        const next = new Set(selected);
+        next.has(day) ? next.delete(day) : next.add(day);
+        const ordered = WEEKDAY_OPTIONS.map((d) => d.value).filter((d) => next.has(d));
+        set(ordered.join(','));
+      };
+      return (
+        <div>
+          <div className="hr-weekday-picker">
+            {WEEKDAY_OPTIONS.map((day) => (
+              <button
+                key={day.value}
+                type="button"
+                className={`hr-tab${selected.has(day.value) ? ' active' : ''}`}
+                onClick={() => toggle(day.value)}
+              >
+                {day.label}
+              </button>
+            ))}
+          </div>
+          <div className="hr-help-text">{f.help || 'เว้นว่าง = ใช้วันทำงานค่ากลางของบริษัท'}</div>
+        </div>
       );
     }
     return (
@@ -259,7 +303,7 @@ export default function ResourceTable({ config }) {
       </div>
 
       {showModal && (
-        <div className="hr-modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="hr-modal-overlay">
           <div className="hr-modal" onClick={(e) => e.stopPropagation()}>
             <div className="hr-modal-header">
               <div className="hr-modal-title">{editing ? 'แก้ไขข้อมูล' : 'เพิ่มข้อมูล'}</div>

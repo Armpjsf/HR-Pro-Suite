@@ -262,7 +262,7 @@ export default function UsersPage() {
       )}
 
       {showModal && (
-        <div className="hr-modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="hr-modal-overlay">
           <div className="hr-modal" onClick={(e) => e.stopPropagation()}>
             <div className="hr-modal-header">
               <div className="hr-modal-title">{editingUser ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้'}</div>

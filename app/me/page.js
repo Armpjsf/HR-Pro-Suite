@@ -110,6 +110,7 @@ function HomeTab({ data, setData, showToast }) {
   const [clockLoading, setClockLoading] = useState(false);
   const [clockStatus, setClockStatus] = useState(data.todayClock);
   const [clockType, setClockType] = useState('office');
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
   const handleClock = async (action) => {
     setClockLoading(true);
@@ -205,12 +206,33 @@ function HomeTab({ data, setData, showToast }) {
         <div className="me-section-title">📢 ประกาศล่าสุด</div>
         {(data.announcements || []).length === 0 && <div className="me-empty">ไม่มีประกาศ</div>}
         {(data.announcements || []).slice(0, 5).map((a) => (
-          <div key={a.id} className="me-row">
+          <button key={a.id} type="button" className="me-row me-announcement-row" onClick={() => setSelectedAnnouncement(a)}>
             <span className="k">{a.pinned ? '📌 ' : ''}{a.title}</span>
-            <span className="v" style={{ fontSize: 12 }}>{a.publish_date || ''}</span>
-          </div>
+            <span className="v" style={{ fontSize: 12 }}>{a.publish_date || '›'}</span>
+          </button>
         ))}
       </div>
+
+      {selectedAnnouncement && (
+        <div className="me-sheet-overlay" onClick={() => setSelectedAnnouncement(null)}>
+          <div className="me-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="me-sheet-head">
+              <div>
+                <div className="me-sheet-title">{selectedAnnouncement.pinned ? '📌 ' : ''}{selectedAnnouncement.title}</div>
+                <div className="me-sheet-meta">
+                  {[selectedAnnouncement.category, selectedAnnouncement.publish_date, selectedAnnouncement.author].filter(Boolean).join(' · ') || 'ประกาศบริษัท'}
+                </div>
+              </div>
+              <button className="me-sheet-close" onClick={() => setSelectedAnnouncement(null)}>✕</button>
+            </div>
+            <div className="me-sheet-body">
+              {selectedAnnouncement.body
+                ? selectedAnnouncement.body.split('\n').map((line, idx) => <p key={idx}>{line || '\u00a0'}</p>)
+                : <p>ไม่มีรายละเอียดเพิ่มเติม</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

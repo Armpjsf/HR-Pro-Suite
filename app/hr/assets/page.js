@@ -154,7 +154,7 @@ export default function AssetsPage() {
       )}
 
       {open ? (
-        <div className="hr-modal-overlay" onClick={close}>
+        <div className="hr-modal-overlay">
           <div className="hr-modal" onClick={(e) => e.stopPropagation()}>
             <div className="hr-modal-header">
               <div className="hr-modal-title">{editing ? 'แก้ไขทรัพย์สิน' : 'เพิ่มทรัพย์สิน'}</div>

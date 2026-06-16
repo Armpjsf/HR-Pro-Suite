@@ -178,7 +178,7 @@ export default function ShiftsPage() {
       )}
 
       {modalDate && (
-        <div className="hr-modal-overlay" onClick={() => setModalDate(null)}>
+        <div className="hr-modal-overlay">
           <div className="hr-modal" onClick={(e) => e.stopPropagation()}>
             <div className="hr-modal-header">
               <div className="hr-modal-title">จัดกะ · {modalDate}</div>

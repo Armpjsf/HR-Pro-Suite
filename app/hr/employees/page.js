@@ -235,7 +235,7 @@ export default function EmployeesPage() {
       )}
 
       {editing && (
-        <div className="hr-modal-overlay" onClick={() => setEditing(null)}>
+        <div className="hr-modal-overlay">
           <div className="hr-modal" onClick={(e) => e.stopPropagation()}>
             <div className="hr-modal-header">
               <div className="hr-modal-title">แก้ไขพนักงาน · {editing.employeeId}</div>

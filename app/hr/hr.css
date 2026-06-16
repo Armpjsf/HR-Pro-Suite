@@ -418,6 +418,8 @@
   font-family: inherit;
 }
 .hr-tab.active { background: linear-gradient(135deg, #6d5ef5, #8b7cf8); color: #fff; border: none; }
+.hr-weekday-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.hr-help-text { margin-top: 6px; font-size: 12px; color: var(--hr-text-3); line-height: 1.5; }
 
 /* ===== Progress (OKR) ===== */
 .hr-progress { height: 8px; background: #f1f2f8; border-radius: 999px; overflow: hidden; min-width: 80px; }
