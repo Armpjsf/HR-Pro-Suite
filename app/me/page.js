@@ -495,6 +495,7 @@ function MoreTab({ user, router, showToast, data }) {
     { id: 'calendar', icon: '📆', label: 'ปฏิทินงาน', desc: 'ดูตารางกะ วันลา วันหยุด' },
     { id: 'attendance', icon: '⏰', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติ Clock-in/out ย้อนหลัง' },
     { id: 'evaluation', icon: '⭐', label: 'ประเมินเพื่อนร่วมงาน', desc: 'ให้คะแนน + ดูผลประเมิน' },
+    { id: 'assets', icon: '📦', label: 'ทรัพย์สิน/อุปกรณ์', desc: 'ดูอุปกรณ์ + ขอเบิก/คืน/เปลี่ยน' },
     { id: 'taxcert', icon: '🧾', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้-ภาษีทั้งปี พิมพ์ได้' },
     { id: 'allowance', icon: '📝', label: 'แบบลดหย่อนภาษี (ลย.01)', desc: 'กรอกค่าลดหย่อนส่งให้ HR' },
     ...(data?.isManager ? [{ id: 'teamleave', icon: '✅', label: 'อนุมัติการลาทีม', desc: 'อนุมัติใบลาของลูกทีม (หัวหน้า)' }] : []),
@@ -507,6 +508,7 @@ function MoreTab({ user, router, showToast, data }) {
   if (subTab === 'taxcert') return <TaxCertSection back={() => setSubTab(null)} profile={data?.profile} />;
   if (subTab === 'allowance') return <AllowanceSection back={() => setSubTab(null)} showToast={showToast} />;
   if (subTab === 'teamleave') return <TeamLeaveSection back={() => setSubTab(null)} showToast={showToast} />;
+  if (subTab === 'assets') return <AssetsSection back={() => setSubTab(null)} showToast={showToast} />;
 
   return (
     <>
@@ -982,6 +984,106 @@ function TeamLeaveSection({ back, showToast }) {
           </div>
         ))}
       </div>
+    </>
+  );
+}
+
+/* ─── ทรัพย์สิน/อุปกรณ์ (พนักงาน: ดู + ขอเบิก/คืน/เปลี่ยน) ─── */
+const ASSET_STATUS = { available: { c: 'me-badge-green', l: 'ว่าง' }, assigned: { c: 'me-badge-blue', l: 'มีคนใช้' }, repair: { c: 'me-badge-yellow', l: 'ส่งซ่อม' }, retired: { c: 'me-badge-gray', l: 'ปลดระวาง' } };
+const ASSET_REQ_TYPE = { borrow: 'ขอเบิก', return: 'ขอคืน', replace: 'ขอเปลี่ยน' };
+
+function assetImg(file) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
+  return `/api/assets/image?file=${encodeURIComponent(file)}&token=${encodeURIComponent(token || '')}`;
+}
+
+function AssetsSection({ back, showToast }) {
+  const [data, setData] = useState(null);
+  const [modal, setModal] = useState(null); // { asset, type }
+  const [targetBranch, setTargetBranch] = useState('');
+  const [reason, setReason] = useState('');
+
+  const load = () => fetch('/api/me/assets', { headers: authHeaders() }).then((r) => r.json()).then(setData).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const openReq = (asset, type) => { setModal({ asset, type }); setTargetBranch(''); setReason(''); };
+
+  const submit = async () => {
+    const res = await fetch('/api/me/assets', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ asset_id: modal.asset.id, type: modal.type, target_branch_id: targetBranch || null, reason }),
+    });
+    const d = await res.json();
+    if (res.ok) { showToast('ส่งคำขอแล้ว รอ HR อนุมัติ'); setModal(null); load(); }
+    else showToast(d.error || 'ส่งไม่สำเร็จ', true);
+  };
+
+  if (!data) return <div className="me-empty">กำลังโหลด...</div>;
+
+  return (
+    <>
+      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
+
+      {data.myRequests.length > 0 && (
+        <div className="me-card">
+          <div className="me-section-title">📨 คำขอของฉัน</div>
+          {data.myRequests.map((r) => (
+            <div key={r.id} className="me-row">
+              <span className="k">{ASSET_REQ_TYPE[r.type]} · #{r.asset_id}</span>
+              <span className={`me-badge ${STATUS_BADGE[r.status]?.cls || 'me-badge-yellow'}`}>{STATUS_BADGE[r.status]?.label || r.status}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="me-card">
+        <div className="me-section-title">📦 ทรัพย์สิน/อุปกรณ์</div>
+        {data.assets.length === 0 && <div className="me-empty">ยังไม่มีทรัพย์สิน</div>}
+        {data.assets.map((a) => (
+          <div key={a.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0', display: 'flex', gap: 12 }}>
+            {a.imageUrl
+              ? <img src={assetImg(a.imageUrl)} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 10 }} />
+              : <div style={{ width: 56, height: 56, borderRadius: 10, background: '#f1f2f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontWeight: 600 }}>{a.name}</span>
+                <span className={`me-badge ${ASSET_STATUS[a.status]?.c || 'me-badge-gray'}`}>{ASSET_STATUS[a.status]?.l || a.status}</span>
+              </div>
+              <div style={{ fontSize: 12, color: '#9aa1b5' }}>{a.code} · {a.category || '-'} · 🏬 {a.branchName}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                {a.status === 'available' && !a.isMine &&
+                  <button className="me-btn" style={{ padding: '7px 12px', width: 'auto', fontSize: 13 }} onClick={() => openReq(a, 'borrow')}>เบิก</button>}
+                {a.isMine && <>
+                  <button className="me-btn" style={{ padding: '7px 12px', width: 'auto', fontSize: 13, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => openReq(a, 'return')}>คืน</button>
+                  <button className="me-btn" style={{ padding: '7px 12px', width: 'auto', fontSize: 13, background: 'linear-gradient(135deg,#f59e0b,#fbbf24)' }} onClick={() => openReq(a, 'replace')}>ขอเปลี่ยน</button>
+                </>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {modal && (
+        <div className="me-doc-overlay" style={{ background: 'rgba(29,36,51,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setModal(null)}>
+          <div className="me-card" style={{ maxWidth: 360, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <div className="me-section-title">{ASSET_REQ_TYPE[modal.type]} · {modal.asset.name}</div>
+            {modal.type !== 'return' && (
+              <div className="me-field">
+                <label>จัดส่งไปสาขา</label>
+                <select value={targetBranch} onChange={(e) => setTargetBranch(e.target.value)}>
+                  <option value="">— เลือกสาขา —</option>
+                  {data.branches.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="me-field"><label>เหตุผล/รายละเอียด</label><textarea value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="me-btn" style={{ background: '#9aa1b5' }} onClick={() => setModal(null)}>ยกเลิก</button>
+              <button className="me-btn" onClick={submit}>ส่งคำขอ</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

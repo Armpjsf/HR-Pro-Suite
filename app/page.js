@@ -13,25 +13,15 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
-    // Check if already logged in — redirect by role
     const token = getCookie('hr-token');
     if (token) {
       try {
         const storedUser = localStorage.getItem('hr-user');
         const u = storedUser ? JSON.parse(storedUser) : null;
-        if (u?.role === 'admin' || u?.role === 'hr') {
-          router.push('/hr');
-        } else {
-          router.push('/me');
-        }
-      } catch {
-        router.push('/me');
-      }
+        router.push(u?.role === 'admin' || u?.role === 'hr' ? '/hr' : '/me');
+      } catch { router.push('/me'); }
     }
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   }, [router]);
 
   function getCookie(name) {
@@ -44,33 +34,18 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
-        setLoading(false);
-        return;
-      }
-
-      // Store user info
+      if (!res.ok) { setError(data.error || 'เข้าสู่ระบบไม่สำเร็จ'); setLoading(false); return; }
       localStorage.setItem('hr-user', JSON.stringify(data.user));
       localStorage.setItem('hr-token', data.token);
-      
-      // Redirect by role
-      if (data.user.role === 'admin' || data.user.role === 'hr') {
-        router.push('/hr');
-      } else {
-        router.push('/me');
-      }
-    } catch (err) {
+      router.push(data.user.role === 'admin' || data.user.role === 'hr' ? '/hr' : '/me');
+    } catch {
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
       setLoading(false);
     }
@@ -79,68 +54,109 @@ export default function LoginPage() {
   if (!mounted) return null;
 
   return (
-    <div className="login-page">
-      {/* Decorative orbs */}
-      <div style={{
-        position: 'fixed', top: '-20%', left: '-10%', width: '500px', height: '500px',
-        background: 'radial-gradient(circle, rgba(124,58,237,0.15), transparent 70%)',
-        borderRadius: '50%', pointerEvents: 'none', zIndex: 0, animation: 'float 8s ease-in-out infinite'
-      }} />
-      <div style={{
-        position: 'fixed', bottom: '-20%', right: '-10%', width: '600px', height: '600px',
-        background: 'radial-gradient(circle, rgba(16,185,129,0.1), transparent 70%)',
-        borderRadius: '50%', pointerEvents: 'none', zIndex: 0, animation: 'float 10s ease-in-out infinite reverse'
-      }} />
+    <div className="lg-root">
+      <div className="lg-orb lg-orb-1" />
+      <div className="lg-orb lg-orb-2" />
 
-      <div className="login-container">
-        <div className="glass-card login-card">
-          <div className="login-logo">
-            <div className="logo-icon">🤖</div>
-            <h1>HR AI Assistant</h1>
-            <p>ระบบตอบข้อมูล HR อัจฉริยะ</p>
+      <div className="lg-card">
+        <div className="lg-brand">
+          <div className="lg-logo">✦</div>
+          <div>
+            <div className="lg-title">HR Pro Suite</div>
+            <div className="lg-sub">All-in-one HR Management</div>
+          </div>
+        </div>
+
+        <h1 className="lg-welcome">ยินดีต้อนรับกลับ 👋</h1>
+        <p className="lg-welcome-sub">เข้าสู่ระบบเพื่อเริ่มใช้งาน</p>
+
+        <form onSubmit={handleSubmit}>
+          {error && <div className="lg-error">{error}</div>}
+
+          <div className="lg-field">
+            <label htmlFor="username">ชื่อผู้ใช้</label>
+            <input id="username" type="text" placeholder="กรอก username" value={username}
+              onChange={(e) => setUsername(e.target.value)} autoComplete="username" required />
           </div>
 
-          <form className="login-form" onSubmit={handleSubmit}>
-            {error && <div className="login-error">{error}</div>}
+          <div className="lg-field">
+            <label htmlFor="password">รหัสผ่าน</label>
+            <input id="password" type="password" placeholder="กรอกรหัสผ่าน" value={password}
+              onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+          </div>
 
-            <div className="input-group">
-              <label htmlFor="username">ชื่อผู้ใช้</label>
-              <input
-                id="username"
-                type="text"
-                className="input-field"
-                placeholder="กรอก username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
-                required
-              />
-            </div>
-
-            <div className="input-group">
-              <label htmlFor="password">รหัสผ่าน</label>
-              <input
-                id="password"
-                type="password"
-                className="input-field"
-                placeholder="กรอกรหัสผ่าน"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="btn btn-primary btn-lg"
-              disabled={loading}
-            >
-              {loading ? 'กำลังเข้าสู่ระบบ...' : '🔐 เข้าสู่ระบบ'}
-            </button>
-          </form>
-        </div>
+          <button type="submit" className="lg-btn" disabled={loading}>
+            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+          </button>
+        </form>
       </div>
+
+      <style jsx>{`
+        .lg-root {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          position: relative;
+          overflow: hidden;
+          background: linear-gradient(135deg, #eef0fb 0%, #e7ecfb 40%, #eaf6ff 100%);
+          font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+        }
+        .lg-orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; filter: blur(8px); }
+        .lg-orb-1 { top: -15%; left: -8%; width: 460px; height: 460px;
+          background: radial-gradient(circle, rgba(109,94,245,0.22), transparent 70%); }
+        .lg-orb-2 { bottom: -18%; right: -8%; width: 520px; height: 520px;
+          background: radial-gradient(circle, rgba(56,189,248,0.20), transparent 70%); }
+
+        .lg-card {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          max-width: 400px;
+          background: #fff;
+          border-radius: 24px;
+          box-shadow: 0 20px 50px rgba(16, 24, 40, 0.12);
+          padding: 32px 28px;
+        }
+        .lg-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+        .lg-logo {
+          width: 46px; height: 46px; border-radius: 13px;
+          background: linear-gradient(135deg, #6d5ef5, #8b7cf8);
+          display: flex; align-items: center; justify-content: center;
+          color: #fff; font-size: 22px;
+        }
+        .lg-title { font-weight: 800; font-size: 18px; background: linear-gradient(90deg,#38bdf8,#6d5ef5);
+          -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .lg-sub { font-size: 11px; color: #9aa1b5; }
+
+        .lg-welcome { font-size: 22px; font-weight: 800; color: #1d2433; margin: 0 0 4px; }
+        .lg-welcome-sub { font-size: 13.5px; color: #9aa1b5; margin: 0 0 22px; }
+
+        .lg-field { margin-bottom: 14px; }
+        .lg-field label { display: block; font-size: 12.5px; font-weight: 600; color: #5b6478; margin-bottom: 6px; }
+        .lg-field input {
+          width: 100%; padding: 12px 14px;
+          border: 1px solid #e7e9f4; border-radius: 12px;
+          background: #f6f7fc; font-size: 14px; font-family: inherit; color: #1d2433;
+          box-sizing: border-box;
+        }
+        .lg-field input:focus { outline: none; border-color: #6d5ef5; background: #fff; }
+
+        .lg-btn {
+          width: 100%; margin-top: 8px; padding: 13px;
+          border: none; border-radius: 12px;
+          background: linear-gradient(135deg, #6d5ef5, #8b7cf8);
+          color: #fff; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;
+          box-shadow: 0 8px 18px rgba(109, 94, 245, 0.35);
+        }
+        .lg-btn:disabled { opacity: 0.6; }
+
+        .lg-error {
+          background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;
+          padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 14px;
+        }
+      `}</style>
     </div>
   );
 }
