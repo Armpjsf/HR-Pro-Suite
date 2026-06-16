@@ -31,7 +31,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Username นี้ถูกใช้แล้ว' }, { status: 409 });
     }
 
-    if (role && !['admin', 'hr', 'employee'].includes(role)) {
+    if (role && !/^[a-z0-9_-]{2,20}$/i.test(role)) {
       return NextResponse.json({ error: 'บทบาทไม่ถูกต้อง' }, { status: 400 });
     }
 

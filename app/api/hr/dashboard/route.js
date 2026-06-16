@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth';
+import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 
 /**
  * GET /api/hr/dashboard — สถิติรวมสำหรับหน้า Dashboard
  */
 export async function GET(request) {
-  const { error, status } = requireRole(request, ['admin', 'hr']);
+  const { error, status } = await requireMenu(request, 'dashboard');
   if (error) return NextResponse.json({ error }, { status });
 
   const today = new Date().toISOString().slice(0, 10);

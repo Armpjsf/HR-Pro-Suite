@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { RESOURCES } from '@/lib/hr-resources';
+import { requireMenu, resourceMenuKey } from '@/lib/hr-access';
 
 /**
  * GET /api/hr/[resource]/[id]
@@ -11,7 +11,7 @@ export async function GET(request, { params }) {
   const def = RESOURCES[resource];
   if (!def) return NextResponse.json({ error: 'ไม่พบ resource นี้' }, { status: 404 });
 
-  const { error, status } = requireRole(request, def.readRoles);
+  const { error, status } = await requireMenu(request, resourceMenuKey(resource));
   if (error) return NextResponse.json({ error }, { status });
 
   const { data, error: dbError } = await supabase.from(def.table).select('*').eq('id', id).maybeSingle();
@@ -29,7 +29,7 @@ export async function PUT(request, { params }) {
   const def = RESOURCES[resource];
   if (!def) return NextResponse.json({ error: 'ไม่พบ resource นี้' }, { status: 404 });
 
-  const { error, status } = requireRole(request, def.writeRoles);
+  const { error, status } = await requireMenu(request, resourceMenuKey(resource));
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();
@@ -61,7 +61,7 @@ export async function DELETE(request, { params }) {
   const def = RESOURCES[resource];
   if (!def) return NextResponse.json({ error: 'ไม่พบ resource นี้' }, { status: 404 });
 
-  const { error, status } = requireRole(request, def.writeRoles);
+  const { error, status } = await requireMenu(request, resourceMenuKey(resource));
   if (error) return NextResponse.json({ error }, { status });
 
   const { error: dbError } = await supabase.from(def.table).delete().eq('id', id);

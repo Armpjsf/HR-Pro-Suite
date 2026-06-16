@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth';
+import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { getLineMappings, findUserByEmployeeId, addAuditEntry } from '@/lib/db';
 
@@ -13,7 +13,7 @@ function fmt(n) {
  * POST /api/hr/payroll/[id]/notify — ส่งสลิปเงินเดือนให้พนักงานทาง LINE
  */
 export async function POST(request, { params }) {
-  const { user, error, status } = requireRole(request, ['admin', 'hr']);
+  const { user, error, status } = await requireMenu(request, 'payroll');
   if (error) return NextResponse.json({ error }, { status });
 
   const { id } = await params;

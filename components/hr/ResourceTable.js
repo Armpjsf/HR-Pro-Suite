@@ -66,6 +66,17 @@ export default function ResourceTable({ config }) {
       .catch(() => {});
   }, [needEmployees]);
 
+  // โหลดรายชื่อสาขาเมื่อมี field type 'branch'
+  const [branches, setBranches] = useState([]);
+  const needBranches = fields?.some((f) => f.type === 'branch');
+  useEffect(() => {
+    if (!needBranches) return;
+    fetch('/api/hr/branches', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setBranches(d.items || []))
+      .catch(() => {});
+  }, [needBranches]);
+
   function onSearch(value) {
     setSearch(value);
     clearTimeout(searchTimer.current);
@@ -125,6 +136,11 @@ export default function ResourceTable({ config }) {
 
   function renderCell(col, row) {
     const value = row[col.key];
+    if (col.branchLookup) {
+      if (value === null || value === undefined || value === '') return 'ทุกสาขา';
+      const b = branches.find((x) => x.id === value);
+      return b ? `${b.code} · ${b.name}` : value;
+    }
     if (col.badge) {
       const color = col.badge[value] || 'gray';
       return <span className={`hr-badge hr-badge-${color}`}>{col.badgeLabels?.[value] || value || '-'}</span>;
@@ -153,6 +169,16 @@ export default function ResourceTable({ config }) {
             <option key={emp.employeeId} value={emp.employeeId}>
               {emp.employeeId} · {emp.name}
             </option>
+          ))}
+        </select>
+      );
+    }
+    if (f.type === 'branch') {
+      return (
+        <select value={value ?? ''} onChange={(e) => set(e.target.value === '' ? '' : Number(e.target.value))} required={f.required}>
+          <option value="">{f.allLabel || '— ทุกสาขา —'}</option>
+          {branches.map((b) => (
+            <option key={b.id} value={b.id}>{b.code} · {b.name}</option>
           ))}
         </select>
       );

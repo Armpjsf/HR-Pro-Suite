@@ -116,6 +116,16 @@ export async function POST(request) {
       return NextResponse.json({ error: 'คุณเข้างานวันนี้แล้ว' }, { status: 400 });
     }
 
+    // ตรวจสาย จากตั้งค่าเวลาทำงานบริษัท
+    let clockStatus = 'normal';
+    const { data: ws } = await supabase.from('work_settings').select('*').eq('id', 1).maybeSingle();
+    if (ws?.standard_in) {
+      const [sh, sm] = ws.standard_in.split(':').map(Number);
+      const [nh, nm] = nowTime.split(':').map(Number);
+      const limit = sh * 60 + sm + (Number(ws.late_grace_min) || 0);
+      if (nh * 60 + nm > limit) clockStatus = 'late';
+    }
+
     const insertData = {
       employee_id: user.employeeId,
       work_date: today,
@@ -124,7 +134,7 @@ export async function POST(request) {
       clock_in_lng: longitude || null,
       check_type,
       location_name: locationName,
-      status: 'normal',
+      status: clockStatus,
     };
 
     const { data: record, error: dbError } = await supabase
@@ -141,7 +151,7 @@ export async function POST(request) {
       channel: 'ME',
     });
 
-    return NextResponse.json({ message: 'บันทึกเข้างานเรียบร้อย', record });
+    return NextResponse.json({ message: clockStatus === 'late' ? 'บันทึกเข้างานเรียบร้อย (มาสาย)' : 'บันทึกเข้างานเรียบร้อย', record });
   }
 
   // action === 'out'

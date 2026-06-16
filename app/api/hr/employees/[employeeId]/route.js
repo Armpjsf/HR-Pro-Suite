@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth';
+import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase';
  * ไม่แตะ username/password/role — ไปจัดการที่ /admin/users
  */
 export async function PUT(request, { params }) {
-  const { error, status } = requireRole(request, ['admin', 'hr']);
+  const { error, status } = await requireMenu(request, 'employees');
   if (error) return NextResponse.json({ error }, { status });
 
   const { employeeId } = await params;
@@ -28,6 +28,8 @@ export async function PUT(request, { params }) {
   if (body.nameEn !== undefined) userUpdates.name_en = body.nameEn || null;
   if (body.email !== undefined) userUpdates.email = body.email || null;
   if (body.department !== undefined) userUpdates.department = body.department || null;
+  if (body.branchId !== undefined) userUpdates.branch_id = body.branchId === '' ? null : Number(body.branchId);
+  if (body.managerId !== undefined) userUpdates.manager_id = body.managerId || null;
 
   if (Object.keys(userUpdates).length > 0) {
     const { error: uErr } = await supabase
@@ -41,6 +43,15 @@ export async function PUT(request, { params }) {
     employee_id: employeeId,
     position: body.position || null,
     start_date: body.startDate || null,
+    salary: Number(body.salary) || 0,
+    national_id: body.nationalId || null,
+    bank_name: body.bankName || null,
+    bank_account: body.bankAccount || null,
+    tax_id: body.taxId || null,
+    birth_date: body.birthDate || null,
+    probation_end: body.probationEnd || null,
+    contract_end: body.contractEnd || null,
+    license_expiry: body.licenseExpiry || null,
     leave_annual_total: Number(body.leaveAnnualTotal) || 0,
     leave_annual_used: Number(body.leaveAnnualUsed) || 0,
     leave_sick_total: Number(body.leaveSickTotal) || 0,

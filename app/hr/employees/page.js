@@ -22,7 +22,9 @@ const EXPORT_COLUMNS = [
 ];
 
 const EMPTY_FORM = {
-  name: '', nameEn: '', email: '', department: '', position: '', startDate: '',
+  name: '', nameEn: '', email: '', department: '', branchId: '', managerId: '', position: '', startDate: '',
+  salary: 0, nationalId: '', bankName: '', bankAccount: '', taxId: '',
+  birthDate: '', probationEnd: '', contractEnd: '', licenseExpiry: '',
   leaveAnnualTotal: 0, leaveAnnualUsed: 0,
   leaveSickTotal: 0, leaveSickUsed: 0,
   leavePersonalTotal: 0, leavePersonalUsed: 0,
@@ -42,13 +44,24 @@ export default function EmployeesPage() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
+  const [branches, setBranches] = useState([]);
+
   const load = useCallback(async () => {
     const res = await fetch('/api/hr/employees', { headers: authHeaders() });
     const data = await res.json();
     if (res.ok) setEmployees(data.employees || []);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    fetch('/api/hr/branches', { headers: authHeaders() })
+      .then((r) => r.json()).then((d) => setBranches(d.items || [])).catch(() => {});
+  }, [load]);
+
+  const branchName = (id) => {
+    const b = branches.find((x) => x.id === id);
+    return b ? `${b.code} · ${b.name}` : '-';
+  };
 
   const filtered = employees.filter((e) => {
     const q = search.toLowerCase();
@@ -61,7 +74,9 @@ export default function EmployeesPage() {
     setEditing(emp);
     setForm({
       name: emp.name || '', nameEn: emp.nameEn || '', email: emp.email || '',
-      department: emp.department || '', position: emp.position || '', startDate: emp.startDate || '',
+      department: emp.department || '', branchId: emp.branchId ?? '', managerId: emp.managerId || '', position: emp.position || '', startDate: emp.startDate || '',
+      salary: emp.salary ?? 0, nationalId: emp.nationalId || '', bankName: emp.bankName || '', bankAccount: emp.bankAccount || '', taxId: emp.taxId || '',
+      birthDate: emp.birthDate || '', probationEnd: emp.probationEnd || '', contractEnd: emp.contractEnd || '', licenseExpiry: emp.licenseExpiry || '',
       leaveAnnualTotal: emp.leaveAnnualTotal, leaveAnnualUsed: emp.leaveAnnualUsed,
       leaveSickTotal: emp.leaveSickTotal, leaveSickUsed: emp.leaveSickUsed,
       leavePersonalTotal: emp.leavePersonalTotal, leavePersonalUsed: emp.leavePersonalUsed,
@@ -134,6 +149,7 @@ export default function EmployeesPage() {
                 </div>
               </div>
               <div className="hr-emp-row"><span className="k">🏢 แผนก</span><span className="v">{emp.department || '-'}</span></div>
+              <div className="hr-emp-row"><span className="k">🏬 สาขา</span><span className="v">{emp.branchId ? branchName(emp.branchId) : '-'}</span></div>
               <div className="hr-emp-row"><span className="k">💼 ตำแหน่ง</span><span className="v">{emp.position || '-'}</span></div>
               <div className="hr-emp-row"><span className="k">📅 เริ่มงาน</span><span className="v">{emp.startDate || '-'}</span></div>
               <div className="hr-emp-row">
@@ -187,8 +203,37 @@ export default function EmployeesPage() {
               <div className="hr-field"><label>ชื่อ (อังกฤษ)</label><input className="hr-input" value={form.nameEn} onChange={set('nameEn')} /></div>
               <div className="hr-field"><label>อีเมล</label><input className="hr-input" value={form.email} onChange={set('email')} /></div>
               <div className="hr-field"><label>แผนก</label><input className="hr-input" value={form.department} onChange={set('department')} /></div>
+              <div className="hr-field">
+                <label>สาขา</label>
+                <select value={form.branchId} onChange={(e) => setForm((p) => ({ ...p, branchId: e.target.value }))}>
+                  <option value="">— ไม่ระบุ —</option>
+                  {branches.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                </select>
+              </div>
+              <div className="hr-field">
+                <label>หัวหน้างาน (ผู้อนุมัติลำดับแรก)</label>
+                <select value={form.managerId} onChange={(e) => setForm((p) => ({ ...p, managerId: e.target.value }))}>
+                  <option value="">— ไม่ระบุ —</option>
+                  {employees.filter((x) => x.employeeId !== editing?.employeeId).map((x) => (
+                    <option key={x.employeeId} value={x.employeeId}>{x.employeeId} · {x.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="hr-field"><label>ตำแหน่ง</label><input className="hr-input" value={form.position} onChange={set('position')} /></div>
               <div className="hr-field"><label>วันเริ่มงาน</label><input className="hr-input" type="date" value={form.startDate} onChange={set('startDate')} /></div>
+
+              <div className="hr-section-title" style={{ marginTop: 16 }}>ข้อมูลสำหรับสลิป/ภาษี/โอนเงิน</div>
+              <div className="hr-field"><label>เงินเดือนฐาน (บาท/เดือน)</label><input className="hr-input" type="number" step="any" value={form.salary} onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value === '' ? 0 : Number(e.target.value) }))} /></div>
+              <div className="hr-field"><label>เลขบัตรประชาชน</label><input className="hr-input" value={form.nationalId} onChange={set('nationalId')} /></div>
+              <div className="hr-field"><label>เลขผู้เสียภาษี</label><input className="hr-input" value={form.taxId} onChange={set('taxId')} /></div>
+              <div className="hr-field"><label>ธนาคาร</label><input className="hr-input" value={form.bankName} onChange={set('bankName')} /></div>
+              <div className="hr-field"><label>เลขบัญชี</label><input className="hr-input" value={form.bankAccount} onChange={set('bankAccount')} /></div>
+
+              <div className="hr-section-title" style={{ marginTop: 16 }}>วันสำคัญ (ใช้แจ้งเตือนอัตโนมัติ)</div>
+              <div className="hr-field"><label>วันเกิด</label><input className="hr-input" type="date" value={form.birthDate} onChange={set('birthDate')} /></div>
+              <div className="hr-field"><label>ครบกำหนดทดลองงาน</label><input className="hr-input" type="date" value={form.probationEnd} onChange={set('probationEnd')} /></div>
+              <div className="hr-field"><label>วันหมดสัญญาจ้าง</label><input className="hr-input" type="date" value={form.contractEnd} onChange={set('contractEnd')} /></div>
+              <div className="hr-field"><label>วันหมดอายุใบขับขี่</label><input className="hr-input" type="date" value={form.licenseExpiry} onChange={set('licenseExpiry')} /></div>
 
               <div className="hr-section-title" style={{ marginTop: 16 }}>สิทธิ์วันลา (chatbot ใช้ข้อมูลนี้ตอบพนักงาน)</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>

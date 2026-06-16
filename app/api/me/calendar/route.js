@@ -16,7 +16,25 @@ export async function GET(request) {
   const [y, m] = month.split('-').map(Number);
   const endDate = new Date(y, m, 0).toISOString().slice(0, 10);
 
-  const [shifts, leaves, attendance] = await Promise.all([
+  // หาสาขาของพนักงาน เพื่อดึงวันหยุดเฉพาะสาขา + วันหยุดทุกสาขา
+  const { data: me } = await supabase
+    .from('users')
+    .select('branch_id')
+    .eq('employee_id', user.employeeId)
+    .maybeSingle();
+  const branchId = me?.branch_id ?? null;
+
+  let holidayQuery = supabase
+    .from('holidays')
+    .select('*')
+    .gte('holiday_date', startDate)
+    .lte('holiday_date', endDate)
+    .order('holiday_date');
+  holidayQuery = branchId
+    ? holidayQuery.or(`branch_id.is.null,branch_id.eq.${branchId}`)
+    : holidayQuery.is('branch_id', null);
+
+  const [shifts, leaves, attendance, holidays] = await Promise.all([
     supabase
       .from('shifts')
       .select('*')
@@ -39,6 +57,7 @@ export async function GET(request) {
       .gte('work_date', startDate)
       .lte('work_date', endDate)
       .order('work_date'),
+    holidayQuery,
   ]);
 
   return NextResponse.json({
@@ -46,5 +65,6 @@ export async function GET(request) {
     shifts: shifts.data || [],
     leaves: leaves.data || [],
     attendance: attendance.data || [],
+    holidays: holidays.data || [],
   });
 }

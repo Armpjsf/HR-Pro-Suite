@@ -44,8 +44,9 @@ export async function POST(request) {
       );
     }
 
-    if (!['admin', 'hr', 'employee'].includes(role)) {
-      return NextResponse.json({ error: 'บทบาทไม่ถูกต้อง' }, { status: 400 });
+    // อนุญาต role กำหนดเองได้ (เช่น accounting, manager) — สิทธิ์คุมที่หน้าตั้งค่าสิทธิ์
+    if (!role || typeof role !== 'string' || !/^[a-z0-9_-]{2,20}$/i.test(role)) {
+      return NextResponse.json({ error: 'บทบาทไม่ถูกต้อง (ใช้ a-z, 0-9, -, _ 2-20 ตัว)' }, { status: 400 });
     }
 
     const users = await getUsers();

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth';
+import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 
 /**
  * GET /api/hr/locations — รายการจุดปักหมุด GPS
  */
 export async function GET(request) {
-  const { user, error, status } = requireRole(request, ['admin', 'hr']);
+  const { user, error, status } = await requireMenu(request, 'locations');
   if (error) return NextResponse.json({ error }, { status });
 
   const { data, error: dbError } = await supabase
@@ -22,7 +22,7 @@ export async function GET(request) {
  * POST /api/hr/locations — เพิ่มจุดปักหมุดใหม่
  */
 export async function POST(request) {
-  const { user, error, status } = requireRole(request, ['admin', 'hr']);
+  const { user, error, status } = await requireMenu(request, 'locations');
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();
@@ -46,7 +46,7 @@ export async function POST(request) {
  * PUT /api/hr/locations — อัปเดตจุดปักหมุด
  */
 export async function PUT(request) {
-  const { user, error, status } = requireRole(request, ['admin', 'hr']);
+  const { user, error, status } = await requireMenu(request, 'locations');
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();
@@ -68,7 +68,7 @@ export async function PUT(request) {
  * DELETE /api/hr/locations — ลบจุดปักหมุด
  */
 export async function DELETE(request) {
-  const { user, error, status } = requireRole(request, ['admin', 'hr']);
+  const { user, error, status } = await requireMenu(request, 'locations');
   if (error) return NextResponse.json({ error }, { status });
 
   const { searchParams } = new URL(request.url);

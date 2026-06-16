@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { COMPANY } from '@/lib/company';
 import './me.css';
 
 /* ─── Constants ─── */
@@ -77,7 +78,7 @@ export default function EmployeePage() {
         {tab === 'leave' && <LeaveTab data={data} setData={setData} showToast={showToast} />}
         {tab === 'chat' && <ChatTab user={user} />}
         {tab === 'payslip' && <PayslipTab data={data} />}
-        {tab === 'more' && <MoreTab user={user} router={router} showToast={showToast} />}
+        {tab === 'more' && <MoreTab user={user} router={router} showToast={showToast} data={data} />}
       </div>
 
       {/* ── Bottom Tab Bar ── */}
@@ -396,20 +397,26 @@ function ChatTab({ user }) {
 function PayslipTab({ data }) {
   const slips = data.payslips || [];
   const [selected, setSelected] = useState(slips[0] || null);
+  const [showDoc, setShowDoc] = useState(false);
+
+  const num = (v) => Number(v || 0).toLocaleString();
 
   return (
     <>
       {selected && (
         <div className="me-card">
           <div className="me-section-title">💰 สลิปเงินเดือน งวด {selected.period}</div>
-          <div className="me-row"><span className="k">เงินเดือน</span><span className="v">{Number(selected.base_salary).toLocaleString()} ฿</span></div>
-          <div className="me-row"><span className="k">ค่าล่วงเวลา (OT)</span><span className="v">{Number(selected.ot_pay).toLocaleString()} ฿</span></div>
-          <div className="me-row"><span className="k">โบนัส</span><span className="v">{Number(selected.bonus).toLocaleString()} ฿</span></div>
-          <div className="me-row"><span className="k">รายการหัก</span><span className="v" style={{ color: '#dc2626' }}>-{Number(selected.deduction).toLocaleString()} ฿</span></div>
+          <div className="me-row"><span className="k">เงินเดือน</span><span className="v">{num(selected.base_salary)} ฿</span></div>
+          <div className="me-row"><span className="k">ค่าล่วงเวลา (OT)</span><span className="v">{num(selected.ot_pay)} ฿</span></div>
+          <div className="me-row"><span className="k">โบนัส</span><span className="v">{num(selected.bonus)} ฿</span></div>
+          <div className="me-row"><span className="k">หักภาษี ณ ที่จ่าย</span><span className="v" style={{ color: '#dc2626' }}>-{num(selected.tax)} ฿</span></div>
+          <div className="me-row"><span className="k">หักประกันสังคม</span><span className="v" style={{ color: '#dc2626' }}>-{num(selected.sso)} ฿</span></div>
+          <div className="me-row"><span className="k">หักอื่นๆ</span><span className="v" style={{ color: '#dc2626' }}>-{num(selected.deduction)} ฿</span></div>
           <div className="me-row" style={{ borderTop: '2px solid #e7e9f4' }}>
             <span className="k" style={{ fontWeight: 700 }}>รับสุทธิ</span>
-            <span className="me-slip-net">{Number(selected.net).toLocaleString()} ฿</span>
+            <span className="me-slip-net">{num(selected.net)} ฿</span>
           </div>
+          <button className="me-btn" style={{ marginTop: 12 }} onClick={() => setShowDoc(true)}>🖨️ ดู/พิมพ์สลิป (PDF)</button>
         </div>
       )}
       <div className="me-card">
@@ -418,16 +425,69 @@ function PayslipTab({ data }) {
         {slips.map((s) => (
           <div key={s.id} className="me-row" style={{ cursor: 'pointer' }} onClick={() => setSelected(s)}>
             <span className="k">งวด {s.period}</span>
-            <span className="v">{Number(s.net).toLocaleString()} ฿</span>
+            <span className="v">{num(s.net)} ฿</span>
           </div>
         ))}
       </div>
+
+      {showDoc && selected && (
+        <SlipDocument slip={selected} profile={data.profile} onClose={() => setShowDoc(false)} />
+      )}
     </>
   );
 }
 
+/* ─── เอกสารสลิปเงินเดือน (พิมพ์ได้) ─── */
+function SlipDocument({ slip, profile, onClose }) {
+  const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (
+    <div className="me-doc-overlay">
+      <div className="me-doc-actions">
+        <button className="me-badge me-badge-gray" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={onClose}>← ปิด</button>
+        <button className="me-badge me-badge-purple" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => window.print()}>🖨️ พิมพ์ / บันทึก PDF</button>
+      </div>
+      <div className="me-doc-print">
+        <div className="me-doc">
+          <div className="me-doc-head">
+            <div className="me-doc-co">{COMPANY.name}</div>
+            <div className="me-doc-addr">{COMPANY.address}</div>
+            <div className="me-doc-title">สลิปเงินเดือน (Pay Slip) งวด {slip.period}</div>
+          </div>
+          <table className="me-doc-meta">
+            <tbody>
+              <tr><td>ชื่อพนักงาน</td><td>{profile.name}</td><td>รหัส</td><td>{profile.employeeId}</td></tr>
+              <tr><td>ตำแหน่ง</td><td>{profile.position || '-'}</td><td>แผนก</td><td>{profile.department || '-'}</td></tr>
+              <tr><td>ธนาคาร</td><td>{profile.bankName || '-'}</td><td>เลขบัญชี</td><td>{profile.bankAccount || '-'}</td></tr>
+            </tbody>
+          </table>
+          <table className="me-doc-table">
+            <thead><tr><th>รายได้</th><th className="r">จำนวน (บาท)</th><th>รายการหัก</th><th className="r">จำนวน (บาท)</th></tr></thead>
+            <tbody>
+              <tr><td>เงินเดือน</td><td className="r">{num(slip.base_salary)}</td><td>ภาษี ณ ที่จ่าย</td><td className="r">{num(slip.tax)}</td></tr>
+              <tr><td>ค่าล่วงเวลา (OT)</td><td className="r">{num(slip.ot_pay)}</td><td>ประกันสังคม</td><td className="r">{num(slip.sso)}</td></tr>
+              <tr><td>โบนัส</td><td className="r">{num(slip.bonus)}</td><td>หักอื่นๆ</td><td className="r">{num(slip.deduction)}</td></tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>รวมรายได้</td><td className="r">{num(Number(slip.base_salary) + Number(slip.ot_pay) + Number(slip.bonus))}</td>
+                <td>รวมหัก</td><td className="r">{num(Number(slip.tax) + Number(slip.sso) + Number(slip.deduction))}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <div className="me-doc-net">เงินได้สุทธิ: {num(slip.net)} บาท</div>
+          <div className="me-doc-sign">
+            <div>ลงชื่อ ......................................... พนักงาน</div>
+            <div>ลงชื่อ ......................................... ฝ่ายบุคคล</div>
+          </div>
+          <div className="me-doc-foot">เอกสารนี้ออกโดยระบบ HR — ใช้ประกอบการอ้างอิงรายได้</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════ MORE TAB ═══════════════════ */
-function MoreTab({ user, router, showToast }) {
+function MoreTab({ user, router, showToast, data }) {
   const [subTab, setSubTab] = useState(null);
 
   const menus = [
@@ -435,12 +495,18 @@ function MoreTab({ user, router, showToast }) {
     { id: 'calendar', icon: '📆', label: 'ปฏิทินงาน', desc: 'ดูตารางกะ วันลา วันหยุด' },
     { id: 'attendance', icon: '⏰', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติ Clock-in/out ย้อนหลัง' },
     { id: 'evaluation', icon: '⭐', label: 'ประเมินเพื่อนร่วมงาน', desc: 'ให้คะแนน + ดูผลประเมิน' },
+    { id: 'taxcert', icon: '🧾', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้-ภาษีทั้งปี พิมพ์ได้' },
+    { id: 'allowance', icon: '📝', label: 'แบบลดหย่อนภาษี (ลย.01)', desc: 'กรอกค่าลดหย่อนส่งให้ HR' },
+    ...(data?.isManager ? [{ id: 'teamleave', icon: '✅', label: 'อนุมัติการลาทีม', desc: 'อนุมัติใบลาของลูกทีม (หัวหน้า)' }] : []),
   ];
 
   if (subTab === 'expenses') return <ExpensesSection back={() => setSubTab(null)} showToast={showToast} />;
   if (subTab === 'calendar') return <CalendarSection back={() => setSubTab(null)} />;
   if (subTab === 'attendance') return <AttendanceSection back={() => setSubTab(null)} />;
   if (subTab === 'evaluation') return <EvaluationSection back={() => setSubTab(null)} showToast={showToast} />;
+  if (subTab === 'taxcert') return <TaxCertSection back={() => setSubTab(null)} profile={data?.profile} />;
+  if (subTab === 'allowance') return <AllowanceSection back={() => setSubTab(null)} showToast={showToast} />;
+  if (subTab === 'teamleave') return <TeamLeaveSection back={() => setSubTab(null)} showToast={showToast} />;
 
   return (
     <>
@@ -559,10 +625,12 @@ function CalendarSection({ back }) {
   const shiftMap = {};
   const leaveMap = {};
   const attendMap = {};
+  const holidayMap = {};
   if (data) {
     (data.shifts || []).forEach((s) => { shiftMap[s.shift_date] = s; });
     (data.leaves || []).forEach((l) => { for (let d = new Date(l.start_date); d <= new Date(l.end_date); d.setDate(d.getDate() + 1)) leaveMap[d.toISOString().slice(0, 10)] = l; });
     (data.attendance || []).forEach((a) => { attendMap[a.work_date] = a; });
+    (data.holidays || []).forEach((h) => { holidayMap[h.holiday_date] = h; });
   }
 
   const changeMonth = (delta) => {
@@ -589,14 +657,16 @@ function CalendarSection({ back }) {
             const shift = shiftMap[dateStr];
             const leave = leaveMap[dateStr];
             const attend = attendMap[dateStr];
+            const holiday = holidayMap[dateStr];
             const dow = new Date(y, m - 1, day).getDay();
             return (
               <div key={day} style={{
                 padding: '6px 2px', borderRadius: 10, minHeight: 52,
                 border: isToday ? '2px solid #6d5ef5' : '1px solid #f1f2f8',
-                background: leave ? '#fef3c7' : attend ? '#f0fdf4' : '#fff',
+                background: holiday ? '#fee2e2' : leave ? '#fef3c7' : attend ? '#f0fdf4' : '#fff',
               }}>
-                <div style={{ fontWeight: 600, color: dow === 0 || dow === 6 ? '#dc2626' : undefined, fontSize: 13 }}>{day}</div>
+                <div style={{ fontWeight: 600, color: holiday || dow === 0 || dow === 6 ? '#dc2626' : undefined, fontSize: 13 }}>{day}</div>
+                {holiday && <div style={{ fontSize: 8.5, color: '#dc2626', lineHeight: 1.1 }} title={holiday.name}>🎌{holiday.name.length > 6 ? holiday.name.slice(0, 6) + '…' : holiday.name}</div>}
                 {attend && <div style={{ fontSize: 9, color: '#16a34a' }}>✅{attend.clock_in?.slice(0, 5)}</div>}
                 {leave && <div style={{ fontSize: 9, color: '#b45309' }}>🏖️{LEAVE_LABELS[leave.leave_type]?.[0] || 'ลา'}</div>}
                 {shift && <div style={{ fontSize: 9, color: '#6d28d9' }}>{shift.shift_type === 'morning' ? '🌅เช้า' : shift.shift_type === 'afternoon' ? '🌇บ่าย' : shift.shift_type === 'night' ? '🌙ดึก' : '⬜หยุด'}</div>}
@@ -720,6 +790,198 @@ function EvaluationSection({ back, showToast }) {
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+/* ─── 50 ทวิ (หนังสือรับรองหักภาษี ณ ที่จ่าย) ─── */
+function TaxCertSection({ back, profile }) {
+  const thisYearBE = new Date().getFullYear() + 543;
+  const [year, setYear] = useState(thisYearBE);
+  const [data, setData] = useState(null);
+  const [showDoc, setShowDoc] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/me/tax-cert?year=${year}`, { headers: authHeaders() })
+      .then((r) => r.json()).then(setData).catch(() => {});
+  }, [year]);
+
+  const num = (v) => Number(v || 0).toLocaleString();
+
+  return (
+    <>
+      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
+      <div className="me-card">
+        <div className="me-section-title">🧾 หนังสือรับรองหักภาษี ณ ที่จ่าย (50 ทวิ)</div>
+        <div className="me-field">
+          <label>ปีภาษี (พ.ศ.)</label>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
+            {[thisYearBE, thisYearBE - 1, thisYearBE - 2].map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        {data && (
+          <>
+            <div className="me-row"><span className="k">เงินได้รวมทั้งปี</span><span className="v">{num(data.totalIncome)} ฿</span></div>
+            <div className="me-row"><span className="k">ภาษีหัก ณ ที่จ่ายรวม</span><span className="v">{num(data.totalTax)} ฿</span></div>
+            <div className="me-row"><span className="k">ประกันสังคมรวม</span><span className="v">{num(data.totalSso)} ฿</span></div>
+            <div className="me-row"><span className="k">จำนวนงวด</span><span className="v">{data.months} งวด</span></div>
+            {data.months > 0
+              ? <button className="me-btn" style={{ marginTop: 12 }} onClick={() => setShowDoc(true)}>🖨️ ดู/พิมพ์ 50 ทวิ (PDF)</button>
+              : <div className="me-empty">ยังไม่มีข้อมูลเงินเดือนในปีนี้</div>}
+          </>
+        )}
+      </div>
+      {showDoc && data && <TaxCertDocument cert={data} profile={profile} onClose={() => setShowDoc(false)} />}
+    </>
+  );
+}
+
+function TaxCertDocument({ cert, profile, onClose }) {
+  const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (
+    <div className="me-doc-overlay">
+      <div className="me-doc-actions">
+        <button className="me-badge me-badge-gray" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={onClose}>← ปิด</button>
+        <button className="me-badge me-badge-purple" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => window.print()}>🖨️ พิมพ์ / บันทึก PDF</button>
+      </div>
+      <div className="me-doc-print">
+        <div className="me-doc">
+          <div className="me-doc-head">
+            <div className="me-doc-co">{COMPANY.name}</div>
+            <div className="me-doc-addr">{COMPANY.address}</div>
+            <div className="me-doc-title">หนังสือรับรองการหักภาษี ณ ที่จ่าย (ตามมาตรา 50 ทวิ) — ปีภาษี {cert.year}</div>
+          </div>
+          <table className="me-doc-meta">
+            <tbody>
+              <tr><td>ผู้มีเงินได้</td><td>{profile?.name || '-'}</td><td>รหัสพนักงาน</td><td>{profile?.employeeId || '-'}</td></tr>
+              <tr><td>เลขประจำตัวผู้เสียภาษี</td><td>{profile?.taxId || '-'}</td><td>เลขบัตรประชาชน</td><td>{profile?.nationalId || '-'}</td></tr>
+            </tbody>
+          </table>
+          <table className="me-doc-table">
+            <thead><tr><th>รายการ</th><th className="r">จำนวนเงิน (บาท)</th></tr></thead>
+            <tbody>
+              <tr><td>เงินได้พึงประเมินทั้งปี (เงินเดือน + OT + โบนัส)</td><td className="r">{num(cert.totalIncome)}</td></tr>
+              <tr><td>ภาษีที่หักและนำส่ง</td><td className="r">{num(cert.totalTax)}</td></tr>
+              <tr><td>เงินสมทบประกันสังคม</td><td className="r">{num(cert.totalSso)}</td></tr>
+            </tbody>
+          </table>
+          <div className="me-doc-sign">
+            <div>ลงชื่อ ......................................... ผู้จ่ายเงิน</div>
+            <div>วันที่ ......./......./.........</div>
+          </div>
+          <div className="me-doc-foot">ออกให้เพื่อเป็นหลักฐานในการยื่นแบบแสดงรายการภาษีเงินได้บุคคลธรรมดา</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── แบบลดหย่อนภาษี (ลย.01) ─── */
+const ALLOWANCE_FIELDS = [
+  { key: 'spouse', label: 'คู่สมรสไม่มีเงินได้ (60,000)' },
+  { key: 'children', label: 'จำนวนบุตร (คนละ 30,000)' },
+  { key: 'parents', label: 'บิดามารดา (คนละ 30,000)' },
+  { key: 'life_insurance', label: 'เบี้ยประกันชีวิต (บาท)' },
+  { key: 'health_insurance', label: 'เบี้ยประกันสุขภาพ (บาท)' },
+  { key: 'provident_fund', label: 'กองทุนสำรองเลี้ยงชีพ (บาท)' },
+  { key: 'donation', label: 'เงินบริจาค (บาท)' },
+  { key: 'mortgage', label: 'ดอกเบี้ยกู้ซื้อบ้าน (บาท)' },
+];
+
+function AllowanceSection({ back, showToast }) {
+  const thisYearBE = new Date().getFullYear() + 543;
+  const [year, setYear] = useState(thisYearBE);
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/me/allowances?year=${year}`, { headers: authHeaders() })
+      .then((r) => r.json()).then((d) => setForm(d.allowance?.data || {})).catch(() => {});
+  }, [year]);
+
+  const save = async () => {
+    setSaving(true);
+    const res = await fetch('/api/me/allowances', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ year, data: form }),
+    });
+    setSaving(false);
+    if (res.ok) showToast('บันทึกแบบลดหย่อนแล้ว ส่งให้ HR เรียบร้อย');
+    else showToast('บันทึกไม่สำเร็จ', true);
+  };
+
+  return (
+    <>
+      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
+      <div className="me-card">
+        <div className="me-section-title">📝 แบบแจ้งรายการลดหย่อนภาษี (ลย.01)</div>
+        <div className="me-field">
+          <label>ปีภาษี (พ.ศ.)</label>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
+            {[thisYearBE, thisYearBE + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        {ALLOWANCE_FIELDS.map((f) => (
+          <div className="me-field" key={f.key}>
+            <label>{f.label}</label>
+            <input className="me-input" type="number" value={form[f.key] ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value === '' ? '' : Number(e.target.value) }))} />
+          </div>
+        ))}
+        <button className="me-btn" disabled={saving} onClick={save}>{saving ? 'กำลังบันทึก...' : '💾 บันทึกส่งให้ HR'}</button>
+      </div>
+    </>
+  );
+}
+
+/* ─── อนุมัติการลาทีม (สำหรับหัวหน้า) ─── */
+function TeamLeaveSection({ back, showToast }) {
+  const [items, setItems] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = () => fetch('/api/me/team-leave', { headers: authHeaders() })
+    .then((r) => r.json()).then((d) => { setItems(d.items || []); setLoaded(true); }).catch(() => setLoaded(true));
+
+  useEffect(() => { load(); }, []);
+
+  const act = async (id, action) => {
+    const res = await fetch('/api/me/team-leave', {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ id, action }),
+    });
+    const d = await res.json();
+    if (res.ok) { showToast(action === 'approve' ? 'อนุมัติแล้ว (ส่งต่อ HR)' : 'ปฏิเสธแล้ว'); load(); }
+    else showToast(d.error || 'ไม่สำเร็จ', true);
+  };
+
+  const LB = { annual: 'พักร้อน', sick: 'ลาป่วย', personal: 'ลากิจ' };
+
+  return (
+    <>
+      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
+      <div className="me-card">
+        <div className="me-section-title">✅ อนุมัติการลาของลูกทีม</div>
+        {loaded && items.length === 0 && <div className="me-empty">ไม่มีใบลา</div>}
+        {items.map((l) => (
+          <div key={l.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontWeight: 600 }}>{l.employeeName}</span>
+              <span className={`me-badge ${l.manager_status === 'pending' ? 'me-badge-yellow' : l.manager_status === 'approved' ? 'me-badge-green' : 'me-badge-red'}`}>
+                {l.manager_status === 'pending' ? 'รออนุมัติ' : l.manager_status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธ'}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: '#5b6478', margin: '4px 0' }}>
+              {LB[l.leave_type] || l.leave_type} · {l.days} วัน · {l.start_date} ถึง {l.end_date}
+            </div>
+            {l.reason && <div style={{ fontSize: 12.5, color: '#9aa1b5' }}>เหตุผล: {l.reason}</div>}
+            {l.manager_status === 'pending' && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => act(l.id, 'approve')}>✓ อนุมัติ</button>
+                <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#ef4444,#f87171)' }} onClick={() => act(l.id, 'reject')}>✗ ปฏิเสธ</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </>
   );
 }

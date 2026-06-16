@@ -22,6 +22,12 @@ export async function GET(request) {
     supabase.from('time_records').select('*').eq('employee_id', employeeId).eq('work_date', new Date().toISOString().slice(0, 10)).maybeSingle(),
   ]);
 
+  // เป็นหัวหน้าหรือไม่ (มีลูกทีมที่ตั้ง manager_id เป็นเรา)
+  const { count: reportCount } = await supabase
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .eq('manager_id', employeeId);
+
   const rec = record.data || {};
   const leaveBalance = {
     annual: {
@@ -49,6 +55,10 @@ export async function GET(request) {
       position: rec.position || '',
       startDate: rec.start_date || '',
       avatar: user.avatar || '👤',
+      nationalId: rec.national_id || '',
+      taxId: rec.tax_id || '',
+      bankName: rec.bank_name || '',
+      bankAccount: rec.bank_account || '',
     },
     leaveBalance,
     leaves: leaves.data || [],
@@ -56,5 +66,6 @@ export async function GET(request) {
     shifts: shifts.data || [],
     announcements: announcements.data || [],
     todayClock: todayClockResult.data || null,
+    isManager: (reportCount || 0) > 0,
   });
 }

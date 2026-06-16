@@ -3,58 +3,46 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { HR_MENUS } from '@/lib/hr-menus';
+import { authHeaders } from '@/components/hr/exportUtils';
 import './hr.css';
 
-const MENUS = [
-  { href: '/hr', icon: '📊', label: 'Dashboard' },
-  { href: '/hr/chat', icon: '💬', label: 'แชท AI' },
-  { href: '/hr/employees', icon: '👥', label: 'พนักงาน' },
-  { href: '/hr/departments', icon: '🏢', label: 'แผนก' },
-  { href: '/hr/positions', icon: '💼', label: 'ตำแหน่งงาน' },
-  { href: '/hr/time', icon: '🕐', label: 'บันทึกเวลา' },
-  { href: '/hr/leave', icon: '🏖️', label: 'การลา' },
-  { href: '/hr/payroll', icon: '💰', label: 'เงินเดือน' },
-  { href: '/hr/ot', icon: '⏱️', label: 'ค่าล่วงเวลา (OT)' },
-  { href: '/hr/shifts', icon: '📅', label: 'จัดกะ' },
-  { href: '/hr/recruitment', icon: '📣', label: 'สรรหา' },
-  { href: '/hr/applicants', icon: '🧑‍💼', label: 'ผู้สมัคร' },
-  { href: '/hr/onboarding', icon: '🚀', label: 'ปฐมนิเทศ' },
-  { href: '/hr/training', icon: '🎓', label: 'อบรม' },
-  { href: '/hr/evaluation', icon: '🎯', label: 'ประเมินผล' },
-  { href: '/hr/okr', icon: '📈', label: 'OKR' },
-  { href: '/admin/documents', icon: '📄', label: 'เอกสาร HR' },
-  { href: '/hr/assets', icon: '📦', label: 'ทรัพย์สิน' },
-  { href: '/hr/expenses', icon: '🧾', label: 'เบิกค่าใช้จ่าย' },
-  { href: '/hr/benefits', icon: '🎁', label: 'สวัสดิการ/กู้' },
-  { href: '/hr/social-security', icon: '🏥', label: 'สิทธิ์ประกันสังคม' },
-  { href: '/hr/rooms', icon: '🎦', label: 'ห้องประชุม' },
-  { href: '/hr/trips', icon: '✈️', label: 'ทริปบริษัท' },
-  { href: '/hr/announcements', icon: '📢', label: 'ประกาศ' },
-  { href: '/hr/locations', icon: '📍', label: 'จุดปักหมุด GPS' },
-  { href: '/hr/reports', icon: '📑', label: 'รายงาน' },
-  { href: '/admin/users', icon: '🛡️', label: 'จัดการผู้ใช้' },
-];
+const MENUS = HR_MENUS;
 
 export default function HrLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState(null);
+  const [access, setAccess] = useState(null); // { allowed, isAdmin }
 
   useEffect(() => {
     const storedUser = localStorage.getItem('hr-user');
     if (!storedUser) { router.push('/'); return; }
     const parsed = JSON.parse(storedUser);
-    if (parsed.role !== 'admin' && parsed.role !== 'hr') {
-      router.push('/chat');
-      return;
-    }
     setUser(parsed);
+
+    fetch('/api/hr/access', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => {
+        const allowed = d.allowed ?? [];
+        const canEnter = d.isAdmin || allowed === '__all__' || (Array.isArray(allowed) && allowed.length > 0);
+        if (!canEnter) { router.push('/chat'); return; }
+        setAccess({ allowed, isAdmin: !!d.isAdmin });
+      })
+      .catch(() => router.push('/chat'));
   }, [router]);
 
-  if (!user) return null;
+  if (!user || !access) return null;
 
-  const current = MENUS.find((m) => m.href === pathname) ||
-    MENUS.find((m) => m.href !== '/hr' && pathname.startsWith(m.href));
+  const isAll = access.allowed === '__all__';
+  const visibleMenus = MENUS.filter((m) => {
+    if (m.adminOnly) return access.isAdmin;
+    if (access.isAdmin || isAll) return true;
+    return access.allowed.includes(m.key);
+  });
+
+  const current = visibleMenus.find((m) => m.href === pathname) ||
+    visibleMenus.find((m) => m.href !== '/hr' && pathname.startsWith(m.href));
   const pageLabel = current ? current.label : 'Dashboard';
 
   const today = new Date().toLocaleDateString('th-TH', {
@@ -79,9 +67,9 @@ export default function HrLayout({ children }) {
           </div>
         </div>
         <nav className="hr-nav">
-          {MENUS.map((m) => (
+          {visibleMenus.map((m) => (
             <Link
-              key={m.href}
+              key={m.key}
               href={m.href}
               className={`hr-nav-item${pathname === m.href ? ' active' : ''}`}
             >
@@ -94,7 +82,7 @@ export default function HrLayout({ children }) {
           <div className="hr-sidebar-avatar">{(user.name || '?')[0]}</div>
           <div>
             <div className="hr-sidebar-user-name">{user.name}</div>
-            <div className="hr-sidebar-user-role">{user.role === 'admin' ? '👑 Administrator' : 'HR'}</div>
+            <div className="hr-sidebar-user-role">{user.role === 'admin' ? '👑 Administrator' : user.role}</div>
           </div>
         </div>
       </aside>

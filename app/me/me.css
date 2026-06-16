@@ -205,3 +205,51 @@
   white-space: nowrap;
 }
 .me-toast.error { background: var(--me-red); }
+
+/* ===== เอกสารพิมพ์ได้ (สลิป / 50ทวิ) ===== */
+.me-doc-overlay {
+  position: fixed;
+  inset: 0;
+  background: #525659;
+  z-index: 300;
+  overflow-y: auto;
+  padding: 12px;
+}
+.me-doc-actions {
+  display: flex;
+  justify-content: space-between;
+  max-width: 760px;
+  margin: 0 auto 12px;
+}
+.me-doc-print { max-width: 760px; margin: 0 auto; }
+.me-doc {
+  background: #fff;
+  color: #1d2433;
+  padding: 28px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.me-doc-head { text-align: center; border-bottom: 2px solid #1d2433; padding-bottom: 10px; margin-bottom: 14px; }
+.me-doc-co { font-size: 17px; font-weight: 700; }
+.me-doc-addr { font-size: 12px; color: #5b6478; }
+.me-doc-title { font-size: 14px; font-weight: 700; margin-top: 8px; }
+.me-doc-meta { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 12.5px; }
+.me-doc-meta td { padding: 4px 8px; }
+.me-doc-meta td:nth-child(odd) { color: #5b6478; white-space: nowrap; }
+.me-doc-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+.me-doc-table th, .me-doc-table td { border: 1px solid #cbd0dd; padding: 7px 10px; text-align: left; font-size: 12.5px; }
+.me-doc-table th { background: #f1f2f8; }
+.me-doc-table .r { text-align: right; }
+.me-doc-table tfoot td { font-weight: 700; background: #fafbff; }
+.me-doc-net { text-align: right; font-size: 15px; font-weight: 700; margin-bottom: 24px; }
+.me-doc-sign { display: flex; justify-content: space-between; gap: 20px; margin-top: 30px; font-size: 12.5px; }
+.me-doc-foot { margin-top: 24px; font-size: 11px; color: #9aa1b5; text-align: center; }
+
+@media print {
+  body * { visibility: hidden !important; }
+  .me-doc-print, .me-doc-print * { visibility: visible !important; }
+  .me-doc-overlay { position: static; background: #fff; padding: 0; overflow: visible; }
+  .me-doc-print { position: absolute; left: 0; top: 0; width: 100%; max-width: 100%; }
+  .me-doc { box-shadow: none; border-radius: 0; }
+  .me-doc-actions, .me-tabbar { display: none !important; }
+}

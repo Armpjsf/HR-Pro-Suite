@@ -5,6 +5,23 @@ import { authHeaders } from '@/components/hr/exportUtils';
 
 const baht = (v) => Number(v || 0).toLocaleString('th-TH') + ' ฿';
 
+async function generatePayroll() {
+  const period = prompt('สร้างสลิปอัตโนมัติสำหรับงวด (YYYY-MM) เช่น ' + new Date().toISOString().slice(0, 7));
+  if (!period) return;
+  const overwrite = confirm('ถ้ามีสลิปงวดนี้อยู่แล้ว ต้องการคำนวณทับใหม่ไหม?\n(ตกลง = ทับ, ยกเลิก = ข้ามคนที่มีแล้ว)');
+  const res = await fetch('/api/hr/payroll/generate', {
+    method: 'POST', headers: authHeaders(true),
+    body: JSON.stringify({ period, overwrite }),
+  });
+  const d = await res.json();
+  if (res.ok) {
+    alert(`สร้างสลิปงวด ${d.period} สำเร็จ\nใหม่ ${d.created} · อัปเดต ${d.updated} · ข้าม ${d.skipped}`);
+    window.location.reload();
+  } else {
+    alert(d.error || 'สร้างไม่สำเร็จ');
+  }
+}
+
 export default function PayrollPage() {
   async function notifyLine(row, reload, showToast) {
     if (!confirm(`ส่งสลิปงวด ${row.period} ของ ${row.employee_id} ทาง LINE?`)) return;
@@ -23,6 +40,11 @@ export default function PayrollPage() {
         resource: 'payroll',
         exportName: 'payroll_slips',
         searchPlaceholder: 'ค้นหารหัสพนักงาน/งวด...',
+        headerExtra: (
+          <div className="hr-toolbar">
+            <button className="hr-btn hr-btn-primary" onClick={generatePayroll}>⚙️ สร้างสลิปอัตโนมัติ (คำนวณ ปกส./ภาษี)</button>
+          </div>
+        ),
         columns: [
           { key: 'id', label: 'SLIP ID', format: (v) => `PR${String(v).padStart(4, '0')}` },
           { key: 'period', label: 'งวด' },
@@ -30,7 +52,9 @@ export default function PayrollPage() {
           { key: 'base_salary', label: 'ฐาน', format: baht },
           { key: 'ot_pay', label: 'OT', format: (v) => '+' + baht(v) },
           { key: 'bonus', label: 'โบนัส', format: (v) => '+' + baht(v) },
-          { key: 'deduction', label: 'หัก', format: (v) => '-' + baht(v) },
+          { key: 'tax', label: 'ภาษี', format: (v) => '-' + baht(v) },
+          { key: 'sso', label: 'ปกส.', format: (v) => '-' + baht(v) },
+          { key: 'deduction', label: 'หักอื่นๆ', format: (v) => '-' + baht(v) },
           {
             key: 'net', label: 'สุทธิ',
             format: (v) => <strong>{baht(v)}</strong>,
@@ -47,7 +71,9 @@ export default function PayrollPage() {
           { key: 'base_salary', label: 'เงินเดือนฐาน (บาท)', type: 'number', default: 0 },
           { key: 'ot_pay', label: 'ค่าล่วงเวลา OT (บาท)', type: 'number', default: 0 },
           { key: 'bonus', label: 'โบนัส (บาท)', type: 'number', default: 0 },
-          { key: 'deduction', label: 'รายการหัก (บาท)', type: 'number', default: 0 },
+          { key: 'tax', label: 'หักภาษี ณ ที่จ่าย (บาท)', type: 'number', default: 0 },
+          { key: 'sso', label: 'หักประกันสังคม (บาท)', type: 'number', default: 0 },
+          { key: 'deduction', label: 'หักอื่นๆ (บาท)', type: 'number', default: 0 },
           {
             key: 'status', label: 'สถานะ', type: 'select', default: 'draft',
             options: [
@@ -63,6 +89,8 @@ export default function PayrollPage() {
             (Number(form.base_salary) || 0) +
             (Number(form.ot_pay) || 0) +
             (Number(form.bonus) || 0) -
+            (Number(form.tax) || 0) -
+            (Number(form.sso) || 0) -
             (Number(form.deduction) || 0),
         }),
         renderActions: (row, reload, showToast) => (

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth';
+import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
 
@@ -14,7 +14,7 @@ const LEAVE_COL = {
  * อนุมัติแล้วจะบวกวันลาที่ใช้ใน employee_records ให้อัตโนมัติ (chatbot อ่านค่าเดียวกัน)
  */
 export async function POST(request, { params }) {
-  const { user, error, status } = requireRole(request, ['admin', 'hr']);
+  const { user, error, status } = await requireMenu(request, 'leave');
   if (error) return NextResponse.json({ error }, { status });
 
   const { id } = await params;

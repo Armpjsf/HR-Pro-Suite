@@ -22,6 +22,13 @@ export async function POST(request) {
     return NextResponse.json({ error: 'กรุณาระบุวันที่และจำนวนวันให้ครบ' }, { status: 400 });
   }
 
+  // หาหัวหน้าของผู้ยื่น เพื่อกำหนดผู้อนุมัติลำดับแรก
+  const { data: me } = await supabase
+    .from('users')
+    .select('manager_id')
+    .eq('employee_id', user.employeeId)
+    .maybeSingle();
+
   const { data, error: dbError } = await supabase
     .from('leave_requests')
     .insert({
@@ -32,6 +39,8 @@ export async function POST(request) {
       days: Number(days),
       reason: reason || null,
       status: 'pending',
+      manager_id: me?.manager_id || null,
+      manager_status: me?.manager_id ? 'pending' : 'approved', // ไม่มีหัวหน้า = ข้ามไป HR เลย
     })
     .select()
     .single();

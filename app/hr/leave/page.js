@@ -39,7 +39,12 @@ export default function LeavePage() {
           { key: 'days', label: 'จำนวนวัน' },
           { key: 'reason', label: 'เหตุผล' },
           {
-            key: 'status', label: 'สถานะ',
+            key: 'manager_status', label: 'หัวหน้า',
+            badge: { pending: 'yellow', approved: 'green', rejected: 'red' },
+            badgeLabels: { pending: 'รอหัวหน้า', approved: 'หัวหน้าอนุมัติ', rejected: 'หัวหน้าปฏิเสธ' },
+          },
+          {
+            key: 'status', label: 'สถานะ (HR)',
             badge: { pending: 'yellow', approved: 'green', rejected: 'red' },
             badgeLabels: { pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', rejected: 'ปฏิเสธ' },
           },

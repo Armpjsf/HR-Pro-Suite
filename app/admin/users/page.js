@@ -334,12 +334,16 @@ export default function UsersPage() {
                 </div>
               )}
               <div className="input-group">
-                <label>บทบาท</label>
-                <select className="input-field" value={formRole} onChange={(e) => setFormRole(e.target.value)}>
-                  <option value="employee">Employee</option>
-                  <option value="hr">HR</option>
-                  <option value="admin">Admin</option>
-                </select>
+                <label>บทบาท (พิมพ์เองได้ เช่น accounting, manager)</label>
+                <input className="input-field" list="role-options" value={formRole}
+                  onChange={(e) => setFormRole(e.target.value.toLowerCase())} placeholder="employee / hr / accounting ..." />
+                <datalist id="role-options">
+                  <option value="employee" />
+                  <option value="hr" />
+                  <option value="admin" />
+                  <option value="accounting" />
+                  <option value="manager" />
+                </datalist>
               </div>
               <div className="input-group">
                 <label>แผนก</label>
