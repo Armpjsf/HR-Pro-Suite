@@ -5,7 +5,7 @@ import { readStoredFile } from '@/lib/db';
 const TYPES = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
 
 /**
- * GET /api/assets/image?file=<stored>&token=<jwt> — สตรีมรูปทรัพย์สิน (ต้อง login)
+ * GET /api/assets/image?file=<stored>&token=<jwt> — สตรีมรูปจาก storage (ต้อง login)
  * ใช้กับ <img src> ได้ (รับ token ผ่าน query)
  */
 export async function GET(request) {
@@ -14,7 +14,10 @@ export async function GET(request) {
 
   const url = new URL(request.url);
   const file = url.searchParams.get('file');
-  if (!file || !file.startsWith('assets/')) return NextResponse.json({ error: 'ไฟล์ไม่ถูกต้อง' }, { status: 400 });
+  const allowedPrefixes = ['assets/', 'document-assets/'];
+  if (!file || !allowedPrefixes.some((prefix) => file.startsWith(prefix))) {
+    return NextResponse.json({ error: 'ไฟล์ไม่ถูกต้อง' }, { status: 400 });
+  }
 
   const buf = await readStoredFile(file);
   if (!buf) return NextResponse.json({ error: 'ไม่พบรูป' }, { status: 404 });
