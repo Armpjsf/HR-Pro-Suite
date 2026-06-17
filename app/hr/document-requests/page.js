@@ -43,6 +43,7 @@ export default function DocumentRequestsPage() {
 
   const signatures = useMemo(() => assets.filter((a) => a.asset_type === 'signature'), [assets]);
   const stamps = useMemo(() => assets.filter((a) => a.asset_type === 'company_stamp'), [assets]);
+  const logos = useMemo(() => assets.filter((a) => a.asset_type === 'company_logo'), [assets]);
   const filtered = status === 'all' ? items : items.filter((item) => item.status === status);
   const counts = {
     all: items.length,
@@ -57,12 +58,13 @@ export default function DocumentRequestsPage() {
       item,
       signature_asset_id: signatures[0]?.id || '',
       stamp_asset_id: stamps[0]?.id || '',
+      logo_asset_id: logos[0]?.id || '',
       review_note: '',
     });
   }
 
   function openReject(item) {
-    setModal({ mode: 'reject', item, signature_asset_id: '', stamp_asset_id: '', review_note: '' });
+    setModal({ mode: 'reject', item, signature_asset_id: '', stamp_asset_id: '', logo_asset_id: '', review_note: '' });
   }
 
   async function submitAction(e) {
@@ -78,6 +80,7 @@ export default function DocumentRequestsPage() {
           review_note: modal.review_note,
           signature_asset_id: modal.mode === 'approve' ? modal.signature_asset_id || null : null,
           stamp_asset_id: modal.mode === 'approve' ? modal.stamp_asset_id || null : null,
+          logo_asset_id: modal.mode === 'approve' ? modal.logo_asset_id || null : null,
         }),
       });
       const data = await res.json();
@@ -100,7 +103,7 @@ export default function DocumentRequestsPage() {
       <div className="hr-card" style={{ marginBottom: 14 }}>
         <div className="hr-section-title">📄 คำขอเอกสารรับรอง</div>
         <div style={{ color: '#5b6478', fontSize: 13, lineHeight: 1.6 }}>
-          อนุมัติหนังสือรับรองเงินเดือนและหนังสือรับรองการทำงาน แล้วเลือกลายเซ็น/ตราปั๊มที่จะวางบนเอกสารได้แบบยืดหยุ่น
+          อนุมัติหนังสือรับรองเงินเดือนและหนังสือรับรองการทำงาน แล้วเลือกโลโก ลายเซ็น และตราปั๊มที่จะวางบนเอกสารได้แบบยืดหยุ่น
         </div>
       </div>
 
@@ -153,6 +156,7 @@ export default function DocumentRequestsPage() {
                     </div>
                   </td>
                   <td>
+                    <div style={{ fontSize: 12, color: '#5b6478' }}>โลโก: {item.logoAsset?.name || '-'}</div>
                     <div style={{ fontSize: 12, color: '#5b6478' }}>เซ็น: {item.signatureAsset?.name || '-'}</div>
                     <div style={{ fontSize: 12, color: '#5b6478' }}>ตรา: {item.stampAsset?.name || '-'}</div>
                   </td>
@@ -190,6 +194,13 @@ export default function DocumentRequestsPage() {
               </div>
               {modal.mode === 'approve' && (
                 <>
+                  <div className="hr-field">
+                    <label>โลโกบริษัทบนหัวเอกสาร</label>
+                    <select value={modal.logo_asset_id} onChange={(e) => setModal((p) => ({ ...p, logo_asset_id: e.target.value }))}>
+                      <option value="">ใช้โลโกมาตรฐานของระบบ</option>
+                      {logos.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+                    </select>
+                  </div>
                   <div className="hr-field">
                     <label>ลายเซ็นบนเอกสาร</label>
                     <select value={modal.signature_asset_id} onChange={(e) => setModal((p) => ({ ...p, signature_asset_id: e.target.value }))}>

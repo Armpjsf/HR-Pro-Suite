@@ -50,6 +50,7 @@ export async function POST(request, { params }) {
         review_note: reviewNote || null,
         signature_asset_id: null,
         stamp_asset_id: null,
+        logo_asset_id: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);
@@ -57,12 +58,15 @@ export async function POST(request, { params }) {
   } else {
     const signatureId = nullableId(body.signature_asset_id);
     const stampId = nullableId(body.stamp_asset_id);
-    const [signatureOk, stampOk] = await Promise.all([
+    const logoId = nullableId(body.logo_asset_id);
+    const [signatureOk, stampOk, logoOk] = await Promise.all([
       validateAsset(signatureId, 'signature'),
       validateAsset(stampId, 'company_stamp'),
+      validateAsset(logoId, 'company_logo'),
     ]);
     if (!signatureOk) return NextResponse.json({ error: 'ลายเซ็นที่เลือกไม่พร้อมใช้งาน' }, { status: 400 });
     if (!stampOk) return NextResponse.json({ error: 'ตราปั๊มที่เลือกไม่พร้อมใช้งาน' }, { status: 400 });
+    if (!logoOk) return NextResponse.json({ error: 'โลโกบริษัทที่เลือกไม่พร้อมใช้งาน' }, { status: 400 });
 
     const { error: updateError } = await supabase
       .from('document_requests')
@@ -75,6 +79,7 @@ export async function POST(request, { params }) {
         review_note: reviewNote || null,
         signature_asset_id: signatureId,
         stamp_asset_id: stampId,
+        logo_asset_id: logoId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);

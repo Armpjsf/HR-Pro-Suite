@@ -15,6 +15,7 @@ const EMPTY = {
 const TYPE_LABELS = {
   signature: 'ลายเซ็นผู้มีอำนาจ',
   company_stamp: 'ตราปั๊มบริษัท',
+  company_logo: 'โลโกบริษัท',
 };
 
 function imageSrc(file) {
@@ -128,11 +129,12 @@ export default function DocumentAssetsPage() {
 
   const signatures = items.filter((item) => item.asset_type === 'signature');
   const stamps = items.filter((item) => item.asset_type === 'company_stamp');
+  const logos = items.filter((item) => item.asset_type === 'company_logo');
 
   const renderCard = (item) => (
     <div className="hr-emp-card" key={item.id}>
       <div className="hr-emp-head">
-        <div className="hr-stat-icon">{item.asset_type === 'company_stamp' ? '🏢' : '🖋️'}</div>
+        <div className="hr-stat-icon">{item.asset_type === 'company_stamp' ? '🏢' : item.asset_type === 'company_logo' ? '🪪' : '🖋️'}</div>
         <div>
           <div className="hr-emp-name">{item.name}</div>
           <div className="hr-emp-id">{TYPE_LABELS[item.asset_type] || item.asset_type}</div>
@@ -160,14 +162,21 @@ export default function DocumentAssetsPage() {
       <div className="hr-card" style={{ marginBottom: 14 }}>
         <div className="hr-section-title">🖋️ ลายเซ็น/ตราบริษัท</div>
         <div style={{ color: '#5b6478', fontSize: 13, lineHeight: 1.6 }}>
-          เก็บลายเซ็นผู้มีอำนาจและตราปั๊มบริษัท เพื่อใช้กับหนังสือรับรองเงินเดือน หนังสือรับรองการทำงาน และเอกสาร HR ที่ระบบจะสร้างให้พนักงาน
+          เก็บโลโกบริษัท ลายเซ็นผู้มีอำนาจ และตราปั๊มบริษัท เพื่อใช้กับหนังสือรับรองเงินเดือน หนังสือรับรองการทำงาน และเอกสาร HR ที่ระบบจะสร้างให้พนักงาน
         </div>
       </div>
 
       <div className="hr-toolbar">
+        <button className="hr-btn hr-btn-primary" onClick={() => openAdd('company_logo')}>+ เพิ่มโลโกบริษัท</button>
         <button className="hr-btn hr-btn-primary" onClick={() => openAdd('signature')}>+ เพิ่มลายเซ็น</button>
         <button className="hr-btn" onClick={() => openAdd('company_stamp')}>+ เพิ่มตราปั๊มบริษัท</button>
       </div>
+
+      <div className="hr-section-title">โลโกบริษัท</div>
+      <div className="hr-emp-grid" style={{ marginBottom: 18 }}>
+        {logos.map(renderCard)}
+      </div>
+      {logos.length === 0 && <div className="hr-empty">ยังไม่มีโลโกบริษัท</div>}
 
       <div className="hr-section-title">ลายเซ็นผู้มีอำนาจ</div>
       <div className="hr-emp-grid" style={{ marginBottom: 18 }}>
@@ -194,6 +203,7 @@ export default function DocumentAssetsPage() {
                 <select value={form.asset_type} onChange={(e) => setForm((p) => ({ ...p, asset_type: e.target.value }))} required>
                   <option value="signature">ลายเซ็นผู้มีอำนาจ</option>
                   <option value="company_stamp">ตราปั๊มบริษัท</option>
+                  <option value="company_logo">โลโกบริษัท</option>
                 </select>
               </div>
               <div className="hr-field"><label>ชื่อรายการ *</label><input className="hr-input" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required placeholder="เช่น ลายเซ็นกรรมการ / ตราบริษัทหลัก" /></div>

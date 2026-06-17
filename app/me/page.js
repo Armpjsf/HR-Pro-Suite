@@ -33,6 +33,40 @@ const CERTIFICATE_TYPES = {
   employment_certificate: 'หนังสือรับรองการทำงาน',
 };
 
+const THAI_DIGITS_TEXT = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+const THAI_POSITIONS_TEXT = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
+
+function thaiNumberText(value) {
+  const number = Math.floor(Math.abs(Number(value) || 0));
+  if (number === 0) return 'ศูนย์';
+  if (number >= 1000000) {
+    const million = Math.floor(number / 1000000);
+    const rest = number % 1000000;
+    return `${thaiNumberText(million)}ล้าน${rest ? thaiNumberText(rest) : ''}`;
+  }
+  const parts = String(number).split('');
+  let text = '';
+  for (let i = 0; i < parts.length; i += 1) {
+    const digit = Number(parts[i]);
+    if (!digit) continue;
+    const pos = parts.length - i - 1;
+    if (pos === 1 && digit === 1) text += 'สิบ';
+    else if (pos === 1 && digit === 2) text += 'ยี่สิบ';
+    else if (pos === 0 && digit === 1 && parts.length > 1) text += 'เอ็ด';
+    else text += `${THAI_DIGITS_TEXT[digit]}${THAI_POSITIONS_TEXT[pos] || ''}`;
+  }
+  return text;
+}
+
+function thaiBahtText(value) {
+  const amount = Number(value) || 0;
+  const baht = Math.floor(amount);
+  const satang = Math.round((amount - baht) * 100);
+  return satang > 0
+    ? `${thaiNumberText(baht)}บาท${thaiNumberText(satang)}สตางค์`
+    : `${thaiNumberText(baht)}บาทถ้วน`;
+}
+
 function authHeaders() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -1334,6 +1368,14 @@ function CertificateDocument({ request, fallbackProfile, onClose }) {
   const purpose = request.purpose || 'ใช้เป็นหลักฐานตามที่พนักงานร้องขอ';
   const signature = request.signatureAsset;
   const stamp = request.stampAsset;
+  const logo = request.logoAsset;
+  const logoSrc = logo?.image_url ? storedImage(logo.image_url) : '/brand/hr-pro-logo.svg';
+  const startDate = docProfile.startDate ? thaiDate(docProfile.startDate) : '-';
+  const employeeName = docProfile.name || '-';
+  const employeeId = docProfile.employeeId || request.employee_id;
+  const position = docProfile.position || '-';
+  const department = docProfile.department || '-';
+  const salaryText = salary.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="me-doc-overlay">
@@ -1344,28 +1386,33 @@ function CertificateDocument({ request, fallbackProfile, onClose }) {
       <div className="me-doc-print">
         <div className="me-doc me-cert-doc">
           <div className="me-doc-head">
-            <img className="me-doc-logo" src="/brand/hr-pro-logo.svg" alt="" />
+            <img className="me-doc-logo me-cert-logo" src={logoSrc} alt="" />
             <div className="me-doc-co">{COMPANY.legalName}</div>
+            <div className="me-doc-addr">{COMPANY.nameEn}</div>
             <div className="me-doc-addr">{COMPANY.address}</div>
             <div className="me-doc-addr">เลขประจำตัวผู้เสียภาษี {COMPANY.taxId}</div>
-            <div className="me-doc-title">{title}</div>
           </div>
 
-          <div className="me-cert-date">วันที่ {issuedDate}</div>
+          <div className="me-cert-ref">เลขที่เอกสาร HR-CERT-{String(request.id).padStart(5, '0')}</div>
+          <div className="me-doc-title me-cert-title">{title}</div>
+          <div className="me-cert-date">ออกให้ ณ วันที่ {issuedDate}</div>
 
           <div className="me-cert-body">
-            <p>หนังสือฉบับนี้ขอรับรองว่า คุณ{docProfile.name || '-'} รหัสพนักงาน {docProfile.employeeId || request.employee_id}</p>
-            <p>
-              เป็นพนักงานของ {COMPANY.legalName}
-              {docProfile.position ? ` ตำแหน่ง ${docProfile.position}` : ''}
-              {docProfile.department ? ` แผนก ${docProfile.department}` : ''}
-              {docProfile.startDate ? ` เริ่มปฏิบัติงานตั้งแต่วันที่ ${thaiDate(docProfile.startDate)}` : ''}
-              {' '}จนถึงปัจจุบัน
-            </p>
-            {isSalary && (
-              <p>พนักงานได้รับค่าจ้าง/เงินเดือนประจำ {salary.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาทต่อเดือน</p>
+            {isSalary ? (
+              <>
+                <p>หนังสือฉบับนี้ออกเพื่อรับรองว่า คุณ{employeeName} รหัสพนักงาน {employeeId} เป็นพนักงานของ {COMPANY.legalName}</p>
+                <p>ปฏิบัติงานในตำแหน่ง {position} แผนก/ฝ่าย {department} โดยเริ่มทำงานตั้งแต่วันที่ {startDate} จนถึงปัจจุบัน</p>
+                <p>มีอัตราเงินเดือนประจำเดือนละ {salaryText} บาท ({thaiBahtText(salary)}) ซึ่งอัตรานี้ยังไม่รวมค่าตอบแทนและเงินพิเศษอื่นๆ</p>
+                <p>หนังสือรับรองเงินเดือนฉบับนี้ใช้เพื่อ {purpose} เท่านั้น</p>
+              </>
+            ) : (
+              <>
+                <p>ขอรับรองว่า คุณ{employeeName} รหัสพนักงาน {employeeId} เป็นพนักงานของ {COMPANY.legalName}</p>
+                <p>ปฏิบัติงานในตำแหน่ง {position} แผนก/ฝ่าย {department} เริ่มปฏิบัติงานตั้งแต่วันที่ {startDate} จนถึงปัจจุบัน</p>
+                <p>ตลอดระยะเวลาการปฏิบัติงาน พนักงานดังกล่าวอยู่ในสถานะพนักงานของบริษัทตามข้อมูลที่บริษัทมีอยู่ในระบบ</p>
+                <p>หนังสือรับรองการทำงานฉบับนี้ออกให้เพื่อ {purpose}</p>
+              </>
             )}
-            <p>ออกให้เพื่อ {purpose}</p>
             <p>จึงออกหนังสือรับรองฉบับนี้ไว้เป็นหลักฐาน</p>
           </div>
 
@@ -1373,12 +1420,14 @@ function CertificateDocument({ request, fallbackProfile, onClose }) {
             {stamp?.image_url && <img className="me-cert-stamp" src={storedImage(stamp.image_url)} alt={stamp.name || 'company stamp'} />}
             <div className="me-cert-sign-box">
               {signature?.image_url && <img className="me-cert-signature-img" src={storedImage(signature.image_url)} alt={signature.name || 'signature'} />}
-              <div className="me-cert-sign-line">ลงชื่อ ................................................</div>
+              <div className="me-cert-sign-line">ลงชื่อ ................................................ ผู้รับรอง</div>
               <div>{signature?.signer_name || request.approved_by || 'ผู้มีอำนาจลงนาม'}</div>
               <div>{signature?.signer_title || 'ฝ่ายทรัพยากรบุคคล'}</div>
+              <div className="me-cert-issued-by">วันที่ {issuedDate}</div>
             </div>
           </div>
 
+          <div className="me-cert-contact">สอบถามฝ่ายบุคคล{COMPANY.phone ? ` โทร. ${COMPANY.phone}` : ''}</div>
           <div className="me-doc-foot">เอกสารนี้ออกจากระบบ HR Pro Suite ตามคำขอเลขที่ #{request.id}</div>
         </div>
       </div>
