@@ -271,7 +271,7 @@ export default function ResourceTable({ config }) {
         <button className="hr-btn hr-btn-primary" onClick={openAdd}>+ เพิ่ม</button>
       </div>
 
-      <div className="hr-table-wrap">
+      <div className="hr-table-wrap hr-responsive-cards">
         <table className="hr-table">
           <thead>
             <tr>
@@ -298,6 +298,40 @@ export default function ResourceTable({ config }) {
             ))}
           </tbody>
         </table>
+        <div className="hr-mobile-cards">
+          {items.map((row) => {
+            const titleCol = columns[0];
+            const subCol = columns[1];
+            return (
+              <div className="hr-mobile-row-card" key={row.id}>
+                <div className="hr-mobile-row-head">
+                  <div>
+                    <div className="hr-mobile-row-title">{renderCell(titleCol, row)}</div>
+                    {subCol && <div className="hr-mobile-row-sub">{subCol.label}: {renderCell(subCol, row)}</div>}
+                  </div>
+                  {columns.find((c) => c.key === 'status') && renderCell(columns.find((c) => c.key === 'status'), row)}
+                </div>
+                {columns.slice(1).filter((c) => c.key !== 'status').map((c) => (
+                  <div className="hr-mobile-row-field" key={c.key}>
+                    <span className="k">{c.label}</span>
+                    <span className="v">{renderCell(c, row)}</span>
+                  </div>
+                ))}
+                {hasRowActions && (
+                  <div className="hr-mobile-row-actions">
+                    {renderActions && renderActions(row, () => load(search), showToast)}
+                    {canEdit && (
+                      <button className="hr-btn" title="แก้ไข" onClick={() => openEdit(row)}>แก้ไข</button>
+                    )}
+                    {canDelete && (
+                      <button className="hr-btn hr-btn-danger" title="ลบ" onClick={() => remove(row)}>ลบ</button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
         {!loading && items.length === 0 && <div className="hr-empty">ยังไม่มีข้อมูล</div>}
         {loading && <div className="hr-empty">กำลังโหลด...</div>}
       </div>

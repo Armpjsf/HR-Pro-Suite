@@ -128,7 +128,7 @@ export default function AssetsPage() {
       {tab === 'req' && (
         <div className="hr-table-wrap">
           <table className="hr-table">
-            <thead><tr><th>ทรัพย์สิน</th><th>พนักงาน</th><th>ประเภท</th><th>ส่งไปสาขา</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead>
+            <thead><tr><th>ทรัพย์สิน</th><th>พนักงาน</th><th>ประเภท</th><th>ส่งไปสาขา</th><th>เหตุผล</th><th>สถานะ</th><th>ผู้อนุมัติ</th><th></th></tr></thead>
             <tbody>
               {requests.map((r) => (
                 <tr key={r.id}>
@@ -138,6 +138,7 @@ export default function AssetsPage() {
                   <td>{r.targetBranchName}</td>
                   <td>{r.reason || '-'}</td>
                   <td><span className={`hr-badge hr-badge-${REQ_STATUS[r.status]?.c}`}>{REQ_STATUS[r.status]?.l}</span></td>
+                  <td>{r.approved_by || '-'}</td>
                   <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                     {r.status === 'pending' && <>
                       <button className="hr-btn hr-btn-icon hr-btn-success" title="อนุมัติ" onClick={() => reqAction(r.id, 'approve')}>✓</button>

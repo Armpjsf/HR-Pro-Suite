@@ -58,12 +58,14 @@ export default function LeavePage() {
             badge: { pending: 'yellow', approved: 'green', rejected: 'red' },
             badgeLabels: { pending: 'รอหัวหน้า', approved: 'หัวหน้าอนุมัติ', rejected: 'หัวหน้าปฏิเสธ' },
           },
+          { key: 'manager_approved_by', label: 'ผู้อนุมัติหัวหน้า' },
           {
             key: 'status', label: 'สถานะ (HR)',
             badge: { pending: 'yellow', approved: 'green', rejected: 'red' },
             badgeLabels: { pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', rejected: 'ปฏิเสธ' },
           },
           { key: 'approved_by', label: 'ผู้อนุมัติ' },
+          { key: 'approved_at', label: 'วันที่อนุมัติ', format: (v) => v ? new Date(v).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : '-' },
         ],
         fields: [
           { key: 'employee_id', label: 'พนักงาน', type: 'employee', required: true },

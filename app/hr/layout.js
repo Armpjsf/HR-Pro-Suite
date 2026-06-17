@@ -9,6 +9,21 @@ import NotificationBell from '@/components/NotificationBell';
 import './hr.css';
 
 const MENUS = HR_MENUS;
+const MOBILE_PRIMARY_KEYS = ['dashboard', 'employees', 'leave', 'time', 'chat'];
+
+function groupMenus(menus) {
+  const groups = [];
+  for (const menu of menus) {
+    const name = menu.group || 'อื่นๆ';
+    let group = groups.find((g) => g.name === name);
+    if (!group) {
+      group = { name, items: [] };
+      groups.push(group);
+    }
+    group.items.push(menu);
+  }
+  return groups;
+}
 
 export default function HrLayout({ children }) {
   const router = useRouter();
@@ -45,6 +60,11 @@ export default function HrLayout({ children }) {
   const current = visibleMenus.find((m) => m.href === pathname) ||
     visibleMenus.find((m) => m.href !== '/hr' && pathname.startsWith(m.href));
   const pageLabel = current ? current.label : 'Dashboard';
+  const groupedMenus = groupMenus(visibleMenus);
+  const mobilePrimary = MOBILE_PRIMARY_KEYS
+    .map((key) => visibleMenus.find((m) => m.key === key))
+    .filter(Boolean);
+  const mobileMore = visibleMenus.filter((m) => !mobilePrimary.some((p) => p.key === m.key));
 
   const today = new Date().toLocaleDateString('th-TH', {
     weekday: 'long', day: 'numeric', month: 'short',
@@ -70,15 +90,20 @@ export default function HrLayout({ children }) {
           </div>
         </div>
         <nav className="hr-nav">
-          {visibleMenus.map((m) => (
-            <Link
-              key={m.key}
-              href={m.href}
-              className={`hr-nav-item${pathname === m.href ? ' active' : ''}`}
-            >
-              <span className="hr-nav-icon">{m.icon}</span>
-              {m.label}
-            </Link>
+          {groupedMenus.map((group) => (
+            <div className="hr-nav-group" key={group.name}>
+              <div className="hr-nav-heading">{group.name}</div>
+              {group.items.map((m) => (
+                <Link
+                  key={m.key}
+                  href={m.href}
+                  className={`hr-nav-item${pathname === m.href ? ' active' : ''}`}
+                >
+                  <span className="hr-nav-icon">{m.icon}</span>
+                  {m.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="hr-sidebar-user">
@@ -105,18 +130,23 @@ export default function HrLayout({ children }) {
         </header>
         <main className="hr-content">{children}</main>
         <nav className="hr-mobile-nav">
-          {visibleMenus.slice(0, 5).map((m) => (
+          {mobilePrimary.map((m) => (
             <Link key={m.key} href={m.href} className={`hr-mobile-nav-item${pathname === m.href ? ' active' : ''}`}>
               <span>{m.icon}</span>
               <small>{m.label}</small>
             </Link>
           ))}
-          {visibleMenus.length > 5 && (
+          {mobileMore.length > 0 && (
             <details className="hr-mobile-more">
               <summary>☰<small>เมนู</small></summary>
               <div className="hr-mobile-menu-sheet">
-                {visibleMenus.slice(5).map((m) => (
-                  <Link key={m.key} href={m.href} className={pathname === m.href ? 'active' : ''}>{m.icon} {m.label}</Link>
+                {groupMenus(mobileMore).map((group) => (
+                  <div className="hr-mobile-menu-group" key={group.name}>
+                    <div className="hr-mobile-menu-heading">{group.name}</div>
+                    {group.items.map((m) => (
+                      <Link key={m.key} href={m.href} className={pathname === m.href ? 'active' : ''}>{m.icon} {m.label}</Link>
+                    ))}
+                  </div>
                 ))}
               </div>
             </details>

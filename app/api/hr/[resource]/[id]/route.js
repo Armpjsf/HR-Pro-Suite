@@ -11,7 +11,7 @@ export async function GET(request, { params }) {
   const def = RESOURCES[resource];
   if (!def) return NextResponse.json({ error: 'ไม่พบ resource นี้' }, { status: 404 });
 
-  const { error, status } = await requireMenu(request, resourceMenuKey(resource));
+  const { user, error, status } = await requireMenu(request, resourceMenuKey(resource));
   if (error) return NextResponse.json({ error }, { status });
 
   const { data, error: dbError } = await supabase.from(def.table).select('*').eq('id', id).maybeSingle();
@@ -36,6 +36,14 @@ export async function PUT(request, { params }) {
   const updates = {};
   for (const col of def.columns) {
     if (body[col] !== undefined) updates[col] = body[col] === '' ? null : body[col];
+  }
+  if (
+    def.columns.includes('approved_by') &&
+    updates.status &&
+    ['approved', 'rejected', 'paid'].includes(updates.status) &&
+    !updates.approved_by
+  ) {
+    updates.approved_by = user.name;
   }
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'ไม่มีข้อมูลให้แก้ไข' }, { status: 400 });

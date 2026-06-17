@@ -54,8 +54,8 @@ export async function POST(request) {
   }
 
   const updates = action === 'approve'
-    ? { manager_status: 'approved', manager_approved_at: new Date().toISOString() }
-    : { manager_status: 'rejected', status: 'rejected', manager_approved_at: new Date().toISOString() };
+    ? { manager_status: 'approved', manager_approved_at: new Date().toISOString(), manager_approved_by: user.name }
+    : { manager_status: 'rejected', status: 'rejected', manager_approved_at: new Date().toISOString(), manager_approved_by: user.name };
 
   const { error: e } = await supabase.from('leave_requests').update(updates).eq('id', id).eq('manager_status', 'pending');
   if (e) return NextResponse.json({ error: e.message }, { status: 500 });

@@ -126,6 +126,7 @@ export default function DocumentRequestsPage() {
               <th>วัตถุประสงค์</th>
               <th>วันที่ขอ</th>
               <th>สถานะ</th>
+              <th>ผู้ดำเนินการ</th>
               <th>ลายเซ็น/ตรา</th>
               <th></th>
             </tr>
@@ -143,6 +144,14 @@ export default function DocumentRequestsPage() {
                   <td>{item.purpose || '-'}</td>
                   <td>{fmtDate(item.requested_at)}</td>
                   <td><span className={`hr-badge hr-badge-${badge.c}`}>{badge.l}</span></td>
+                  <td>
+                    <div style={{ fontSize: 12, color: '#5b6478' }}>
+                      {item.status === 'approved' ? (item.approved_by || '-') : item.status === 'rejected' ? (item.rejected_by || '-') : '-'}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#9aa1b5' }}>
+                      {item.status === 'approved' ? fmtDate(item.approved_at) : item.status === 'rejected' ? fmtDate(item.rejected_at) : ''}
+                    </div>
+                  </td>
                   <td>
                     <div style={{ fontSize: 12, color: '#5b6478' }}>เซ็น: {item.signatureAsset?.name || '-'}</div>
                     <div style={{ fontSize: 12, color: '#5b6478' }}>ตรา: {item.stampAsset?.name || '-'}</div>
