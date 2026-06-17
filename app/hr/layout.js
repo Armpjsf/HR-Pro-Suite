@@ -27,10 +27,10 @@ export default function HrLayout({ children }) {
       .then((d) => {
         const allowed = d.allowed ?? [];
         const canEnter = d.isAdmin || allowed === '__all__' || (Array.isArray(allowed) && allowed.length > 0);
-        if (!canEnter) { router.push('/chat'); return; }
+        if (!canEnter) { router.push('/me'); return; }
         setAccess({ allowed, isAdmin: !!d.isAdmin });
       })
-      .catch(() => router.push('/chat'));
+      .catch(() => router.push('/me'));
   }, [router]);
 
   if (!user || !access) return null;
@@ -99,7 +99,7 @@ export default function HrLayout({ children }) {
           <div className="hr-topbar-right">
             <span className="hr-topbar-date">{today}</span>
             <NotificationBell />
-            <Link href="/chat" className="hr-btn hr-btn-icon" title="กลับไปแชท">💬</Link>
+            <Link href="/hr/chat" className="hr-btn hr-btn-icon" title="แชท AI">💬</Link>
             <button className="hr-btn hr-btn-icon" title="ออกจากระบบ" onClick={logout}>⏻</button>
           </div>
         </header>
