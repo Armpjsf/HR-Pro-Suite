@@ -27,10 +27,19 @@ const STATUS_BADGE = {
   draft: { cls: 'me-badge-gray', label: 'แบบร่าง' },
   submitted: { cls: 'me-badge-green', label: 'ส่งแล้ว' },
 };
+const CERTIFICATE_TYPES = {
+  salary_certificate: 'หนังสือรับรองเงินเดือน',
+  employment_certificate: 'หนังสือรับรองการทำงาน',
+};
 
 function authHeaders() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+function storedImage(file) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
+  return `/api/assets/image?file=${encodeURIComponent(file)}&token=${encodeURIComponent(token || '')}`;
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
@@ -513,6 +522,18 @@ function periodThai(p) {
   const [y, m] = p.split('-').map(Number);
   return `${THAI_MONTHS_FULL[m - 1] || ''} ${y + 543}`;
 }
+function thaiDate(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+function thaiDateShort(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 function SlipDocument({ slip, profile, ytd, deductions, onClose }) {
   const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -601,6 +622,7 @@ function MoreTab({ user, router, showToast, data }) {
     { id: 'attendance', icon: '⏰', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติ Clock-in/out ย้อนหลัง' },
     { id: 'evaluation', icon: '⭐', label: 'ประเมินเพื่อนร่วมงาน', desc: 'ให้คะแนน + ดูผลประเมิน' },
     { id: 'assets', icon: '📦', label: 'ทรัพย์สิน/อุปกรณ์', desc: 'ดูอุปกรณ์ + ขอเบิก/คืน/เปลี่ยน' },
+    { id: 'documentRequests', icon: '📄', label: 'ขอเอกสารรับรอง', desc: 'ขอหนังสือรับรองเงินเดือน/การทำงาน' },
     { id: 'taxcert', icon: '🧾', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้-ภาษีทั้งปี ดู/บันทึก PDF ได้' },
     { id: 'allowance', icon: '📝', label: 'แบบลดหย่อนภาษี (ลย.01)', desc: 'กรอกค่าลดหย่อนส่งให้ HR' },
     ...(data?.isManager ? [{ id: 'teamleave', icon: '✅', label: 'อนุมัติการลาทีม', desc: 'อนุมัติใบลาของลูกทีม (หัวหน้า)' }] : []),
@@ -614,6 +636,7 @@ function MoreTab({ user, router, showToast, data }) {
   if (subTab === 'allowance') return <AllowanceSection back={() => setSubTab(null)} showToast={showToast} />;
   if (subTab === 'teamleave') return <TeamLeaveSection back={() => setSubTab(null)} showToast={showToast} />;
   if (subTab === 'assets') return <AssetsSection back={() => setSubTab(null)} showToast={showToast} />;
+  if (subTab === 'documentRequests') return <DocumentRequestsSection back={() => setSubTab(null)} showToast={showToast} profile={data?.profile} />;
 
   return (
     <>
@@ -1200,6 +1223,162 @@ function TeamLeaveSection({ back, showToast }) {
         ))}
       </div>
     </>
+  );
+}
+
+/* ─── ขอเอกสารรับรอง ─── */
+function DocumentRequestsSection({ back, showToast, profile }) {
+  const [data, setData] = useState(null);
+  const [form, setForm] = useState({ document_type: 'salary_certificate', purpose: '' });
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = () => fetch('/api/me/document-requests', { headers: authHeaders() })
+    .then((r) => r.json())
+    .then(setData)
+    .catch(() => {});
+
+  useEffect(() => { load(); }, []);
+
+  async function submit(e) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch('/api/me/document-requests', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(form),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        showToast(d.error || 'ส่งคำขอไม่สำเร็จ', true);
+        return;
+      }
+      showToast('ส่งคำขอเอกสารแล้ว รอ HR อนุมัติ');
+      setForm({ document_type: 'salary_certificate', purpose: '' });
+      setData((p) => ({ ...(p || {}), requests: [d.item, ...(p?.requests || [])] }));
+    } catch {
+      showToast('เชื่อมต่อไม่สำเร็จ', true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const requests = data?.requests || [];
+
+  return (
+    <>
+      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
+      <div className="me-card">
+        <div className="me-section-title">📄 ขอเอกสารรับรอง</div>
+        <form onSubmit={submit}>
+          <div className="me-field">
+            <label>ประเภทเอกสาร</label>
+            <select value={form.document_type} onChange={(e) => setForm((p) => ({ ...p, document_type: e.target.value }))}>
+              <option value="salary_certificate">หนังสือรับรองเงินเดือน</option>
+              <option value="employment_certificate">หนังสือรับรองการทำงาน</option>
+            </select>
+          </div>
+          <div className="me-field">
+            <label>วัตถุประสงค์</label>
+            <textarea value={form.purpose} onChange={(e) => setForm((p) => ({ ...p, purpose: e.target.value }))} placeholder="เช่น ใช้ประกอบการสมัครสินเชื่อ / ยื่นหน่วยงานราชการ" />
+          </div>
+          <button className="me-btn" disabled={loading}>{loading ? 'กำลังส่ง...' : 'ส่งคำขอเอกสาร'}</button>
+        </form>
+      </div>
+
+      <div className="me-card">
+        <div className="me-section-title">📋 คำขอของฉัน</div>
+        {!data && <div className="me-empty">กำลังโหลด...</div>}
+        {data && requests.length === 0 && <div className="me-empty">ยังไม่มีคำขอเอกสาร</div>}
+        {requests.map((item) => {
+          const badge = STATUS_BADGE[item.status] || STATUS_BADGE.pending;
+          return (
+            <div key={item.id} style={{ borderTop: '1px solid #f1f2f8', padding: '11px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontWeight: 700 }}>{CERTIFICATE_TYPES[item.document_type] || item.document_type}</span>
+                <span className={`me-badge ${badge.cls}`}>{badge.label}</span>
+              </div>
+              <div style={{ color: '#9aa1b5', fontSize: 12.5, marginTop: 3 }}>ยื่นเมื่อ {thaiDateShort(item.requested_at)}</div>
+              {item.purpose && <div style={{ color: '#5b6478', fontSize: 13, marginTop: 5 }}>วัตถุประสงค์: {item.purpose}</div>}
+              {item.review_note && <div style={{ color: '#5b6478', fontSize: 13, marginTop: 5 }}>หมายเหตุ HR: {item.review_note}</div>}
+              {item.status === 'approved' && (
+                <button className="me-btn" style={{ marginTop: 10 }} onClick={() => setSelected(item)}>🖨️ ดู/บันทึก PDF</button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {selected && (
+        <CertificateDocument
+          request={selected}
+          fallbackProfile={profile}
+          onClose={() => setSelected(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function CertificateDocument({ request, fallbackProfile, onClose }) {
+  const docProfile = request.employeeProfile || fallbackProfile || {};
+  const isSalary = request.document_type === 'salary_certificate';
+  const title = CERTIFICATE_TYPES[request.document_type] || 'หนังสือรับรอง';
+  const salary = Number(docProfile.salary) || Number(request.latestPayslip?.base_salary) || 0;
+  const issuedDate = thaiDate(request.approved_at || new Date().toISOString());
+  const purpose = request.purpose || 'ใช้เป็นหลักฐานตามที่พนักงานร้องขอ';
+  const signature = request.signatureAsset;
+  const stamp = request.stampAsset;
+
+  return (
+    <div className="me-doc-overlay">
+      <div className="me-doc-actions">
+        <button className="me-badge me-badge-gray" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={onClose}>← ปิด</button>
+        <button className="me-badge me-badge-purple" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => window.print()}>🖨️ พิมพ์ / บันทึก PDF</button>
+      </div>
+      <div className="me-doc-print">
+        <div className="me-doc me-cert-doc">
+          <div className="me-doc-head">
+            <img className="me-doc-logo" src="/brand/hr-pro-logo.svg" alt="" />
+            <div className="me-doc-co">{COMPANY.legalName}</div>
+            <div className="me-doc-addr">{COMPANY.address}</div>
+            <div className="me-doc-addr">เลขประจำตัวผู้เสียภาษี {COMPANY.taxId}</div>
+            <div className="me-doc-title">{title}</div>
+          </div>
+
+          <div className="me-cert-date">วันที่ {issuedDate}</div>
+
+          <div className="me-cert-body">
+            <p>หนังสือฉบับนี้ขอรับรองว่า คุณ{docProfile.name || '-'} รหัสพนักงาน {docProfile.employeeId || request.employee_id}</p>
+            <p>
+              เป็นพนักงานของ {COMPANY.legalName}
+              {docProfile.position ? ` ตำแหน่ง ${docProfile.position}` : ''}
+              {docProfile.department ? ` แผนก ${docProfile.department}` : ''}
+              {docProfile.startDate ? ` เริ่มปฏิบัติงานตั้งแต่วันที่ ${thaiDate(docProfile.startDate)}` : ''}
+              {' '}จนถึงปัจจุบัน
+            </p>
+            {isSalary && (
+              <p>พนักงานได้รับค่าจ้าง/เงินเดือนประจำ {salary.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาทต่อเดือน</p>
+            )}
+            <p>ออกให้เพื่อ {purpose}</p>
+            <p>จึงออกหนังสือรับรองฉบับนี้ไว้เป็นหลักฐาน</p>
+          </div>
+
+          <div className="me-cert-assets">
+            {stamp?.image_url && <img className="me-cert-stamp" src={storedImage(stamp.image_url)} alt={stamp.name || 'company stamp'} />}
+            <div className="me-cert-sign-box">
+              {signature?.image_url && <img className="me-cert-signature-img" src={storedImage(signature.image_url)} alt={signature.name || 'signature'} />}
+              <div className="me-cert-sign-line">ลงชื่อ ................................................</div>
+              <div>{signature?.signer_name || request.approved_by || 'ผู้มีอำนาจลงนาม'}</div>
+              <div>{signature?.signer_title || 'ฝ่ายทรัพยากรบุคคล'}</div>
+            </div>
+          </div>
+
+          <div className="me-doc-foot">เอกสารนี้ออกจากระบบ HR Pro Suite ตามคำขอเลขที่ #{request.id}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
