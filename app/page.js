@@ -15,11 +15,7 @@ export default function LoginPage() {
     setMounted(true);
     const token = getCookie('hr-token');
     if (token) {
-      try {
-        const storedUser = localStorage.getItem('hr-user');
-        const u = storedUser ? JSON.parse(storedUser) : null;
-        router.push(u?.role === 'admin' || u?.role === 'hr' ? '/hr' : '/me');
-      } catch { router.push('/me'); }
+      redirectByAccess().catch(() => router.push('/me'));
     }
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   }, [router]);
@@ -28,6 +24,23 @@ export default function LoginPage() {
     if (typeof document === 'undefined') return null;
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
     return match ? match[2] : null;
+  }
+
+  async function redirectByAccess() {
+    const token = localStorage.getItem('hr-token') || getCookie('hr-token');
+    const storedUser = localStorage.getItem('hr-user');
+    const u = storedUser ? JSON.parse(storedUser) : null;
+    if (u?.role && token) {
+      const res = await fetch('/api/hr/access', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const d = await res.json();
+        const allowed = d.allowed;
+        const canEnter = d.isAdmin || allowed === '__all__' || (Array.isArray(allowed) && allowed.length > 0);
+        router.push(canEnter ? '/hr' : '/me');
+        return;
+      }
+    }
+    router.push('/me');
   }
 
   async function handleSubmit(e) {
@@ -44,7 +57,7 @@ export default function LoginPage() {
       if (!res.ok) { setError(data.error || 'เข้าสู่ระบบไม่สำเร็จ'); setLoading(false); return; }
       localStorage.setItem('hr-user', JSON.stringify(data.user));
       localStorage.setItem('hr-token', data.token);
-      router.push(data.user.role === 'admin' || data.user.role === 'hr' ? '/hr' : '/me');
+      await redirectByAccess();
     } catch {
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
       setLoading(false);

@@ -1001,6 +1001,110 @@ select.input-field option {
 }
 
 /* ── Toast / Notification ── */
+.notify-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.notify-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #e7e9f4;
+  background: #fff;
+  color: #1d2433;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  font-size: 15px;
+}
+.notify-btn.compact {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+}
+.notify-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 17px;
+  text-align: center;
+}
+.notify-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(340px, calc(100vw - 24px));
+  max-height: 430px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #e7e9f4;
+  border-radius: 16px;
+  box-shadow: 0 20px 45px rgba(16, 24, 40, 0.18);
+  z-index: 500;
+  padding: 12px;
+  color: #1d2433;
+}
+.notify-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.notify-head button,
+.notify-enable {
+  border: none;
+  background: #f1f2f8;
+  color: #5b6478;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.notify-enable {
+  width: 100%;
+  margin-bottom: 8px;
+  color: #6d28d9;
+  background: #ede9fe;
+  font-weight: 700;
+}
+.notify-hint {
+  color: #b45309;
+  background: #fef3c7;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.notify-list { display: grid; gap: 6px; }
+.notify-item {
+  display: block;
+  text-decoration: none;
+  color: #1d2433;
+  border: 1px solid #f1f2f8;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+.notify-item.unread { background: #fafbff; border-color: #dbeafe; }
+.notify-item span { display: block; font-weight: 800; font-size: 13px; }
+.notify-item small { display: block; color: #5b6478; margin-top: 3px; line-height: 1.45; }
+.notify-empty { color: #9aa1b5; text-align: center; padding: 18px; font-size: 13px; }
+
 .toast {
   position: fixed;
   bottom: 24px;

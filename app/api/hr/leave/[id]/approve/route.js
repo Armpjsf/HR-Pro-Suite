@@ -3,6 +3,7 @@ import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
 import { currentLeaveYear } from '@/lib/leave-balances';
+import { createNotification } from '@/lib/notifications';
 
 const LEAVE_COL = {
   annual: 'leave_annual_used',
@@ -100,6 +101,14 @@ export async function POST(request, { params }) {
     user: user.name,
     action: `${action === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ'}ใบลา ${req.employee_id} (${req.leave_type} ${req.days} วัน)`,
     channel: 'HR',
+  });
+
+  await createNotification({
+    employeeId: req.employee_id,
+    title: action === 'approve' ? 'HR อนุมัติใบลาแล้ว' : 'HR ปฏิเสธใบลา',
+    body: `ใบลา ${req.leave_type} ${req.days} วัน สถานะ: ${newStatus}`,
+    url: '/me',
+    type: action === 'approve' ? 'leave_approved' : 'leave_rejected',
   });
 
   return NextResponse.json({ success: true, status: newStatus });

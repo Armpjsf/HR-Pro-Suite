@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
+import { notifyHr } from '@/lib/notifications';
 
 /**
  * GET /api/me/assets — รายการทรัพย์สิน (พนักงานดูเพื่อขอเบิก) + คำขอของตัวเอง
@@ -75,6 +76,13 @@ export async function POST(request) {
 
   const TYPE_TH = { borrow: 'ขอเบิก', return: 'ขอคืน', replace: 'ขอเปลี่ยน' };
   await addAuditEntry({ user: user.name, action: `${TYPE_TH[type]}ทรัพย์สิน #${asset_id}`, channel: 'ME' });
+
+  await notifyHr('assets', {
+    title: 'มีคำขอทรัพย์สินใหม่',
+    body: `${user.name} ${TYPE_TH[type]}ทรัพย์สิน #${asset_id}`,
+    url: '/hr/assets',
+    type: 'asset_request_pending',
+  });
 
   return NextResponse.json({ item: data });
 }

@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
 import { attachDocumentRequestLookups, collectAssetIds, isDocumentType } from '@/lib/document-requests';
+import { notifyHr } from '@/lib/notifications';
 
 async function loadEmployeeLookups(employeeId, rows) {
   const assetIds = collectAssetIds(rows);
@@ -79,6 +80,13 @@ export async function POST(request) {
     user: user.name,
     action: `ยื่นคำขอเอกสาร ${documentType}`,
     channel: 'ME',
+  });
+
+  await notifyHr('document-requests', {
+    title: 'มีคำขอเอกสารรับรองใหม่',
+    body: `${user.name} ยื่นคำขอ ${documentType}`,
+    url: '/hr/document-requests',
+    type: 'document_request_pending',
   });
 
   const payload = await loadEmployeeLookups(user.employeeId, [data]);

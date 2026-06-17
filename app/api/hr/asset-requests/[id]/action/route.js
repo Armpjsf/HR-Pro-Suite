@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
+import { createNotification } from '@/lib/notifications';
 
 /**
  * POST /api/hr/asset-requests/[id]/action — { action: 'approve' | 'reject' | 'deliver' }
@@ -43,6 +44,14 @@ export async function POST(request, { params }) {
     user: user.name,
     action: `${action} คำขอทรัพย์สิน #${req.asset_id} (${req.type}) โดย ${req.employee_id}`,
     channel: 'HR',
+  });
+
+  await createNotification({
+    employeeId: req.employee_id,
+    title: action === 'approve' ? 'อนุมัติคำขอทรัพย์สินแล้ว' : action === 'reject' ? 'ปฏิเสธคำขอทรัพย์สิน' : 'จัดส่งทรัพย์สินแล้ว',
+    body: `คำขอ ${req.type} ทรัพย์สิน #${req.asset_id} ถูกอัปเดตเป็น ${action}`,
+    url: '/me',
+    type: `asset_request_${action}`,
   });
 
   return NextResponse.json({ success: true });

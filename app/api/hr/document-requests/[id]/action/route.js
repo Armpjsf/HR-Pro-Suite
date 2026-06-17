@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
+import { createNotification } from '@/lib/notifications';
 
 function nullableId(value) {
   if (value === '' || value === undefined || value === null) return null;
@@ -84,6 +85,14 @@ export async function POST(request, { params }) {
     user: user.name,
     action: `${action} คำขอเอกสาร ${req.document_type} ของ ${req.employee_id}`,
     channel: 'HR',
+  });
+
+  await createNotification({
+    employeeId: req.employee_id,
+    title: action === 'approve' ? 'เอกสารรับรองพร้อมใช้งานแล้ว' : 'คำขอเอกสารถูกปฏิเสธ',
+    body: action === 'approve' ? 'คุณสามารถเปิดดู/บันทึก PDF ได้จากเมนูขอเอกสารรับรอง' : (reviewNote || 'HR ปฏิเสธคำขอเอกสาร'),
+    url: '/me',
+    type: action === 'approve' ? 'document_request_approved' : 'document_request_rejected',
   });
 
   return NextResponse.json({ success: true });

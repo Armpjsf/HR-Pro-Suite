@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
 import { currentLeaveYear } from '@/lib/leave-balances';
+import { createNotification, notifyHr } from '@/lib/notifications';
 
 /**
  * POST /api/me/leave — พนักงานยื่นใบลาของตัวเอง (status = pending รอ HR อนุมัติ)
@@ -73,6 +74,24 @@ export async function POST(request) {
     action: `ยื่นใบลา ${leave_type} ${days} วัน (${start_date})`,
     channel: 'ME',
   });
+
+  if (me?.manager_id) {
+    await createNotification({
+      employeeId: me.manager_id,
+      title: 'มีใบลารอหัวหน้าอนุมัติ',
+      body: `${user.name} ยื่นใบลา ${leaveType.name || leave_type} ${days} วัน`,
+      url: '/me',
+      type: 'leave_manager_pending',
+      audience: 'manager',
+    });
+  } else {
+    await notifyHr('leave', {
+      title: 'มีใบลารอ HR อนุมัติ',
+      body: `${user.name} ยื่นใบลา ${leaveType.name || leave_type} ${days} วัน`,
+      url: '/hr/leave',
+      type: 'leave_pending',
+    });
+  }
 
   return NextResponse.json({ item: data });
 }

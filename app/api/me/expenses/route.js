@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
+import { notifyHr } from '@/lib/notifications';
 
 const CATEGORIES = ['travel', 'meal', 'allowance', 'accommodation', 'other'];
 
@@ -61,6 +62,13 @@ export async function POST(request) {
     user: user.name,
     action: `ยื่นเบิกค่าใช้จ่าย ${category} ${Number(amount).toLocaleString()} ฿`,
     channel: 'ME',
+  });
+
+  await notifyHr('expenses', {
+    title: 'มีคำขอเบิกค่าใช้จ่ายใหม่',
+    body: `${user.name} ยื่นเบิก ${category} ${Number(amount).toLocaleString()} บาท`,
+    url: '/hr/expenses',
+    type: 'expense_pending',
   });
 
   return NextResponse.json({ item: data });

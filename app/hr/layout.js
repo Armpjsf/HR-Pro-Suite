@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { HR_MENUS } from '@/lib/hr-menus';
 import { authHeaders } from '@/components/hr/exportUtils';
+import NotificationBell from '@/components/NotificationBell';
 import './hr.css';
 
 const MENUS = HR_MENUS;
@@ -97,11 +98,30 @@ export default function HrLayout({ children }) {
           </div>
           <div className="hr-topbar-right">
             <span className="hr-topbar-date">{today}</span>
+            <NotificationBell />
             <Link href="/chat" className="hr-btn hr-btn-icon" title="กลับไปแชท">💬</Link>
             <button className="hr-btn hr-btn-icon" title="ออกจากระบบ" onClick={logout}>⏻</button>
           </div>
         </header>
         <main className="hr-content">{children}</main>
+        <nav className="hr-mobile-nav">
+          {visibleMenus.slice(0, 5).map((m) => (
+            <Link key={m.key} href={m.href} className={`hr-mobile-nav-item${pathname === m.href ? ' active' : ''}`}>
+              <span>{m.icon}</span>
+              <small>{m.label}</small>
+            </Link>
+          ))}
+          {visibleMenus.length > 5 && (
+            <details className="hr-mobile-more">
+              <summary>☰<small>เมนู</small></summary>
+              <div className="hr-mobile-menu-sheet">
+                {visibleMenus.slice(5).map((m) => (
+                  <Link key={m.key} href={m.href} className={pathname === m.href ? 'active' : ''}>{m.icon} {m.label}</Link>
+                ))}
+              </div>
+            </details>
+          )}
+        </nav>
       </div>
     </div>
   );

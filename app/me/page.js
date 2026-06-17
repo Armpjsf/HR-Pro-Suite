@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { COMPANY } from '@/lib/company';
 import { deductionBreakdown as slipDeductionBreakdown } from '@/lib/payroll';
+import NotificationBell from '@/components/NotificationBell';
 import './me.css';
 
 /* ─── Constants ─── */
@@ -82,6 +83,9 @@ export default function EmployeePage() {
         <div>
           <div className="me-name">สวัสดี คุณ{data.profile.name}</div>
           <div className="me-sub">{data.profile.department} · {data.profile.position}</div>
+        </div>
+        <div className="me-header-actions">
+          <NotificationBell compact />
         </div>
       </div>
 

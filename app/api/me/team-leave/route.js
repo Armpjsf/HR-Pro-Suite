@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
+import { createNotification, notifyHr } from '@/lib/notifications';
 
 /**
  * GET /api/me/team-leave — ใบลาของลูกทีมที่รออนุมัติจากหัวหน้า (ผู้ใช้เป็นหัวหน้า)
@@ -64,6 +65,23 @@ export async function POST(request) {
     action: `หัวหน้า${action === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ'}ใบลา ${leave.employee_id} (${leave.leave_type} ${leave.days} วัน)`,
     channel: 'ME',
   });
+
+  await createNotification({
+    employeeId: leave.employee_id,
+    title: action === 'approve' ? 'หัวหน้าอนุมัติใบลาแล้ว' : 'หัวหน้าปฏิเสธใบลา',
+    body: `ใบลา ${leave.leave_type} ${leave.days} วัน ${action === 'approve' ? 'ถูกส่งต่อให้ HR แล้ว' : 'ไม่ผ่านการอนุมัติ'}`,
+    url: '/me',
+    type: action === 'approve' ? 'leave_manager_approved' : 'leave_rejected',
+  });
+
+  if (action === 'approve') {
+    await notifyHr('leave', {
+      title: 'มีใบลารอ HR อนุมัติ',
+      body: `ใบลา ${leave.leave_type} ${leave.days} วัน ของ ${leave.employee_id} ผ่านหัวหน้าแล้ว`,
+      url: '/hr/leave',
+      type: 'leave_pending',
+    });
+  }
 
   return NextResponse.json({ success: true });
 }
