@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { getWorkSettingsForEmployee, effectiveStatus } from '@/lib/work-calendar';
 
 /**
  * GET /api/me/attendance — ประวัติเข้า-ออกงานรายเดือน
@@ -28,8 +29,10 @@ export async function GET(request) {
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 
-  // สรุปสถิติ
-  const records = data || [];
+  // คำนวณสถานะ "สาย/ปกติ" ใหม่จากเวลาเข้าจริง เทียบตั้งค่าเวลาทำงานของสาขา
+  // (ไม่พึ่ง status ที่บันทึกไว้ ซึ่งอาจค้างจากตอนยังไม่ได้ตั้งค่าสาขา)
+  const ws = await getWorkSettingsForEmployee(user.employeeId);
+  const records = (data || []).map((r) => ({ ...r, status: effectiveStatus(r, ws) }));
   const stats = {
     totalDays: records.length,
     onTime: records.filter((r) => r.status === 'normal').length,
