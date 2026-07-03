@@ -656,6 +656,9 @@ function MoreTab({ user, router, showToast, data }) {
 
   const menus = [
     { id: 'expenses', icon: '🧾', label: 'เบิกค่าใช้จ่าย', desc: 'ยื่นเบิกค่าเดินทาง เบี้ยเลี้ยง ฯลฯ' },
+    { id: 'ot', icon: '⏱️', label: 'ขอค่าล่วงเวลา (OT)', desc: 'ยื่นขอ OT + ดูสถานะอนุมัติ' },
+    { id: 'rooms', icon: '🎦', label: 'จองห้องประชุม', desc: 'ดูตารางห้องว่าง + จองห้อง' },
+    { id: 'workplace', icon: '🎓', label: 'อบรม / ทริป / OKR', desc: 'ดูตารางอบรม ทริปบริษัท และ OKR ของฉัน' },
     { id: 'calendar', icon: '📆', label: 'ปฏิทินงาน', desc: 'ดูตารางกะ วันลา วันหยุด' },
     { id: 'attendance', icon: '⏰', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติ Clock-in/out ย้อนหลัง' },
     { id: 'evaluation', icon: '⭐', label: 'ประเมินเพื่อนร่วมงาน', desc: 'ให้คะแนน + ดูผลประเมิน' },
@@ -667,6 +670,9 @@ function MoreTab({ user, router, showToast, data }) {
   ];
 
   if (subTab === 'expenses') return <ExpensesSection back={() => setSubTab(null)} showToast={showToast} />;
+  if (subTab === 'ot') return <OtSection back={() => setSubTab(null)} showToast={showToast} />;
+  if (subTab === 'rooms') return <RoomsSection back={() => setSubTab(null)} showToast={showToast} />;
+  if (subTab === 'workplace') return <WorkplaceSection back={() => setSubTab(null)} />;
   if (subTab === 'calendar') return <CalendarSection back={() => setSubTab(null)} />;
   if (subTab === 'attendance') return <AttendanceSection back={() => setSubTab(null)} />;
   if (subTab === 'evaluation') return <EvaluationSection back={() => setSubTab(null)} showToast={showToast} />;
@@ -770,6 +776,224 @@ function ExpensesSection({ back, showToast }) {
             </div>
           );
         })}
+      </div>
+    </>
+  );
+}
+
+/* ─── OT Sub-section ─── */
+function OtSection({ back, showToast }) {
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState({ ot_date: new Date().toISOString().slice(0, 10), hours: '', note: '' });
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/me/ot', { headers: authHeaders() })
+      .then((r) => r.json()).then((d) => { setItems(d.items || []); setLoaded(true); }).catch(() => setLoaded(true));
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch('/api/me/ot', { method: 'POST', headers: authHeaders(), body: JSON.stringify(form) });
+      const d = await res.json();
+      if (!res.ok) { showToast(d.error, true); return; }
+      showToast('ยื่นขอ OT เรียบร้อย');
+      setItems((p) => [d.item, ...p]);
+      setForm({ ot_date: new Date().toISOString().slice(0, 10), hours: '', note: '' });
+    } catch { showToast('เกิดข้อผิดพลาด', true); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <>
+      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
+      <div className="me-card">
+        <div className="me-section-title">⏱️ ยื่นขอค่าล่วงเวลา (OT)</div>
+        <form onSubmit={handleSubmit}>
+          <div className="me-field">
+            <label>วันที่ทำ OT</label>
+            <input type="date" className="me-input" value={form.ot_date} onChange={(e) => setForm({ ...form, ot_date: e.target.value })} required />
+          </div>
+          <div className="me-field">
+            <label>จำนวนชั่วโมง</label>
+            <input type="number" className="me-input" min="0.5" max="12" step="0.5" value={form.hours} onChange={(e) => setForm({ ...form, hours: e.target.value })} required />
+          </div>
+          <div className="me-field">
+            <label>รายละเอียดงาน</label>
+            <textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="ระบุงานที่ทำล่วงเวลา" />
+          </div>
+          <button className="me-btn" disabled={loading}>{loading ? '⏳ กำลังส่ง...' : '⏱️ ยื่นขอ OT'}</button>
+        </form>
+      </div>
+      <div className="me-card">
+        <div className="me-section-title">📋 รายการ OT ย้อนหลัง</div>
+        {!loaded && <div className="me-empty">กำลังโหลด...</div>}
+        {loaded && items.length === 0 && <div className="me-empty">ยังไม่มีรายการ</div>}
+        {items.map((item) => {
+          const badge = STATUS_BADGE[item.status] || STATUS_BADGE.pending;
+          return (
+            <div key={item.id} className="me-row">
+              <span className="k">{item.ot_date} · {Number(item.hours)} ชม. · {Number(item.amount || 0).toLocaleString()} ฿</span>
+              <span className={`me-badge ${badge.cls}`}>{badge.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+/* ─── Meeting Rooms Sub-section ─── */
+function RoomsSection({ back, showToast }) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(null);
+  const [form, setForm] = useState({ room_id: '', start_time: '09:00', end_time: '10:00', title: '' });
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(() => {
+    fetch(`/api/me/rooms?date=${date}`, { headers: authHeaders() })
+      .then((r) => r.json()).then(setData).catch(() => {});
+  }, [date]);
+  useEffect(() => { load(); }, [load]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch('/api/me/rooms', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ ...form, book_date: date }),
+      });
+      const d = await res.json();
+      if (!res.ok) { showToast(d.error, true); return; }
+      showToast('จองห้องประชุมเรียบร้อย');
+      setForm({ room_id: '', start_time: '09:00', end_time: '10:00', title: '' });
+      load();
+    } catch { showToast('เกิดข้อผิดพลาด', true); }
+    finally { setLoading(false); }
+  };
+
+  const rooms = data?.rooms || [];
+  const bookings = data?.bookings || [];
+
+  return (
+    <>
+      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
+      <div className="me-card">
+        <div className="me-section-title">🎦 จองห้องประชุม</div>
+        <form onSubmit={handleSubmit}>
+          <div className="me-field">
+            <label>วันที่</label>
+            <input type="date" className="me-input" value={date} onChange={(e) => setDate(e.target.value)} required />
+          </div>
+          <div className="me-field">
+            <label>ห้องประชุม</label>
+            <select value={form.room_id} onChange={(e) => setForm({ ...form, room_id: e.target.value })} required>
+              <option value="">— เลือกห้อง —</option>
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id} disabled={r.status !== 'available'}>
+                  {r.name} (จุ {r.capacity} คน){r.status !== 'available' ? ' — ปิดจอง' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div className="me-field" style={{ flex: 1 }}>
+              <label>เริ่ม</label>
+              <input type="time" className="me-input" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} required />
+            </div>
+            <div className="me-field" style={{ flex: 1 }}>
+              <label>สิ้นสุด</label>
+              <input type="time" className="me-input" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} required />
+            </div>
+          </div>
+          <div className="me-field">
+            <label>หัวข้อประชุม</label>
+            <input type="text" className="me-input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="เช่น ประชุมทีมขาย" />
+          </div>
+          <button className="me-btn" disabled={loading}>{loading ? '⏳ กำลังจอง...' : '🎦 จองห้อง'}</button>
+        </form>
+      </div>
+      <div className="me-card">
+        <div className="me-section-title">📋 ตารางจองวันที่เลือก</div>
+        {bookings.length === 0 && <div className="me-empty">ยังไม่มีการจองในวันนี้</div>}
+        {bookings.map((b) => {
+          const room = rooms.find((r) => r.id === b.room_id);
+          return (
+            <div key={b.id} className="me-row">
+              <span className="k">{room?.name || `ห้อง #${b.room_id}`} · {(b.start_time || '').slice(0, 5)}-{(b.end_time || '').slice(0, 5)}</span>
+              <span className="v">{b.title || '-'}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="me-card">
+        <div className="me-section-title">🗓️ การจองของฉัน</div>
+        {(data?.myBookings || []).length === 0 && <div className="me-empty">ยังไม่มีการจอง</div>}
+        {(data?.myBookings || []).map((b) => (
+          <div key={b.id} className="me-row">
+            <span className="k">{b.book_date} · {(b.start_time || '').slice(0, 5)}-{(b.end_time || '').slice(0, 5)}</span>
+            <span className="v">{b.title || '-'}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ─── Workplace (อบรม/ทริป/OKR) Sub-section ─── */
+function WorkplaceSection({ back }) {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/me/workplace', { headers: authHeaders() })
+      .then((r) => r.json()).then(setData).catch(() => {});
+  }, []);
+
+  const TRAIN_STATUS = { planned: 'กำหนดการ', done: 'จบแล้ว' };
+
+  return (
+    <>
+      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
+      <div className="me-card">
+        <div className="me-section-title">🎓 ตารางอบรม</div>
+        {!data && <div className="me-empty">กำลังโหลด...</div>}
+        {data && (data.trainings || []).length === 0 && <div className="me-empty">ยังไม่มีการอบรม</div>}
+        {(data?.trainings || []).map((t) => (
+          <div key={t.id} className="me-row">
+            <span className="k">{t.isMine ? '⭐ ' : ''}{t.title}{t.train_date ? ` · ${t.train_date}` : ''}</span>
+            <span className={`me-badge ${t.status === 'done' ? 'me-badge-gray' : 'me-badge-green'}`}>{TRAIN_STATUS[t.status] || t.status}</span>
+          </div>
+        ))}
+      </div>
+      <div className="me-card">
+        <div className="me-section-title">✈️ ทริปบริษัท</div>
+        {data && (data.trips || []).length === 0 && <div className="me-empty">ยังไม่มีทริป</div>}
+        {(data?.trips || []).map((t) => (
+          <div key={t.id} className="me-row">
+            <span className="k">{t.title}{t.destination ? ` · ${t.destination}` : ''}</span>
+            <span className="v">{t.start_date || ''}</span>
+          </div>
+        ))}
+      </div>
+      <div className="me-card">
+        <div className="me-section-title">📈 OKR ของฉัน</div>
+        {data && (data.okrs || []).length === 0 && <div className="me-empty">ยังไม่มี OKR ที่ผูกกับคุณ</div>}
+        {(data?.okrs || []).map((o) => (
+          <div key={o.id} style={{ padding: '10px 0', borderBottom: '1px solid #eef0f5' }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>{o.objective}</div>
+            {o.key_results && <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{o.key_results}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <div style={{ flex: 1, height: 8, background: '#eef0f5', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, Number(o.progress) || 0)}%`, height: '100%', background: '#22c55e' }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>{Number(o.progress) || 0}%</span>
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );

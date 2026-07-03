@@ -4,12 +4,63 @@ import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
 import { currentLeaveYear } from '@/lib/leave-balances';
 import { createNotification } from '@/lib/notifications';
+import { getWorkSettingsForEmployee } from '@/lib/work-calendar';
 
 const LEAVE_COL = {
   annual: 'leave_annual_used',
   sick: 'leave_sick_used',
   personal: 'leave_personal_used',
 };
+
+/**
+ * ลงสถานะ 'leave' ใน time_records สำหรับทุกวันทำงานในช่วงลาที่อนุมัติ
+ * ข้ามวันหยุดนักขัตฤกษ์ (ของสาขาตัวเอง/ส่วนกลาง) วันที่ไม่ใช่วันทำงาน และวันที่มี record อยู่แล้ว
+ * ความล้มเหลวในขั้นนี้ไม่ทำให้การอนุมัติล้ม (best-effort)
+ */
+async function markLeaveInTimeRecords(req) {
+  try {
+    const [ws, { data: me }] = await Promise.all([
+      getWorkSettingsForEmployee(req.employee_id),
+      supabase.from('users').select('branch_id').eq('employee_id', req.employee_id).maybeSingle(),
+    ]);
+    const workDays = new Set((ws?.work_days || '1,2,3,4,5').split(',').filter(Boolean).map(Number));
+
+    let holidayQuery = supabase
+      .from('holidays')
+      .select('holiday_date')
+      .gte('holiday_date', req.start_date)
+      .lte('holiday_date', req.end_date);
+    holidayQuery = me?.branch_id
+      ? holidayQuery.or(`branch_id.is.null,branch_id.eq.${me.branch_id}`)
+      : holidayQuery.is('branch_id', null);
+    const { data: holidays } = await holidayQuery;
+    const holidaySet = new Set((holidays || []).map((h) => h.holiday_date));
+
+    const { data: existing } = await supabase
+      .from('time_records')
+      .select('work_date')
+      .eq('employee_id', req.employee_id)
+      .gte('work_date', req.start_date)
+      .lte('work_date', req.end_date);
+    const existingSet = new Set((existing || []).map((r) => r.work_date));
+
+    const rows = [];
+    for (let d = new Date(`${req.start_date}T00:00:00`); ; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toLocaleDateString('en-CA');
+      if (dateStr > req.end_date) break;
+      if (!workDays.has(d.getDay()) || holidaySet.has(dateStr) || existingSet.has(dateStr)) continue;
+      rows.push({
+        employee_id: req.employee_id,
+        work_date: dateStr,
+        status: 'leave',
+        note: `ลา (${req.leave_type})`,
+      });
+    }
+    if (rows.length > 0) await supabase.from('time_records').insert(rows);
+  } catch (e) {
+    console.error('[leave approve] markLeaveInTimeRecords failed:', e?.message || e);
+  }
+}
 
 /**
  * POST /api/hr/leave/[id]/approve — { action: 'approve' | 'reject' }
@@ -34,6 +85,10 @@ export async function POST(request, { params }) {
   if (!req) return NextResponse.json({ error: 'ไม่พบใบลา' }, { status: 404 });
   if (req.status !== 'pending') {
     return NextResponse.json({ error: 'ใบลานี้ถูกดำเนินการไปแล้ว' }, { status: 409 });
+  }
+  // บังคับลำดับอนุมัติ: ถ้าใบลามีหัวหน้า ต้องรอหัวหน้าอนุมัติก่อน HR
+  if (action === 'approve' && req.manager_id && req.manager_status === 'pending') {
+    return NextResponse.json({ error: 'ใบลานี้ยังรอหัวหน้าอนุมัติ กรุณารอหัวหน้าพิจารณาก่อน' }, { status: 409 });
   }
 
   const newStatus = action === 'approve' ? 'approved' : 'rejected';
@@ -95,6 +150,9 @@ export async function POST(request, { params }) {
       });
       if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 });
     }
+
+    // บันทึกสถานะ "ลา" ลง time_records ทุกวันทำงานในช่วงลา (ไม่ทับ record ที่มีอยู่)
+    await markLeaveInTimeRecords(req);
   }
 
   await addAuditEntry({
