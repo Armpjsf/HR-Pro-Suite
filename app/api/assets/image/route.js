@@ -14,7 +14,7 @@ export async function GET(request) {
 
   const url = new URL(request.url);
   const file = url.searchParams.get('file');
-  const allowedPrefixes = ['assets/', 'document-assets/'];
+  const allowedPrefixes = ['assets/', 'document-assets/', 'employee-photos/'];
   if (!file || !allowedPrefixes.some((prefix) => file.startsWith(prefix))) {
     return NextResponse.json({ error: 'ไฟล์ไม่ถูกต้อง' }, { status: 400 });
   }

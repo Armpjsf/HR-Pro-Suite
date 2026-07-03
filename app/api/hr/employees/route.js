@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { currentLeaveYear, legacyLeaveRows } from '@/lib/leave-balances';
 
 // ฟิลด์อ่อนไหว — เห็นได้เฉพาะคนที่มีสิทธิ์เมนู "พนักงาน"
-const SENSITIVE = ['salary', 'nationalId', 'bankName', 'bankAccount', 'taxId', 'birthDate'];
+const SENSITIVE = ['salary', 'nationalId', 'bankName', 'bankAccount', 'taxId', 'birthDate', 'address', 'emergencyName', 'emergencyPhone', 'emergencyRelation'];
 
 /**
  * GET /api/hr/employees — รายชื่อพนักงาน (users ⋈ employee_records)
@@ -57,7 +57,16 @@ export async function GET(request) {
       branchId: u.branch_id ?? '',
       managerId: u.manager_id || '',
       avatar: u.avatar || '👤',
+      status: u.status || 'active',
+      resignDate: u.resign_date || '',
       position: rec.position || '',
+      phone: rec.phone || '',
+      address: rec.address || '',
+      emergencyName: rec.emergency_name || '',
+      emergencyPhone: rec.emergency_phone || '',
+      emergencyRelation: rec.emergency_relation || '',
+      employmentType: rec.employment_type || 'monthly',
+      photoUrl: rec.photo_url || '',
       startDate: rec.start_date || '',
       salary: Number(rec.salary) || 0,
       nationalId: rec.national_id || '',

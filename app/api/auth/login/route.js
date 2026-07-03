@@ -24,6 +24,13 @@ export async function POST(request) {
       );
     }
 
+    if (user.status && user.status !== 'active') {
+      return NextResponse.json(
+        { error: 'บัญชีนี้พ้นสภาพพนักงาน/ถูกระงับ กรุณาติดต่อ HR' },
+        { status: 403 }
+      );
+    }
+
     const token = createToken(user);
 
     await addAuditEntry({

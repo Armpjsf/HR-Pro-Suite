@@ -24,12 +24,27 @@ const EXPORT_COLUMNS = [
 const EMPTY_FORM = {
   name: '', nameEn: '', email: '', department: '', branchId: '', managerId: '', position: '', startDate: '',
   salary: 0, nationalId: '', bankName: '', bankAccount: '', taxId: '',
+  phone: '', address: '', emergencyName: '', emergencyPhone: '', emergencyRelation: '',
+  employmentType: 'monthly', status: 'active', resignDate: '',
   birthDate: '', probationEnd: '', contractEnd: '', licenseExpiry: '',
   leaveAnnualTotal: 0, leaveAnnualUsed: 0,
   leaveSickTotal: 0, leaveSickUsed: 0,
   leavePersonalTotal: 0, leavePersonalUsed: 0,
   leaveBalances: [],
 };
+
+const EMPLOYMENT_TYPE_LABELS = {
+  monthly: 'รายเดือน', daily: 'รายวัน', contract: 'สัญญาจ้าง', parttime: 'พาร์ทไทม์',
+};
+const STATUS_LABELS = {
+  active: 'ทำงานอยู่', resigned: 'ลาออก/พ้นสภาพ', suspended: 'พักงาน',
+};
+const HISTORY_LABELS = { salary: 'เงินเดือน', position: 'ตำแหน่ง', status: 'สถานะ' };
+
+function photoSrc(photoUrl) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
+  return `/api/assets/image?file=${encodeURIComponent(photoUrl)}&token=${encodeURIComponent(token || '')}`;
+}
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState([]);
@@ -41,6 +56,10 @@ export default function EmployeesPage() {
   const [toast, setToast] = useState(null);
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [leaveYear, setLeaveYear] = useState(new Date().getFullYear());
+  const [showResigned, setShowResigned] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [granting, setGranting] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -71,9 +90,12 @@ export default function EmployeesPage() {
   };
 
   const filtered = employees.filter((e) => {
+    if (!showResigned && e.status && e.status !== 'active') return false;
     const q = search.toLowerCase();
     return !q || [e.name, e.employeeId, e.department, e.position].some((v) => String(v || '').toLowerCase().includes(q));
   });
+
+  const activeCount = employees.filter((e) => !e.status || e.status === 'active').length;
 
   const departments = [...new Set(employees.map((e) => e.department).filter(Boolean))];
   const leaveTypeMap = new Map(leaveTypes.map((t) => [t.code, t]));
@@ -116,12 +138,49 @@ export default function EmployeesPage() {
       name: emp.name || '', nameEn: emp.nameEn || '', email: emp.email || '',
       department: emp.department || '', branchId: emp.branchId ?? '', managerId: emp.managerId || '', position: emp.position || '', startDate: emp.startDate || '',
       salary: emp.salary ?? 0, nationalId: emp.nationalId || '', bankName: emp.bankName || '', bankAccount: emp.bankAccount || '', taxId: emp.taxId || '',
+      phone: emp.phone || '', address: emp.address || '',
+      emergencyName: emp.emergencyName || '', emergencyPhone: emp.emergencyPhone || '', emergencyRelation: emp.emergencyRelation || '',
+      employmentType: emp.employmentType || 'monthly', status: emp.status || 'active', resignDate: emp.resignDate || '',
       birthDate: emp.birthDate || '', probationEnd: emp.probationEnd || '', contractEnd: emp.contractEnd || '', licenseExpiry: emp.licenseExpiry || '',
       leaveAnnualTotal: emp.leaveAnnualTotal, leaveAnnualUsed: emp.leaveAnnualUsed,
       leaveSickTotal: emp.leaveSickTotal, leaveSickUsed: emp.leaveSickUsed,
       leavePersonalTotal: emp.leavePersonalTotal, leavePersonalUsed: emp.leavePersonalUsed,
       leaveBalances: leaveRowsForForm(emp),
     });
+    setHistory([]);
+    fetch(`/api/hr/employees/${emp.employeeId}`, { headers: authHeaders() })
+      .then((r) => r.json()).then((d) => setHistory(d.history || [])).catch(() => {});
+  }
+
+  async function grantLeave() {
+    if (!confirm(`แจกสิทธิ์ลาประจำปี ${leaveYear} ให้พนักงานที่ยังไม่มียอด (ตาม "สิทธิ์ต่อปี" ของประเภทลา)?`)) return;
+    setGranting(true);
+    try {
+      const res = await fetch('/api/hr/leave/grant', {
+        method: 'POST', headers: authHeaders(true), body: JSON.stringify({ year: leaveYear }),
+      });
+      const d = await res.json();
+      if (!res.ok) { showToast(d.error || 'แจกสิทธิ์ไม่สำเร็จ', 'error'); return; }
+      showToast(`แจกสิทธิ์ลาปี ${d.year} แล้ว ${d.granted} รายการ (${d.types.join(', ')})`);
+      load();
+    } finally { setGranting(false); }
+  }
+
+  async function uploadPhoto(file) {
+    if (!file || !editing) return;
+    setUploadingPhoto(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`/api/hr/employees/${editing.employeeId}/photo`, {
+        method: 'POST', headers: authHeaders(), body: fd,
+      });
+      const d = await res.json();
+      if (!res.ok) { showToast(d.error || 'อัปโหลดรูปไม่สำเร็จ', 'error'); return; }
+      showToast('อัปโหลดรูปถ่ายแล้ว');
+      setEditing((p) => ({ ...p, photoUrl: d.photo_url }));
+      load();
+    } finally { setUploadingPhoto(false); }
   }
 
   async function save(e) {
@@ -159,7 +218,7 @@ export default function EmployeesPage() {
       <div className="hr-stat-row">
         <div className="hr-stat-card">
           <div className="hr-stat-icon">👥</div>
-          <div><div className="hr-stat-value">{employees.length}</div><div className="hr-stat-label">พนักงานทั้งหมด</div></div>
+          <div><div className="hr-stat-value">{activeCount}</div><div className="hr-stat-label">พนักงานทำงานอยู่</div></div>
         </div>
         <div className="hr-stat-card">
           <div className="hr-stat-icon">🏢</div>
@@ -175,6 +234,11 @@ export default function EmployeesPage() {
         <button className={`hr-tab${view === 'cards' ? ' active' : ''}`} onClick={() => setView('cards')}>🪪 การ์ด</button>
         <button className={`hr-tab${view === 'table' ? ' active' : ''}`} onClick={() => setView('table')}>📋 ตาราง</button>
         <input className="hr-search" placeholder="ค้นหาชื่อ/แผนก/ตำแหน่ง..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={showResigned} onChange={(e) => setShowResigned(e.target.checked)} />
+          แสดงคนพ้นสภาพ
+        </label>
+        <button className="hr-btn" onClick={grantLeave} disabled={granting}>{granting ? '⏳...' : `🎁 แจกสิทธิ์ลาปี ${leaveYear}`}</button>
         <button className="hr-btn" onClick={() => exportExcel(filtered, EXPORT_COLUMNS, 'employees')}>📄 Excel</button>
         <button className="hr-btn" onClick={printPDF}>📑 PDF</button>
         <Link href="/hr/users" className="hr-btn hr-btn-primary">+ เพิ่มพนักงาน</Link>
@@ -185,12 +249,24 @@ export default function EmployeesPage() {
           {filtered.map((emp) => (
             <div className="hr-emp-card" key={emp.employeeId}>
               <div className="hr-emp-head">
-                <div className="hr-emp-avatar" style={{ background: avatarColor(emp.employeeId) }}>
-                  {(emp.name || '?')[0]}
-                </div>
+                {emp.photoUrl ? (
+                  <img src={photoSrc(emp.photoUrl)} alt={emp.name}
+                    className="hr-emp-avatar" style={{ objectFit: 'cover' }} />
+                ) : (
+                  <div className="hr-emp-avatar" style={{ background: avatarColor(emp.employeeId) }}>
+                    {(emp.name || '?')[0]}
+                  </div>
+                )}
                 <div>
-                  <div className="hr-emp-name">{emp.name}</div>
-                  <div className="hr-emp-id">{emp.employeeId}</div>
+                  <div className="hr-emp-name">
+                    {emp.name}
+                    {emp.status && emp.status !== 'active' && (
+                      <span style={{ marginLeft: 6, fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#fee2e2', color: '#b91c1c' }}>
+                        {STATUS_LABELS[emp.status] || emp.status}
+                      </span>
+                    )}
+                  </div>
+                  <div className="hr-emp-id">{emp.employeeId} · {EMPLOYMENT_TYPE_LABELS[emp.employmentType] || 'รายเดือน'}</div>
                 </div>
               </div>
               <div className="hr-emp-row"><span className="k">🏢 แผนก</span><span className="v">{emp.department || '-'}</span></div>
@@ -264,10 +340,42 @@ export default function EmployeesPage() {
               </div>
               <div className="hr-field"><label>ตำแหน่ง</label><input className="hr-input" value={form.position} onChange={set('position')} /></div>
               <div className="hr-field"><label>วันเริ่มงาน</label><input className="hr-input" type="date" value={form.startDate} onChange={set('startDate')} /></div>
+              <div className="hr-field">
+                <label>ประเภทการจ้าง</label>
+                <select value={form.employmentType} onChange={set('employmentType')}>
+                  {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div className="hr-field">
+                <label>สถานะพนักงาน</label>
+                <select value={form.status} onChange={set('status')}>
+                  {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              {form.status !== 'active' && (
+                <div className="hr-field"><label>วันพ้นสภาพ/พักงาน</label><input className="hr-input" type="date" value={form.resignDate} onChange={set('resignDate')} /></div>
+              )}
+
+              <div className="hr-section-title" style={{ marginTop: 16 }}>รูปถ่ายพนักงาน</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                {editing.photoUrl && (
+                  <img src={photoSrc(editing.photoUrl)} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }} />
+                )}
+                <input type="file" accept="image/*" disabled={uploadingPhoto}
+                  onChange={(e) => uploadPhoto(e.target.files?.[0])} />
+                {uploadingPhoto && <span style={{ fontSize: 13 }}>⏳ กำลังอัปโหลด...</span>}
+              </div>
+
+              <div className="hr-section-title" style={{ marginTop: 16 }}>ข้อมูลติดต่อ</div>
+              <div className="hr-field"><label>เบอร์โทรศัพท์</label><input className="hr-input" value={form.phone} onChange={set('phone')} /></div>
+              <div className="hr-field"><label>ที่อยู่</label><textarea className="hr-input" rows={2} value={form.address} onChange={set('address')} /></div>
+              <div className="hr-field"><label>ผู้ติดต่อฉุกเฉิน — ชื่อ</label><input className="hr-input" value={form.emergencyName} onChange={set('emergencyName')} /></div>
+              <div className="hr-field"><label>ผู้ติดต่อฉุกเฉิน — เบอร์โทร</label><input className="hr-input" value={form.emergencyPhone} onChange={set('emergencyPhone')} /></div>
+              <div className="hr-field"><label>ผู้ติดต่อฉุกเฉิน — ความสัมพันธ์</label><input className="hr-input" value={form.emergencyRelation} onChange={set('emergencyRelation')} placeholder="เช่น บิดา มารดา คู่สมรส" /></div>
 
               <div className="hr-section-title" style={{ marginTop: 16 }}>ข้อมูลสำหรับสลิป/ภาษี/โอนเงิน</div>
               <div className="hr-field"><label>เงินเดือนฐาน (บาท/เดือน)</label><input className="hr-input" type="number" step="any" value={form.salary} onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value === '' ? 0 : Number(e.target.value) }))} /></div>
-              <div className="hr-field"><label>เลขบัตรประชาชน</label><input className="hr-input" value={form.nationalId} onChange={set('nationalId')} /></div>
+              <div className="hr-field"><label>เลขบัตรประชาชน (13 หลัก)</label><input className="hr-input" value={form.nationalId} onChange={set('nationalId')} maxLength={13} pattern="\d{13}" title="ตัวเลข 13 หลัก" /></div>
               <div className="hr-field"><label>เลขผู้เสียภาษี</label><input className="hr-input" value={form.taxId} onChange={set('taxId')} /></div>
               <div className="hr-field"><label>ธนาคาร</label><input className="hr-input" value={form.bankName} onChange={set('bankName')} /></div>
               <div className="hr-field"><label>เลขบัญชี</label><input className="hr-input" value={form.bankAccount} onChange={set('bankAccount')} /></div>
@@ -330,6 +438,28 @@ export default function EmployeesPage() {
                   <div className="hr-empty">ตั้งค่าประเภทการลาก่อนที่เมนู “ตั้งค่าประเภทการลา”</div>
                 )}
               </div>
+
+              {history.length > 0 && (
+                <>
+                  <div className="hr-section-title" style={{ marginTop: 16 }}>ประวัติการเปลี่ยนแปลง</div>
+                  <div className="hr-table-wrap" style={{ marginTop: 8, maxHeight: 180, overflowY: 'auto' }}>
+                    <table className="hr-table">
+                      <thead><tr><th>วันที่</th><th>รายการ</th><th>จาก</th><th>เป็น</th><th>โดย</th></tr></thead>
+                      <tbody>
+                        {history.map((h) => (
+                          <tr key={h.id}>
+                            <td>{(h.created_at || '').slice(0, 10)}</td>
+                            <td>{HISTORY_LABELS[h.change_type] || h.change_type}</td>
+                            <td>{h.old_value || '-'}</td>
+                            <td>{h.new_value || '-'}</td>
+                            <td>{h.changed_by || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
 
               <div className="hr-modal-actions">
                 <button type="button" className="hr-btn" onClick={() => setEditing(null)}>ยกเลิก</button>

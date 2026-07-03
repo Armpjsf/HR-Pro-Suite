@@ -121,6 +121,12 @@ export async function POST(request) {
         bank_account: str(r.bank_account) || null,
         tax_id: str(r.tax_id) || null,
         birth_date: str(r.birth_date) || null,
+        phone: str(r.phone) || null,
+        address: str(r.address) || null,
+        emergency_name: str(r.emergency_name) || null,
+        emergency_phone: str(r.emergency_phone) || null,
+        emergency_relation: str(r.emergency_relation) || null,
+        employment_type: ['monthly', 'daily', 'contract', 'parttime'].includes(str(r.employment_type)) ? str(r.employment_type) : 'monthly',
         updated_at: new Date().toISOString(),
       };
       await supabase.from('employee_records').upsert(recRow);
