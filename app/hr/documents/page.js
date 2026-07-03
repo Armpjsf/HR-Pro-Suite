@@ -20,8 +20,14 @@ export default function HrDocumentsPage() {
   const [search, setSearch] = useState('');
   const [uploadCategory, setUploadCategory] = useState('policies');
   const [uploading, setUploading] = useState(false);
+  const [reindexing, setReindexing] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [toast, setToast] = useState(null);
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    try { setIsAdmin(JSON.parse(localStorage.getItem('hr-user') || '{}').role === 'admin'); } catch {}
+  }, []);
 
   const showToast = (message, type = 'success') => { setToast({ message, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -65,6 +71,24 @@ export default function HrDocumentsPage() {
     else showToast('ลบไม่สำเร็จ', 'error');
   }
 
+  async function reindex() {
+    if (!confirm('สร้างดัชนี AI (RAG) ใหม่ทั้งหมด?\n\nใช้หลังเปลี่ยน LLM provider หรือเมื่อ AI ค้นเอกสารไม่เจอ — อาจใช้เวลาหลายนาทีตามจำนวนเอกสาร')) return;
+    setReindexing(true);
+    try {
+      const res = await fetch('/api/documents/reindex', { method: 'POST', headers: authHeaders() });
+      const d = await res.json();
+      if (!res.ok) { showToast(d.error || 'สร้างดัชนีไม่สำเร็จ', 'error'); return; }
+      const failed = (d.results || []).filter((r) => r.error);
+      showToast(
+        `สร้างดัชนีแล้ว ${d.totalChunks} ชิ้น จาก ${(d.results || []).length} เอกสาร` +
+        (failed.length ? ` (ล้มเหลว ${failed.length}: ${failed[0].error})` : ''),
+        failed.length ? 'error' : 'success',
+      );
+      load();
+    } catch { showToast('เกิดข้อผิดพลาดระหว่างสร้างดัชนี', 'error'); }
+    finally { setReindexing(false); }
+  }
+
   function download(doc) {
     const token = localStorage.getItem('hr-token');
     window.open(`/api/documents/${doc.id}/download?token=${encodeURIComponent(token || '')}`, '_blank');
@@ -93,6 +117,11 @@ export default function HrDocumentsPage() {
         <button className="hr-btn hr-btn-primary" disabled={uploading} onClick={() => fileRef.current?.click()}>
           {uploading ? 'กำลังอัพโหลด...' : '📤 อัพโหลดเอกสาร'}
         </button>
+        {isAdmin && (
+          <button className="hr-btn" disabled={reindexing} onClick={reindex}>
+            {reindexing ? '⏳ กำลังสร้างดัชนี...' : '📇 Re-index ดัชนี AI'}
+          </button>
+        )}
         <input ref={fileRef} type="file" accept=".pdf,.xlsx,.xls,.csv,.docx,.doc,.txt,.md" style={{ display: 'none' }}
           onChange={(e) => upload(e.target.files)} />
       </div>
