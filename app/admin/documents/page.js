@@ -28,6 +28,7 @@ export default function DocumentsPage() {
   const [toast, setToast] = useState(null);
   const [mounted, setMounted] = useState(false);
   const [uploadCategory, setUploadCategory] = useState('policies');
+  const [reindexing, setReindexing] = useState(false);
   const fileInputRef = useRef(null);
   const router = useRouter();
 
@@ -57,6 +58,27 @@ export default function DocumentsPage() {
   function showToast(message, type = 'success') {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  }
+
+  async function handleReindex() {
+    if (!confirm('สร้างดัชนี AI (RAG) ใหม่ทั้งหมด?\n\nใช้หลังเปลี่ยน LLM provider หรือเมื่อ AI ค้นเอกสารไม่เจอ — อาจใช้เวลาหลายนาทีตามจำนวนเอกสาร')) return;
+    setReindexing(true);
+    try {
+      const res = await fetch('/api/documents/reindex', { method: 'POST', headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || 'สร้างดัชนีไม่สำเร็จ', 'error'); return; }
+      const failed = (data.results || []).filter((r) => r.error);
+      showToast(
+        `สร้างดัชนีแล้ว ${data.totalChunks} ชิ้น จาก ${(data.results || []).length} เอกสาร` +
+        (failed.length ? ` (ล้มเหลว ${failed.length}: ${failed[0].error})` : ''),
+        failed.length ? 'error' : 'success',
+      );
+      loadDocuments();
+    } catch {
+      showToast('เกิดข้อผิดพลาดระหว่างสร้างดัชนี', 'error');
+    } finally {
+      setReindexing(false);
+    }
   }
 
   function getFileIcon(type) {
@@ -241,9 +263,16 @@ export default function DocumentsPage() {
                 เอกสารทั้งหมด: {documents.length} ไฟล์ | AI อ่านเนื้อหาได้: {documents.filter(d => d.hasContent).length} ไฟล์
               </p>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={async () => { await loadDocuments(); showToast('รีเฟรชข้อมูลสำเร็จ'); }}>
-              🔄 รีเฟรช
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {user?.role === 'admin' && (
+                <button className="btn btn-secondary btn-sm" onClick={handleReindex} disabled={reindexing}>
+                  {reindexing ? '⏳ กำลังสร้างดัชนี...' : '📇 Re-index ดัชนี AI'}
+                </button>
+              )}
+              <button className="btn btn-secondary btn-sm" onClick={async () => { await loadDocuments(); showToast('รีเฟรชข้อมูลสำเร็จ'); }}>
+                🔄 รีเฟรช
+              </button>
+            </div>
           </div>
         </div>
 
