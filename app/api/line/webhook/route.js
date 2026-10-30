@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { generateResponse } from '@/lib/gemini';
-import { getLineMappings, setLineMapping, findUserByEmployeeId, addAuditEntry } from '@/lib/db';
+import { generateResponse } from '@/lib/gemini.js';
+import { getLineMappings, setLineMapping, findUserByEmployeeId, addAuditEntry } from '@/lib/db.js';
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || '';
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
@@ -21,10 +21,10 @@ function rememberLineTurn(userId, userText, assistantText) {
 }
 
 /**
- * Verify LINE webhook signature
+ * ตรวจสอบความถูกต้องของ LINE Webhook Signature
  */
 function verifySignature(body, signature) {
-  if (!LINE_CHANNEL_SECRET) return true; // Skip in dev
+  if (!LINE_CHANNEL_SECRET) return true; // ข้ามใน dev ถ้าไม่ได้ตั้งค่า secret
   const hash = crypto
     .createHmac('SHA256', LINE_CHANNEL_SECRET)
     .update(body)
@@ -33,11 +33,11 @@ function verifySignature(body, signature) {
 }
 
 /**
- * Reply to LINE user
+ * ส่งข้อความตอบกลับไปยัง LINE Platform
  */
 async function replyMessage(replyToken, messages) {
   if (!LINE_CHANNEL_ACCESS_TOKEN) {
-    console.log('[LINE Mock] Reply:', JSON.stringify(messages, null, 2));
+    console.log('[LINE Mock] Reply token:', replyToken, JSON.stringify(messages, null, 2));
     return;
   }
 
@@ -56,16 +56,89 @@ async function replyMessage(replyToken, messages) {
 }
 
 /**
- * Create Flex Message for AI response
+ * Flex Message สำหรับการติดต่อ HR ตัวจริง (Human Escalation)
  */
-function createFlexResponse(text, documents = []) {
+function createHumanEscalationResponse(employeeName = '') {
+  return {
+    type: 'flex',
+    altText: 'ช่องทางการติดต่อฝ่ายบุคคล (HR)',
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#7c3aed',
+        paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '👩‍💼 ฝ่ายทรัพยากรบุคคล (HR)', weight: 'bold', size: 'md', color: '#ffffff' },
+          { type: 'text', text: 'บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด', size: 'xs', color: '#ddd6fe', margin: 'xs' },
+        ],
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: `สวัสดีค่ะคุณ ${employeeName || 'พนักงาน'} หากต้องการติดต่อเจ้าหน้าที่ HR เพื่อปรึกษาเรื่องส่วนตัว ร้องเรียน หรือสอบถามข้อมูลเพิ่มเติม สามารถติดต่อได้ตามช่องทางนี้ค่ะ:`,
+            wrap: true,
+            size: 'sm',
+            color: '#374151',
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'md',
+            spacing: 'sm',
+            backgroundColor: '#f3f4f6',
+            paddingAll: '12px',
+            cornerRadius: '8px',
+            contents: [
+              { type: 'text', text: '📞 โทรศัพท์: 02-123-4567 ต่อ 101-104', size: 'xs', weight: 'bold', color: '#1f2937' },
+              { type: 'text', text: '⏰ เวลาทำการ: จันทร์ - ศุกร์ 08:30 - 17:30 น.', size: 'xs', color: '#4b5563' },
+              { type: 'text', text: '✉️ อีเมล: hr@ddtransport.co.th', size: 'xs', color: '#4b5563' },
+              { type: 'separator', margin: 'sm' },
+              { type: 'text', text: '🚨 เหตุฉุกเฉิน/อุบัติเหตุ 24 ชม.: โทร 1669 / สายด่วนศูนย์ควบคุม', size: 'xs', color: '#dc2626', weight: 'bold' },
+            ],
+          },
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            action: { type: 'uri', label: '📞 โทรหาฝ่ายบุคคล', uri: 'tel:021234567' },
+            style: 'primary',
+            color: '#7c3aed',
+            height: 'sm',
+          },
+          {
+            type: 'button',
+            action: { type: 'message', label: 'แจ้งให้ HR โทรกลับ', text: 'ต้องการให้เจ้าหน้าที่ HR ติดต่อกลับด่วน' },
+            style: 'secondary',
+            height: 'sm',
+          },
+        ],
+      },
+    },
+  };
+}
+
+/**
+ * Flex Message สำหรับการแสดงคำตอบและเอกสารแนบ
+ */
+function createFlexResponse(text, documents = [], userName = '') {
   const contents = {
     type: 'bubble',
     header: {
       type: 'box',
       layout: 'horizontal',
       contents: [
-        { type: 'text', text: '🤖 HR Assistant', weight: 'bold', size: 'sm', color: '#7c3aed' },
+        { type: 'text', text: '🤖 พี่ HR ผู้ช่วยอัจฉริยะ', weight: 'bold', size: 'sm', color: '#7c3aed' },
       ],
     },
     body: {
@@ -74,31 +147,40 @@ function createFlexResponse(text, documents = []) {
       contents: [
         {
           type: 'text',
-          text: `${text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n')}${documents.length > 0 ? '\n\nเปิดเมนูเอกสาร HR ในเว็บเพื่อดาวน์โหลดไฟล์' : ''}`.slice(0, 700),
+          text: text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n').slice(0, 800),
           wrap: true,
           size: 'sm',
-          color: '#333333',
+          color: '#1f2937',
+          lineSpacing: '4px',
         },
       ],
     },
   };
 
-  // Add document buttons
   if (documents.length > 0) {
     contents.footer = {
       type: 'box',
       layout: 'vertical',
       spacing: 'sm',
-      contents: documents.slice(0, 3).map(doc => ({
-        type: 'button',
-        action: {
-          type: 'message',
-          label: `📄 ${doc.name.slice(0, 20)}`,
-          text: `เปิดเมนูเอกสาร HR เพื่อดาวน์โหลด ${doc.name}`,
+      contents: [
+        {
+          type: 'text',
+          text: '📄 เอกสาร/แบบฟอร์มที่เกี่ยวข้อง:',
+          size: 'xs',
+          color: '#6b7280',
+          weight: 'bold',
         },
-        style: 'secondary',
-        height: 'sm',
-      })),
+        ...documents.slice(0, 3).map((doc) => ({
+          type: 'button',
+          action: {
+            type: 'message',
+            label: `ดาวน์โหลด: ${doc.name.slice(0, 24)}`,
+            text: `ขอเอกสาร ${doc.name}`,
+          },
+          style: 'secondary',
+          height: 'sm',
+        })),
+      ],
     };
   }
 
@@ -110,7 +192,7 @@ function createFlexResponse(text, documents = []) {
 }
 
 /**
- * Create registration prompt
+ * Flex Message ชวนลงทะเบียนครั้งแรก
  */
 function createRegistrationPrompt() {
   return {
@@ -121,17 +203,30 @@ function createRegistrationPrompt() {
       header: {
         type: 'box',
         layout: 'vertical',
+        backgroundColor: '#7c3aed',
+        paddingAll: '16px',
         contents: [
-          { type: 'text', text: '🤖 HR AI Assistant', weight: 'bold', size: 'lg', color: '#7c3aed', align: 'center' },
+          { type: 'text', text: '🤖 ระบบ HR Assistant', weight: 'bold', size: 'lg', color: '#ffffff', align: 'center' },
+          { type: 'text', text: 'บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด', size: 'xs', color: '#ddd6fe', align: 'center', margin: 'xs' },
         ],
       },
       body: {
         type: 'box',
         layout: 'vertical',
+        spacing: 'md',
         contents: [
-          { type: 'text', text: 'สวัสดีค่ะ! ยินดีต้อนรับสู่ระบบ HR Assistant', wrap: true, size: 'sm' },
-          { type: 'text', text: 'กรุณาพิมพ์รหัสพนักงานของคุณเพื่อลงทะเบียน', wrap: true, size: 'sm', margin: 'md', color: '#888888' },
-          { type: 'text', text: 'ตัวอย่าง: ลงทะเบียน EMP001', wrap: true, size: 'xs', margin: 'md', color: '#7c3aed' },
+          { type: 'text', text: 'สวัสดีค่ะ! ยินดีต้อนรับสู่ระบบบริการข้อมูลพนักงาน', wrap: true, size: 'sm', color: '#374151' },
+          { type: 'text', text: 'เพื่อความปลอดภัยและการดึงข้อมูลสิทธิ์ส่วนบุคคล กรุณาพิมพ์รหัสพนักงานของคุณเพื่อเริ่มใช้งานนะคะ', wrap: true, size: 'xs', color: '#6b7280' },
+          {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#f5f3ff',
+            paddingAll: '10px',
+            cornerRadius: '6px',
+            contents: [
+              { type: 'text', text: 'ตัวอย่างการพิมพ์: ลงทะเบียน DD-001', weight: 'bold', size: 'xs', color: '#6d28d9', align: 'center' },
+            ],
+          },
         ],
       },
     },
@@ -139,25 +234,37 @@ function createRegistrationPrompt() {
 }
 
 /**
- * Quick Reply buttons
+ * Quick Reply buttons อัจฉริยะตามหมวดหมู่คำถาม
  */
-function getQuickReply() {
+function getQuickReply(intentType = '') {
+  if (intentType === 'leave' || intentType === 'data_query') {
+    return {
+      items: [
+        { type: 'action', action: { type: 'message', label: '📅 วันลาคงเหลือ', text: 'วันลาคงเหลือ' } },
+        { type: 'action', action: { type: 'message', label: '📝 ขอ Template ใบลา', text: 'ขอ Template ใบลา' } },
+        { type: 'action', action: { type: 'message', label: '📋 ระเบียบการลาป่วย', text: 'ระเบียบการลาป่วยต้องใช้ใบรับรองแพทย์ไหม' } },
+        { type: 'action', action: { type: 'message', label: '📞 ติดต่อ HR', text: 'ติดต่อ HR' } },
+      ],
+    };
+  }
+
   return {
     items: [
-      { type: 'action', action: { type: 'message', label: '📅 วันลา', text: 'วันลาคงเหลือ' } },
-      { type: 'action', action: { type: 'message', label: '📄 ใบสมัคร', text: 'ขอ Template ใบสมัครงาน' } },
-      { type: 'action', action: { type: 'message', label: '📝 ใบลา', text: 'ขอ Template ใบลา' } },
-      { type: 'action', action: { type: 'message', label: '📋 ระเบียบ', text: 'ระเบียบบริษัทมีอะไรบ้าง' } },
-      { type: 'action', action: { type: 'message', label: '📢 ประกาศ', text: 'ประกาศล่าสุด' } },
+      { type: 'action', action: { type: 'message', label: '📅 วันลาคงเหลือ', text: 'วันลาคงเหลือ' } },
+      { type: 'action', action: { type: 'message', label: '📋 ระเบียบการทำงาน', text: 'เวลาทำงานและกฎระเบียบบริษัท' } },
+      { type: 'action', action: { type: 'message', label: '💰 เงินเดือนและโอที', text: 'รอบการจ่ายเงินเดือนและค่าโอที' } },
+      { type: 'action', action: { type: 'message', label: '🛡️ กฎความปลอดภัย', text: 'แนวปฏิบัติด้านความปลอดภัยคนขับรถ' } },
+      { type: 'action', action: { type: 'message', label: '📞 ติดต่อ HR', text: 'ติดต่อ HR' } },
     ],
   };
 }
+
 export async function POST(request) {
   try {
     const bodyText = await request.text();
     const signature = request.headers.get('x-line-signature');
 
-    // Verify signature
+    // ตรวจสอบลายเซ็น
     if (!verifySignature(bodyText, signature)) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
@@ -165,7 +272,7 @@ export async function POST(request) {
     const body = JSON.parse(bodyText);
     const events = body.events || [];
 
-    // LINE platform verification event support
+    // LINE platform verification event
     if (events.length === 0) {
       return NextResponse.json({ success: true });
     }
@@ -173,17 +280,17 @@ export async function POST(request) {
     for (const event of events) {
       const userId = event.source?.userId;
 
-      // Follow event — new user
+      // Event เพิ่มเพื่อนใหม่
       if (event.type === 'follow') {
         await replyMessage(event.replyToken, [createRegistrationPrompt()]);
         continue;
       }
 
-      // Message event
+      // Event ได้รับข้อความ
       if (event.type === 'message' && event.message?.type === 'text') {
         const text = event.message.text.trim();
 
-        // Check registration — ตรวจรหัสพนักงานกับระบบจริง แล้วบันทึกการผูกบัญชี
+        // 1. ตรวจสอบคำสั่งลงทะเบียน
         if (text.startsWith('ลงทะเบียน')) {
           const empId = text.replace('ลงทะเบียน', '').trim().toUpperCase();
           const employee = await findUserByEmployeeId(empId);
@@ -191,7 +298,7 @@ export async function POST(request) {
           if (!employee) {
             await replyMessage(event.replyToken, [{
               type: 'text',
-              text: `❌ ไม่พบรหัสพนักงาน "${empId}" ในระบบ\nกรุณาตรวจสอบรหัสพนักงาน หรือติดต่อฝ่าย HR`,
+              text: `❌ ไม่พบรหัสพนักงาน "${empId}" ในระบบบริษัท\nกรุณาตรวจสอบรหัสพนักงานที่ถูกต้อง หรือติดต่อฝ่ายบุคคลนะคะ`,
             }]);
             continue;
           }
@@ -202,17 +309,17 @@ export async function POST(request) {
             role: employee.role,
             registeredAt: new Date().toISOString(),
           });
-          await addAuditEntry({ user: employee.name, action: 'ลงทะเบียน LINE', channel: 'LINE' });
+          await addAuditEntry({ user: employee.name, action: 'ลงทะเบียน LINE สำเร็จ', channel: 'LINE' });
 
           await replyMessage(event.replyToken, [{
             type: 'text',
-            text: `✅ ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ${employee.name}\nรหัสพนักงาน: ${employee.employeeId}\nคุณสามารถเริ่มถามคำถามได้เลยค่ะ`,
+            text: `✅ ลงทะเบียนสำเร็จเรียบร้อยค่ะ!\n\nยินดีต้อนรับคุณ ${employee.name} (${employee.employeeId})\nคุณสามารถพิมพ์คำถามเกี่ยวกับระเบียบ สวัสดิการ วันลา หรือสอบถามข้อข้องใจกับพี่ HR ได้เลยนะคะ`,
             quickReply: getQuickReply(),
           }]);
           continue;
         }
 
-        // Check if user is registered
+        // 2. ตรวจสอบว่าผู้ใช้ผูกบัญชีหรือยัง
         const lineMappings = await getLineMappings();
         const userMapping = lineMappings[userId];
         if (!userMapping) {
@@ -220,7 +327,22 @@ export async function POST(request) {
           continue;
         }
 
-        // Generate AI response
+        // 3. ตรวจสอบเคสขอติดต่อคนจริง / Human Escalation / แจ้งเหตุฉุกเฉิน
+        if (/^(ติดต่อ hr|ขอเบอร์ hr|คุยกับคน|คุยกับ hr|แจ้งอุบัติเหตุ|ร้องเรียน|ติดต่อเจ้าหน้าที่|สายด่วน)/i.test(text)) {
+          await addAuditEntry({
+            user: userMapping.name,
+            action: `[ร้องขอติดต่อ HR] ${text}`,
+            channel: 'LINE',
+            type: 'escalation',
+          });
+
+          await replyMessage(event.replyToken, [
+            createHumanEscalationResponse(userMapping.name),
+          ]);
+          continue;
+        }
+
+        // 4. ส่งข้อความเข้าประมวลผลผ่าน Smart Hybrid AI (Gemini Flash / Tier 0)
         const response = await generateResponse(text, {
           ...userMapping,
           id: userId,
@@ -228,6 +350,7 @@ export async function POST(request) {
           channel: 'LINE',
           history: getLineHistory(userId),
         });
+
         rememberLineTurn(userId, text, response.text);
 
         await addAuditEntry({
@@ -237,16 +360,15 @@ export async function POST(request) {
           type: 'chat',
         });
 
-        // Create response messages
+        // 5. ส่งคำตอบกลับ
         const messages = [];
-        
         if (response.documents?.length > 0) {
-          messages.push(createFlexResponse(response.text, response.documents));
+          messages.push(createFlexResponse(response.text, response.documents, userMapping.name));
         } else {
           messages.push({
             type: 'text',
             text: response.text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n'),
-            quickReply: getQuickReply(),
+            quickReply: getQuickReply(response.intent),
           });
         }
 
@@ -261,7 +383,7 @@ export async function POST(request) {
   }
 }
 
-// LINE webhook verification
+// LINE webhook GET verification
 export async function GET() {
-  return NextResponse.json({ status: 'LINE webhook is active' });
+  return NextResponse.json({ status: 'LINE webhook is active and ready' });
 }

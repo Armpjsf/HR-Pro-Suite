@@ -2,7 +2,7 @@
   {
     "id": "admin-001",
     "username": "admin",
-    "password": "$2b$10$cZ..V8CnAuUSdf8cEKhyAuGjUrKEN126jNy60y1QqmYAKt0FYKp8u",
+    "password": "$2b$10$zZgcSD3Jj11Pp9ehO3LCCOJ1EcTr4bPGhr4eh/eDBnlfoXnLr1maW",
     "name": "ผู้ดูแลระบบ",
     "nameEn": "System Administrator",
     "email": "admin@company.com",
