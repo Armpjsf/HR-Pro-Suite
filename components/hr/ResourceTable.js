@@ -94,6 +94,17 @@ export default function ResourceTable({ config }) {
       .catch(() => {});
   }, [needBranches]);
 
+  // โหลดรายชื่อแผนกเมื่อมี field type 'department'
+  const [departments, setDepartments] = useState([]);
+  const needDepartments = fields?.some((f) => f.type === 'department');
+  useEffect(() => {
+    if (!needDepartments) return;
+    fetch('/api/hr/departments', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setDepartments(d.items || []))
+      .catch(() => {});
+  }, [needDepartments]);
+
   function onSearch(value) {
     setSearch(value);
     clearTimeout(searchTimer.current);
@@ -187,6 +198,16 @@ export default function ResourceTable({ config }) {
             <option key={emp.employeeId} value={emp.employeeId}>
               {emp.employeeId} · {emp.name}
             </option>
+          ))}
+        </select>
+      );
+    }
+    if (f.type === 'department') {
+      return (
+        <select value={value || ''} onChange={(e) => set(e.target.value)} required={f.required}>
+          <option value="">— เลือกแผนก —</option>
+          {departments.map((d) => (
+            <option key={d.code} value={d.code}>{d.code} · {d.name}</option>
           ))}
         </select>
       );

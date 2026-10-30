@@ -67,6 +67,15 @@ export default function EmployeesPage() {
   }, []);
 
   const [branches, setBranches] = useState([]);
+  const [activeBranch, setActiveBranch] = useState(
+    typeof window !== 'undefined' ? localStorage.getItem('hr-active-branch') || 'all' : 'all'
+  );
+
+  useEffect(() => {
+    const handleBranch = (e) => setActiveBranch(e.detail || 'all');
+    window.addEventListener('hr-branch-change', handleBranch);
+    return () => window.removeEventListener('hr-branch-change', handleBranch);
+  }, []);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/hr/employees', { headers: authHeaders() });
@@ -90,6 +99,7 @@ export default function EmployeesPage() {
   };
 
   const filtered = employees.filter((e) => {
+    if (activeBranch !== 'all' && String(e.branchId || '') !== String(activeBranch)) return false;
     if (!showResigned && e.status && e.status !== 'active') return false;
     const q = search.toLowerCase();
     return !q || [e.name, e.employeeId, e.department, e.position].some((v) => String(v || '').toLowerCase().includes(q));

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { generateResponse } from '@/lib/gemini.js';
 import { getLineMappings, setLineMapping, findUserByEmployeeId, addAuditEntry } from '@/lib/db.js';
+import { createToken } from '@/lib/auth.js';
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || '';
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
@@ -131,7 +132,8 @@ function createHumanEscalationResponse(employeeName = '') {
 /**
  * Flex Message สำหรับการแสดงคำตอบและเอกสารแนบ
  */
-function createFlexResponse(text, documents = [], userName = '') {
+function createFlexResponse(text, documents = [], userName = '', downloadToken = '') {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hr-ai-chatbot-tawny.vercel.app';
   const contents = {
     type: 'bubble',
     header: {
@@ -165,21 +167,27 @@ function createFlexResponse(text, documents = [], userName = '') {
       contents: [
         {
           type: 'text',
-          text: '📄 เอกสาร/แบบฟอร์มที่เกี่ยวข้อง:',
+          text: '📄 แตะปุ่มด้านล่างเพื่อดาวน์โหลดไฟล์จริง:',
           size: 'xs',
           color: '#6b7280',
           weight: 'bold',
         },
-        ...documents.slice(0, 3).map((doc) => ({
-          type: 'button',
-          action: {
-            type: 'message',
-            label: `ดาวน์โหลด: ${doc.name.slice(0, 24)}`,
-            text: `ขอเอกสาร ${doc.name}`,
-          },
-          style: 'secondary',
-          height: 'sm',
-        })),
+        ...documents.slice(0, 3).map((doc) => {
+          const downloadUrl = `${baseUrl}/api/documents/${doc.id}/download${downloadToken ? `?token=${encodeURIComponent(downloadToken)}` : ''}`;
+          const cleanName = (doc.name || 'เอกสาร').replace(/^แบบฟอร์ม|^Template/i, '').trim();
+          const label = `📥 โหลด: ${cleanName.slice(0, 11)}`;
+          return {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label,
+              uri: downloadUrl,
+            },
+            style: 'primary',
+            color: '#7c3aed',
+            height: 'sm',
+          };
+        }),
       ],
     };
   }
@@ -363,7 +371,8 @@ export async function POST(request) {
         // 5. ส่งคำตอบกลับ
         const messages = [];
         if (response.documents?.length > 0) {
-          const flexMsg = createFlexResponse(response.text, response.documents, userMapping.name);
+          const downloadToken = createToken(userMapping);
+          const flexMsg = createFlexResponse(response.text, response.documents, userMapping.name, downloadToken);
           flexMsg.quickReply = getQuickReply(response.intent);
           messages.push(flexMsg);
         } else {
