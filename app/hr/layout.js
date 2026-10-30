@@ -38,14 +38,24 @@ export default function HrLayout({ children }) {
     setUser(parsed);
 
     fetch('/api/hr/access', { headers: authHeaders() })
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (r.status === 401) {
+          localStorage.removeItem('hr-user');
+          localStorage.removeItem('hr-token');
+          document.cookie = 'hr-token=; path=/; max-age=0';
+          router.replace('/');
+          return null;
+        }
+        return r.json();
+      })
       .then((d) => {
+        if (!d) return;
         const allowed = d.allowed ?? [];
         const canEnter = d.isAdmin || allowed === '__all__' || (Array.isArray(allowed) && allowed.length > 0);
-        if (!canEnter) { router.push('/me'); return; }
+        if (!canEnter) { router.replace('/me'); return; }
         setAccess({ allowed, isAdmin: !!d.isAdmin });
       })
-      .catch(() => router.push('/me'));
+      .catch(() => router.replace('/'));
   }, [router]);
 
   if (!user || !access) return null;

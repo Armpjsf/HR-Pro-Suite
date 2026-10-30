@@ -85,27 +85,74 @@ export default function EmployeePage() {
   const [data, setData] = useState(null);
   const [toast, setToast] = useState(null);
 
-  /* ─── Auth ─── */
+  /* ─── Auth & Load initial data ─── */
+  const [loadError, setLoadError] = useState(false);
+
   useEffect(() => {
     const stored = localStorage.getItem('hr-user');
     const token = localStorage.getItem('hr-token');
-    if (!stored || !token) { router.push('/'); return; }
-    try { setUser(JSON.parse(stored)); } catch { router.push('/'); }
+    if (!stored || !token) {
+      router.replace('/');
+      return;
+    }
+    try {
+      setUser(JSON.parse(stored));
+    } catch {
+      localStorage.removeItem('hr-user');
+      localStorage.removeItem('hr-token');
+      router.replace('/');
+      return;
+    }
+
+    fetch('/api/me', { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
+      .then(async (r) => {
+        if (r.status === 401) {
+          localStorage.removeItem('hr-user');
+          localStorage.removeItem('hr-token');
+          document.cookie = 'hr-token=; path=/; max-age=0';
+          router.replace('/');
+          return null;
+        }
+        if (!r.ok) {
+          setLoadError(true);
+          return null;
+        }
+        return r.json();
+      })
+      .then((d) => {
+        if (d && d.profile) {
+          setData(d);
+        } else if (d) {
+          setLoadError(true);
+        }
+      })
+      .catch(() => setLoadError(true));
   }, [router]);
 
-  /* ─── Load initial data ─── */
-  useEffect(() => {
-    if (!user) return;
-    fetch('/api/me', { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((d) => { if (d.profile) setData(d); })
-      .catch(() => {});
-  }, [user]);
+  function handleLogout() {
+    localStorage.removeItem('hr-user');
+    localStorage.removeItem('hr-token');
+    document.cookie = 'hr-token=; path=/; max-age=0';
+    router.replace('/');
+  }
 
   const showToast = useCallback((msg, isError) => {
     setToast({ msg, isError });
     setTimeout(() => setToast(null), 3000);
   }, []);
+
+  if (loadError) {
+    return (
+      <div className="me-root">
+        <div className="me-empty" style={{ padding: '40px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontWeight: 700, marginBottom: 8, color: '#1f2937' }}>เซสชันหมดอายุ หรือไม่สามารถโหลดข้อมูลได้</div>
+          <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>กรุณาเข้าสู่ระบบใหม่อีกครั้งเพื่อความปลอดภัยค่ะ</div>
+          <button className="me-btn" onClick={handleLogout} style={{ cursor: 'pointer', maxWidth: 200, margin: '0 auto' }}>เข้าสู่ระบบใหม่</button>
+        </div>
+      </div>
+    );
+  }
 
   if (!user || !data) return <div className="me-root"><div className="me-empty">กำลังโหลด...</div></div>;
 
