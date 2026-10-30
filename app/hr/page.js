@@ -23,12 +23,13 @@ export default function HrDashboardPage() {
 
   if (!data) return <div className="hr-empty">กำลังโหลด...</div>;
 
-  const { stats, attendance, branchStats, driverAlerts, announcements, pendingLeaveList } = data;
+  const { stats, attendance, branchStats, driverAlerts, todayBookingList = [], announcements, pendingLeaveList } = data;
 
   const cards = [
     { icon: '👥', value: stats.employees, label: 'พนักงานทั้งหมด', href: '/hr/employees' },
     { icon: '🏖️', value: stats.pendingLeave, label: 'ใบลารออนุมัติ', href: '/hr/leave' },
     { icon: '🧾', value: stats.pendingExpenses, label: 'เบิกจ่ายรออนุมัติ', href: '/hr/expenses' },
+    { icon: '🎦', value: stats.todayBookings, label: 'ห้องประชุมที่จองวันนี้', href: '/hr/rooms?tab=bookings' },
     { icon: '📣', value: stats.openJobs, label: 'ตำแหน่งเปิดรับ', href: '/hr/recruitment' },
     { icon: '💰', value: stats.payrollTotal.toLocaleString('th-TH') + ' ฿', label: `เงินเดือนงวด ${stats.period}`, href: '/hr/payroll' },
   ];
@@ -121,7 +122,40 @@ export default function HrDashboardPage() {
 
       {alerts && alerts.totalCount > 0 && <AlertsPanel alerts={alerts.alerts} />}
 
-      {/* ── 5. Pending Leaves & Latest Announcements ── */}
+      {/* ── 5. Today Meeting Room Bookings ── */}
+      <div className="hr-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <h3 className="hr-section-title" style={{ margin: 0 }}>🎦 การจองห้องประชุมวันนี้ ({todayBookingList.length} รายการ)</h3>
+          <Link href="/hr/rooms?tab=bookings" className="hr-btn" style={{ fontSize: 12 }}>เปิดตารางจองห้องประชุม →</Link>
+        </div>
+        {todayBookingList.length === 0 ? (
+          <div className="hr-empty">วันนี้ยังไม่มีรายการจองห้องประชุม</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+            {todayBookingList.map((b) => (
+              <div key={b.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, background: '#f8fafc' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>{b.roomName}</div>
+                  <span className={`hr-badge hr-badge-${b.status === 'confirmed' ? 'green' : b.status === 'booked' ? 'blue' : 'gray'}`}>
+                    {b.status === 'confirmed' ? 'ยืนยันแล้ว' : b.status === 'booked' ? 'จองแล้ว' : b.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>
+                  🕒 เวลา {b.startTime?.slice(0, 5)} - {b.endTime?.slice(0, 5)} น.
+                </div>
+                <div style={{ fontSize: 13, color: '#0369a1', marginTop: 4, fontWeight: 500 }}>
+                  📌 {b.title || 'ไม่มีระบุหัวข้อ'}
+                </div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, borderTop: '1px dashed #cbd5e1', paddingTop: 6 }}>
+                  👤 ผู้จอง: <strong>{b.employeeName}</strong> ({b.employeeId})
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── 6. Pending Leaves & Latest Announcements ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         <div className="hr-card">
           <h3 className="hr-section-title">🏖️ ใบลารออนุมัติล่าสุด</h3>

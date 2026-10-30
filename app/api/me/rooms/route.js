@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
+import { notifyHr, createNotification } from '@/lib/notifications';
 
 /**
  * GET /api/me/rooms?date=YYYY-MM-DD — รายการห้องประชุม + การจองของวันนั้น + การจองของตัวเอง
@@ -82,6 +83,13 @@ export async function POST(request) {
     user: user.name,
     action: `จองห้อง ${room.name} วันที่ ${book_date} เวลา ${start_time}-${end_time}`,
     channel: 'ME',
+  });
+
+  await notifyHr('rooms', {
+    title: 'มีการจองห้องประชุมใหม่',
+    body: `${user.name} จอง ${room.name} วันที่ ${book_date} (${start_time.slice(0, 5)} - ${end_time.slice(0, 5)} น.) หัวข้อ: ${title || 'ประชุมทั่วไป'}`,
+    url: '/hr/rooms?tab=bookings',
+    type: 'room_booking_pending',
   });
 
   return NextResponse.json({ item: data });

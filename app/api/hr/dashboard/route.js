@@ -26,19 +26,21 @@ export async function GET(request) {
     todayTimes,
     branches,
     driverRecords,
+    meetingRooms,
   ] = await Promise.all([
     supabase.from('users').select('*', { count: 'exact', head: true }),
     supabase.from('users').select('id, employee_id, name, branch_id, status'),
     supabase.from('leave_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     supabase.from('expense_claims').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     supabase.from('job_openings').select('*', { count: 'exact', head: true }).eq('status', 'open'),
-    supabase.from('room_bookings').select('*', { count: 'exact', head: true }).eq('book_date', today),
+    supabase.from('room_bookings').select('*').eq('book_date', today).order('start_time'),
     supabase.from('payroll_slips').select('net').eq('period', period),
     supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(5),
     supabase.from('leave_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
     supabase.from('time_records').select('*').eq('work_date', today),
     supabase.from('branches').select('id, code, name'),
     supabase.from('employee_records').select('employee_id, position, license_expiry').not('license_expiry', 'is', null),
+    supabase.from('meeting_rooms').select('id, name'),
   ]);
 
   const payrollTotal = (payrollRows.data || []).reduce((sum, r) => sum + (Number(r.net) || 0), 0);
@@ -95,13 +97,28 @@ export async function GET(request) {
     }
   }
 
+  // 4. สรุปตารางจองห้องประชุมวันนี้
+  const roomMap = new Map((meetingRooms.data || []).map((r) => [r.id, r.name]));
+  const todayBookingList = (todayBookings.data || []).map((b) => ({
+    id: b.id,
+    roomId: b.room_id,
+    roomName: roomMap.get(b.room_id) || `ห้อง #${b.room_id}`,
+    employeeId: b.employee_id,
+    employeeName: userMap.get(b.employee_id) || b.employee_id,
+    title: b.title,
+    bookDate: b.book_date,
+    startTime: b.start_time,
+    endTime: b.end_time,
+    status: b.status,
+  }));
+
   return NextResponse.json({
     stats: {
       employees: totalEmployees,
       pendingLeave: pendingLeave.count || 0,
       pendingExpenses: pendingExpenses.count || 0,
       openJobs: openJobs.count || 0,
-      todayBookings: todayBookings.count || 0,
+      todayBookings: todayBookingList.length,
       payrollTotal,
       period,
     },
@@ -114,6 +131,7 @@ export async function GET(request) {
     },
     branchStats,
     driverAlerts,
+    todayBookingList,
     announcements: announcements.data || [],
     pendingLeaveList: leaveList.data || [],
   });

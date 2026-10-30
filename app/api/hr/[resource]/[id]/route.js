@@ -5,7 +5,13 @@ import { requireMenu, resourceMenuKey } from '@/lib/hr-access';
 import { HR_MENUS } from '@/lib/hr-menus';
 import { createNotification } from '@/lib/notifications';
 
-const STATUS_TH = { approved: 'อนุมัติแล้ว', rejected: 'ไม่อนุมัติ', paid: 'จ่ายแล้ว' };
+const STATUS_TH = { 
+  approved: 'อนุมัติแล้ว', 
+  rejected: 'ไม่อนุมัติ', 
+  paid: 'จ่ายแล้ว',
+  confirmed: 'ยืนยันการจองแล้ว',
+  cancelled: 'ยกเลิกการจอง'
+};
 
 function resourceLabel(resource) {
   const menu = HR_MENUS.find((m) => m.key === resourceMenuKey(resource));
