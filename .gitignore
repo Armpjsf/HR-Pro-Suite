@@ -36,9 +36,19 @@ cloudflared.log
 
 # vercel
 .vercel
+*.apk
+/android/.gradle
+/android/build
+/android/app/build
+/android/local.properties
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
 .vercel
+*.apk
+/android/.gradle
+/android/build
+/android/app/build
+/android/local.properties

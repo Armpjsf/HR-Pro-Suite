@@ -1,0 +1,9 @@
+{
+  "appId": "com.ddservice.hrsuite",
+  "appName": "HR Pro Suite",
+  "webDir": "public",
+  "server": {
+    "url": "https://hr-ai-chatbot-tawny.vercel.app",
+    "cleartext": true
+  }
+}
