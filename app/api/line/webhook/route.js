@@ -234,15 +234,15 @@ function createRegistrationPrompt() {
 }
 
 /**
- * Quick Reply buttons อัจฉริยะตามหมวดหมู่คำถาม
+ * Quick Reply buttons อัจฉริยะตามหมวดหมู่คำถาม (คุม Label ไม่เกิน 12-14 ตัวอักษร ป้องกันจอตัดคำ)
  */
 function getQuickReply(intentType = '') {
   if (intentType === 'leave' || intentType === 'data_query') {
     return {
       items: [
-        { type: 'action', action: { type: 'message', label: '📅 วันลาคงเหลือ', text: 'วันลาคงเหลือ' } },
-        { type: 'action', action: { type: 'message', label: '📝 ขอ Template ใบลา', text: 'ขอ Template ใบลา' } },
-        { type: 'action', action: { type: 'message', label: '📋 ระเบียบการลาป่วย', text: 'ระเบียบการลาป่วยต้องใช้ใบรับรองแพทย์ไหม' } },
+        { type: 'action', action: { type: 'uri', label: '🌐 ยื่นลาในระบบ', uri: 'https://hr-ai-chatbot-tawny.vercel.app/me' } },
+        { type: 'action', action: { type: 'message', label: '📝 ขอฟอร์มใบลา', text: 'ขอแบบฟอร์มใบลา' } },
+        { type: 'action', action: { type: 'message', label: '📋 กฎการลาป่วย', text: 'ระเบียบการลาป่วยต้องใช้ใบรับรองแพทย์ไหม' } },
         { type: 'action', action: { type: 'message', label: '📞 ติดต่อ HR', text: 'ติดต่อ HR' } },
       ],
     };
@@ -251,8 +251,8 @@ function getQuickReply(intentType = '') {
   return {
     items: [
       { type: 'action', action: { type: 'message', label: '📅 วันลาคงเหลือ', text: 'วันลาคงเหลือ' } },
-      { type: 'action', action: { type: 'message', label: '📋 ระเบียบการทำงาน', text: 'เวลาทำงานและกฎระเบียบบริษัท' } },
-      { type: 'action', action: { type: 'message', label: '💰 เงินเดือนและโอที', text: 'รอบการจ่ายเงินเดือนและค่าโอที' } },
+      { type: 'action', action: { type: 'message', label: '📋 ระเบียบทำงาน', text: 'เวลาทำงานและกฎระเบียบบริษัท' } },
+      { type: 'action', action: { type: 'message', label: '💰 เงินเดือน/โอที', text: 'รอบการจ่ายเงินเดือนและค่าโอที' } },
       { type: 'action', action: { type: 'message', label: '🛡️ กฎความปลอดภัย', text: 'แนวปฏิบัติด้านความปลอดภัยคนขับรถ' } },
       { type: 'action', action: { type: 'message', label: '📞 ติดต่อ HR', text: 'ติดต่อ HR' } },
     ],
@@ -363,7 +363,9 @@ export async function POST(request) {
         // 5. ส่งคำตอบกลับ
         const messages = [];
         if (response.documents?.length > 0) {
-          messages.push(createFlexResponse(response.text, response.documents, userMapping.name));
+          const flexMsg = createFlexResponse(response.text, response.documents, userMapping.name);
+          flexMsg.quickReply = getQuickReply(response.intent);
+          messages.push(flexMsg);
         } else {
           messages.push({
             type: 'text',
