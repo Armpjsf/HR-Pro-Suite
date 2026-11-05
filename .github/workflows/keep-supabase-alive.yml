@@ -1,0 +1,25 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # รันทุกๆ วันจันทร์ และ วันพฤหัสบดี เวลา 00:00 UTC (07:00 น. เวลาไทย)
+    - cron: '0 0 * * 1,4'
+  workflow_dispatch: # กดสั่งรันมือเพื่อทดสอบได้จากหน้า GitHub Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase PostgREST API
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X GET "https://hbuhdzpevviysadxdzjs.supabase.co/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhidWhkenBldnZpeXNhZHhkempzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTI0MjQwNiwiZXhwIjoyMDk2ODE4NDA2fQ.E7dV_C0raRWeg7FNryrnnKVUdbzoCRxmLjngHAf9Cbk' }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhidWhkenBldnZpeXNhZHhkempzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTI0MjQwNiwiZXhwIjoyMDk2ODE4NDA2fQ.E7dV_C0raRWeg7FNryrnnKVUdbzoCRxmLjngHAf9Cbk' }}")
+          
+          echo "HTTP Status Code: $STATUS"
+          if [ "$STATUS" -eq 200 ]; then
+            echo "Successfully pinged Supabase. Project inactivity timer reset!"
+          else
+            echo "Unexpected status code: $STATUS"
+            exit 1
+          fi
