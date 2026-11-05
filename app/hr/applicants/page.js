@@ -48,15 +48,28 @@ export default function ApplicantsPage() {
           ],
           fields: [
             { key: 'name', label: 'ชื่อผู้สมัคร', type: 'text', required: true },
-            { key: 'position_applied', label: 'ตำแหน่งที่สมัคร', type: 'text' },
+            { key: 'position_applied', label: 'ตำแหน่งที่สมัคร', type: 'position' },
             { key: 'phone', label: 'เบอร์โทร', type: 'text' },
             { key: 'email', label: 'อีเมล', type: 'text' },
             { key: 'applied_date', label: 'วันที่สมัคร', type: 'date' },
             { key: 'status', label: 'สถานะ', type: 'select', default: 'applied', options: STATUS },
             { key: 'note', label: 'หมายเหตุ', type: 'textarea' },
           ],
-          renderActions: (row) => (
+          renderActions: (row, reload) => (
             <>
+              {(row.status === 'offer' || row.status === 'screening' || row.status === 'interview') && (
+                <button
+                  className="hr-btn hr-btn-icon"
+                  title="รับเข้าทำงาน (สร้างเป็นพนักงานทันที)"
+                  onClick={() => {
+                    setHireModal(row);
+                    setHireBranchId(branches[0]?.id ? String(branches[0].id) : '');
+                  }}
+                  style={{ marginLeft: 6, color: '#16a34a', fontWeight: 'bold' }}
+                >
+                  🎉
+                </button>
+              )}
               <button
                 className="hr-btn hr-btn-icon"
                 title="โทรสัมภาษณ์ด้วย AI"
@@ -89,6 +102,53 @@ export default function ApplicantsPage() {
       {sessionsFor && (
         <SessionsModal applicant={sessionsFor} onClose={() => setSessionsFor(null)} />
       )}
+
+      {hireModal && (
+        <div className="hr-modal-overlay">
+          <div className="hr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <div className="hr-modal-header">
+              <div className="hr-modal-title">🎉 รับผู้สมัครเข้าทำงาน (สร้างพนักงานใหม่)</div>
+              <button className="hr-modal-close" onClick={() => setHireModal(null)}>✕</button>
+            </div>
+            <form onSubmit={(e) => handleConfirmHire(e, () => window.location.reload())}>
+              <div style={{ background: '#f0fdf4', padding: 12, borderRadius: 8, marginBottom: 12, border: '1px solid #bbf7d0', fontSize: 13 }}>
+                <div>ผู้สมัคร: <b>{hireModal.name}</b></div>
+                <div>ตำแหน่งที่สมัคร: <b>{hireModal.position_applied || '-'}</b></div>
+                <div>เบอร์โทร: <b>{hireModal.phone || '-'}</b> · อีเมล: <b>{hireModal.email || '-'}</b></div>
+              </div>
+
+              <div className="hr-field">
+                <label>ประจำสาขา *</label>
+                <select className="hr-input" value={hireBranchId} onChange={(e) => setHireBranchId(e.target.value)} required>
+                  <option value="">— เลือกสาขา —</option>
+                  {branches.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="hr-field">
+                  <label>วันเริ่มงาน *</label>
+                  <input className="hr-input" type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} required />
+                </div>
+                <div className="hr-field">
+                  <label>เงินเดือนเริ่มต้น (บาท) *</label>
+                  <input className="hr-input" type="number" value={hireSalary} onChange={(e) => setHireSalary(e.target.value)} required />
+                </div>
+              </div>
+
+              <div className="hr-modal-actions" style={{ marginTop: 14 }}>
+                <button type="button" className="hr-btn" onClick={() => setHireModal(null)}>ยกเลิก</button>
+                <button type="submit" className="hr-btn hr-btn-primary" style={{ backgroundColor: '#16a34a', borderColor: '#16a34a' }} disabled={hiring}>
+                  {hiring ? '⏳ กำลังสร้างพนักงาน...' : 'ยืนยันรับเข้าทำงาน'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {toast && <div className={`hr-toast ${toast.type}`}>{toast.message}</div>}
+
     </>
   );
 }

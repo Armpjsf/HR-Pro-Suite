@@ -60,6 +60,14 @@ export default function EmployeesPage() {
   const [history, setHistory] = useState([]);
   const [granting, setGranting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: '', nameEn: '', employeeId: '', username: '', password: '',
+    role: 'employee', department: '', branchId: '', position: '',
+    startDate: new Date().toISOString().slice(0, 10), salary: 0,
+    phone: '', nationalId: '', bankName: '', bankAccount: '',
+    employmentType: 'monthly',
+  });
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -67,6 +75,8 @@ export default function EmployeesPage() {
   }, []);
 
   const [branches, setBranches] = useState([]);
+  const [departmentsList, setDepartmentsList] = useState([]);
+  const [positionsList, setPositionsList] = useState([]);
   const [activeBranch, setActiveBranch] = useState(
     typeof window !== 'undefined' ? localStorage.getItem('hr-active-branch') || 'all' : 'all'
   );
@@ -91,6 +101,10 @@ export default function EmployeesPage() {
     load();
     fetch('/api/hr/branches', { headers: authHeaders() })
       .then((r) => r.json()).then((d) => setBranches(d.items || [])).catch(() => {});
+    fetch('/api/hr/departments', { headers: authHeaders() })
+      .then((r) => r.json()).then((d) => setDepartmentsList(d.items || [])).catch(() => {});
+    fetch('/api/hr/positions', { headers: authHeaders() })
+      .then((r) => r.json()).then((d) => setPositionsList(d.items || [])).catch(() => {});
   }, [load]);
 
   const branchName = (id) => {
@@ -105,9 +119,8 @@ export default function EmployeesPage() {
     return !q || [e.name, e.employeeId, e.department, e.position].some((v) => String(v || '').toLowerCase().includes(q));
   });
 
-  const activeCount = employees.filter((e) => !e.status || e.status === 'active').length;
-
-  const departments = [...new Set(employees.map((e) => e.department).filter(Boolean))];
+  const activeCount = filtered.filter((e) => !e.status || e.status === 'active').length;
+  const departments = [...new Set(filtered.map((e) => e.department).filter(Boolean))];
   const leaveTypeMap = new Map(leaveTypes.map((t) => [t.code, t]));
 
   function leaveRowsForForm(emp) {
@@ -193,6 +206,34 @@ export default function EmployeesPage() {
     } finally { setUploadingPhoto(false); }
   }
 
+  async function saveNewEmployee(e) {
+    e.preventDefault();
+    if (!addForm.name.trim()) {
+      showToast('กรุณากรอกชื่อ-นามสกุล', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/hr/employees', {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify(addForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'เพิ่มพนักงานไม่สำเร็จ', 'error');
+        return;
+      }
+      showToast(data.message || 'เพิ่มพนักงานสำเร็จแล้ว');
+      setIsAdding(false);
+      load();
+    } catch {
+      showToast('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function save(e) {
     e.preventDefault();
     setSaving(true);
@@ -236,7 +277,7 @@ export default function EmployeesPage() {
         </div>
         <div className="hr-stat-card">
           <div className="hr-stat-icon">🛡️</div>
-          <div><div className="hr-stat-value">{employees.filter((e) => e.role !== 'employee').length}</div><div className="hr-stat-label">Admin / HR</div></div>
+          <div><div className="hr-stat-value">{filtered.filter((e) => e.role && e.role !== 'employee').length}</div><div className="hr-stat-label">Admin / HR {activeBranch !== 'all' && '(สาขานี้)'}</div></div>
         </div>
       </div>
 
@@ -251,7 +292,16 @@ export default function EmployeesPage() {
         <button className="hr-btn" onClick={grantLeave} disabled={granting}>{granting ? '⏳...' : `🎁 แจกสิทธิ์ลาปี ${leaveYear}`}</button>
         <button className="hr-btn" onClick={() => exportExcel(filtered, EXPORT_COLUMNS, 'employees')}>📄 Excel</button>
         <button className="hr-btn" onClick={printPDF}>📑 PDF</button>
-        <Link href="/hr/users" className="hr-btn hr-btn-primary">+ เพิ่มพนักงาน</Link>
+        <button className="hr-btn hr-btn-primary" onClick={() => {
+          setAddForm({
+            name: '', nameEn: '', employeeId: '', username: '', password: '',
+            role: 'employee', department: '', branchId: activeBranch !== 'all' ? activeBranch : '',
+            position: '', startDate: new Date().toISOString().slice(0, 10), salary: 0,
+            phone: '', nationalId: '', bankName: '', bankAccount: '',
+            employmentType: 'monthly',
+          });
+          setIsAdding(true);
+        }}>+ เพิ่มพนักงาน</button>
       </div>
 
       {view === 'cards' ? (
@@ -316,7 +366,13 @@ export default function EmployeesPage() {
               ))}
             </tbody>
           </table>
-          {filtered.length === 0 && <div className="hr-empty">ไม่พบพนักงาน</div>}
+          {filtered.length === 0 && (
+            <div className="hr-empty">
+              {activeBranch !== 'all'
+                ? 'ไม่พบพนักงานในสาขานี้ (ลองสลับฟิลเตอร์เป็น "ทุกสาขา (ภาพรวม)" ที่มุมบนขวา หรือกดแก้ไขเพื่อกำหนดสาขาให้พนักงาน)'
+                : 'ไม่พบพนักงาน'}
+            </div>
+          )}
         </div>
       )}
 
@@ -331,28 +387,50 @@ export default function EmployeesPage() {
               <div className="hr-field"><label>ชื่อ-สกุล</label><input className="hr-input" value={form.name} onChange={set('name')} required /></div>
               <div className="hr-field"><label>ชื่อ (อังกฤษ)</label><input className="hr-input" value={form.nameEn} onChange={set('nameEn')} /></div>
               <div className="hr-field"><label>อีเมล</label><input className="hr-input" value={form.email} onChange={set('email')} /></div>
-              <div className="hr-field"><label>แผนก</label><input className="hr-input" value={form.department} onChange={set('department')} /></div>
+              <div className="hr-field">
+                <label>แผนก</label>
+                <select className="hr-input" value={form.department} onChange={set('department')}>
+                  <option value="">— ไม่ระบุ —</option>
+                  {departmentsList.map((d) => (
+                    <option key={d.code || d.name} value={d.name}>{d.name} {d.code ? `(${d.code})` : ''}</option>
+                  ))}
+                  {form.department && !departmentsList.some((d) => d.name === form.department) && (
+                    <option value={form.department}>{form.department} (เดิม)</option>
+                  )}
+                </select>
+              </div>
               <div className="hr-field">
                 <label>สาขา</label>
-                <select value={form.branchId} onChange={(e) => setForm((p) => ({ ...p, branchId: e.target.value }))}>
+                <select className="hr-input" value={form.branchId} onChange={(e) => setForm((p) => ({ ...p, branchId: e.target.value }))}>
                   <option value="">— ไม่ระบุ —</option>
                   {branches.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
                 </select>
               </div>
               <div className="hr-field">
                 <label>หัวหน้างาน (ผู้อนุมัติลำดับแรก)</label>
-                <select value={form.managerId} onChange={(e) => setForm((p) => ({ ...p, managerId: e.target.value }))}>
+                <select className="hr-input" value={form.managerId} onChange={(e) => setForm((p) => ({ ...p, managerId: e.target.value }))}>
                   <option value="">— ไม่ระบุ —</option>
                   {employees.filter((x) => x.employeeId !== editing?.employeeId).map((x) => (
                     <option key={x.employeeId} value={x.employeeId}>{x.employeeId} · {x.name}</option>
                   ))}
                 </select>
               </div>
-              <div className="hr-field"><label>ตำแหน่ง</label><input className="hr-input" value={form.position} onChange={set('position')} /></div>
+              <div className="hr-field">
+                <label>ตำแหน่ง</label>
+                <select className="hr-input" value={form.position} onChange={set('position')}>
+                  <option value="">— ไม่ระบุ —</option>
+                  {positionsList.map((p) => (
+                    <option key={p.id || p.title} value={p.title}>{p.title} {p.level ? `(${p.level})` : ''}</option>
+                  ))}
+                  {form.position && !positionsList.some((p) => p.title === form.position) && (
+                    <option value={form.position}>{form.position} (เดิม)</option>
+                  )}
+                </select>
+              </div>
               <div className="hr-field"><label>วันเริ่มงาน</label><input className="hr-input" type="date" value={form.startDate} onChange={set('startDate')} /></div>
               <div className="hr-field">
                 <label>ประเภทการจ้าง</label>
-                <select value={form.employmentType} onChange={set('employmentType')}>
+                <select className="hr-input" value={form.employmentType} onChange={set('employmentType')}>
                   {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
@@ -480,7 +558,121 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      {toast && <div className={`hr-toast ${toast.type}`}>{toast.message}</div>}
+
+      {isAdding && (
+        <div className="hr-modal-overlay">
+          <div className="hr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 650 }}>
+            <div className="hr-modal-header">
+              <div className="hr-modal-title">✨ เพิ่มพนักงานใหม่ (จบในขั้นตอนเดียว)</div>
+              <button className="hr-modal-close" onClick={() => setIsAdding(false)}>✕</button>
+            </div>
+            <form onSubmit={saveNewEmployee}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="hr-field">
+                  <label>ชื่อ-นามสกุล (ไทย) *</label>
+                  <input className="hr-input" value={addForm.name} onChange={(e) => setAddForm(p => ({ ...p, name: e.target.value }))} required placeholder="เช่น สมชาย ใจดี" />
+                </div>
+                <div className="hr-field">
+                  <label>ชื่อ (อังกฤษ)</label>
+                  <input className="hr-input" value={addForm.nameEn} onChange={(e) => setAddForm(p => ({ ...p, nameEn: e.target.value }))} placeholder="เช่น Somchai Jaidee" />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="hr-field">
+                  <label>รหัสพนักงาน (เว้นว่าง = Auto)</label>
+                  <input className="hr-input" value={addForm.employeeId} onChange={(e) => setAddForm(p => ({ ...p, employeeId: e.target.value }))} placeholder="เช่น EMP007" />
+                </div>
+                <div className="hr-field">
+                  <label>สาขา *</label>
+                  <select className="hr-input" value={addForm.branchId} onChange={(e) => setAddForm(p => ({ ...p, branchId: e.target.value }))} required>
+                    <option value="">— เลือกสาขา —</option>
+                    {branches.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="hr-field">
+                  <label>แผนก</label>
+                  <select className="hr-input" value={addForm.department} onChange={(e) => setAddForm(p => ({ ...p, department: e.target.value }))}>
+                    <option value="">— เลือกแผนก —</option>
+                    {departmentsList.map((d) => <option key={d.code || d.name} value={d.name}>{d.name}</option>)}
+                  </select>
+                </div>
+                <div className="hr-field">
+                  <label>ตำแหน่ง</label>
+                  <select className="hr-input" value={addForm.position} onChange={(e) => setAddForm(p => ({ ...p, position: e.target.value }))}>
+                    <option value="">— เลือกตำแหน่ง —</option>
+                    {positionsList.map((p) => <option key={p.id || p.title} value={p.title}>{p.title}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <div className="hr-field">
+                  <label>ประเภทการจ้าง</label>
+                  <select className="hr-input" value={addForm.employmentType} onChange={(e) => setAddForm(p => ({ ...p, employmentType: e.target.value }))}>
+                    {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div className="hr-field">
+                  <label>วันเริ่มงาน</label>
+                  <input className="hr-input" type="date" value={addForm.startDate} onChange={(e) => setAddForm(p => ({ ...p, startDate: e.target.value }))} />
+                </div>
+                <div className="hr-field">
+                  <label>เงินเดือนฐาน (บาท)</label>
+                  <input className="hr-input" type="number" value={addForm.salary} onChange={(e) => setAddForm(p => ({ ...p, salary: Number(e.target.value) }))} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="hr-field">
+                  <label>เบอร์โทรศัพท์</label>
+                  <input className="hr-input" value={addForm.phone} onChange={(e) => setAddForm(p => ({ ...p, phone: e.target.value }))} placeholder="08xxxxxxxx" />
+                </div>
+                <div className="hr-field">
+                  <label>เลขบัตรประชาชน (13 หลัก)</label>
+                  <input className="hr-input" value={addForm.nationalId} maxLength={13} onChange={(e) => setAddForm(p => ({ ...p, nationalId: e.target.value }))} />
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, marginTop: 8, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 8 }}>🔐 บัญชีเข้าสู่ระบบ (PWA / Mobile)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                  <div className="hr-field">
+                    <label>บทบาท (Role)</label>
+                    <select className="hr-input" value={addForm.role} onChange={(e) => setAddForm(p => ({ ...p, role: e.target.value }))}>
+                      <option value="employee">พนักงานทั่วไป</option>
+                      <option value="hr">ฝ่ายบุคคล (HR)</option>
+                      <option value="manager">ผู้จัดการ / หัวหน้างาน</option>
+                      <option value="accounting">บัญชีและการเงิน</option>
+                      <option value="admin">ผู้ดูแลระบบ</option>
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>Username (เว้นว่าง = รหัส พนง.)</label>
+                    <input className="hr-input" value={addForm.username} onChange={(e) => setAddForm(p => ({ ...p, username: e.target.value }))} placeholder="auto" />
+                  </div>
+                  <div className="hr-field">
+                    <label>รหัสผ่าน (เริ่มต้น 123456)</label>
+                    <input className="hr-input" type="password" value={addForm.password} onChange={(e) => setAddForm(p => ({ ...p, password: e.target.value }))} placeholder="123456" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="hr-modal-actions" style={{ marginTop: 14 }}>
+                <button type="button" className="hr-btn" onClick={() => setIsAdding(false)}>ยกเลิก</button>
+                <button type="submit" className="hr-btn hr-btn-primary" disabled={saving}>
+                  {saving ? 'กำลังบันทึก...' : '✅ บันทึกพนักงานใหม่'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+            {toast && <div className={`hr-toast ${toast.type}`}>{toast.message}</div>}
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
+import { addAuditEntry } from '@/lib/db';
 import { requireMenu, getAllowedMenus, isAllowed, canAccessHr } from '@/lib/hr-access';
 import { getUserFromRequest } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -97,4 +99,130 @@ export async function GET(request) {
       });
 
   return NextResponse.json({ employees: result, leaveTypes: leaveTypes || [], year, full });
+}
+
+
+/**
+ * POST /api/hr/employees — เพิ่มพนักงานใหม่ในขั้นตอนเดียว (users + employee_records + leave_balances)
+ */
+export async function POST(request) {
+  const { user: currentUser, error, status } = await requireMenu(request, 'employees');
+  if (error) return NextResponse.json({ error }, { status });
+
+  try {
+    const body = await request.json();
+    const {
+      name, nameEn, username, password, email, role = 'employee',
+      department, branchId, managerId, position, startDate,
+      salary = 0, nationalId, bankName, bankAccount, taxId, phone,
+      address, emergencyName, emergencyPhone, emergencyRelation,
+      employmentType = 'monthly', employeeId: customEmpId,
+      leaveAnnualTotal = 6, leaveSickTotal = 30, leavePersonalTotal = 3,
+    } = body;
+
+    if (!name || !name.trim()) {
+      return NextResponse.json({ error: 'กรุณากรอกชื่อ-นามสกุลพนักงาน' }, { status: 400 });
+    }
+
+    // สร้างหรือตรวจสอบรหัสพนักงาน
+    let empId = customEmpId?.trim();
+    if (!empId) {
+      const { data: allUsers } = await supabase.from('users').select('employee_id');
+      const count = (allUsers || []).length + 1;
+      empId = `EMP${String(count).padStart(3, '0')}`;
+    }
+
+    const { data: existingUser } = await supabase.from('users').select('id').eq('employee_id', empId).maybeSingle();
+    if (existingUser) {
+      return NextResponse.json({ error: `รหัสพนักงาน ${empId} มีอยู่ในระบบแล้ว` }, { status: 409 });
+    }
+
+    const finalUsername = (username && username.trim()) || empId.toLowerCase();
+    const { data: existUsername } = await supabase.from('users').select('id').eq('username', finalUsername).maybeSingle();
+    if (existUsername) {
+      return NextResponse.json({ error: `Username ${finalUsername} มีผู้ใช้งานแล้ว` }, { status: 409 });
+    }
+
+    const finalPassword = password && password.length >= 6 ? password : 'password123';
+    const hash = bcrypt.hashSync(finalPassword, 10);
+
+    // 1. Insert users
+    const userRow = {
+      id: `user-${Date.now()}`,
+      username: finalUsername,
+      password: hash,
+      name: name.trim(),
+      name_en: nameEn || null,
+      email: email || null,
+      role: role || 'employee',
+      employee_id: empId,
+      department: department || null,
+      branch_id: branchId ? Number(branchId) : null,
+      manager_id: managerId || null,
+      avatar: role === 'admin' ? '👑' : role === 'hr' ? '👩‍💼' : '👤',
+      status: 'active',
+    };
+    const { error: uErr } = await supabase.from('users').insert(userRow);
+    if (uErr) return NextResponse.json({ error: uErr.message }, { status: 500 });
+
+    // 2. Insert employee_records
+    const recRow = {
+      employee_id: empId,
+      position: position || '',
+      start_date: startDate || new Date().toISOString().slice(0, 10),
+      salary: Number(salary) || 0,
+      national_id: nationalId || '',
+      bank_name: bankName || '',
+      bank_account: bankAccount || '',
+      tax_id: taxId || '',
+      phone: phone || '',
+      address: address || '',
+      emergency_name: emergencyName || '',
+      emergency_phone: emergencyPhone || '',
+      emergency_relation: emergencyRelation || '',
+      employment_type: employmentType || 'monthly',
+      leave_annual_total: Number(leaveAnnualTotal) || 6,
+      leave_sick_total: Number(leaveSickTotal) || 30,
+      leave_personal_total: Number(leavePersonalTotal) || 3,
+    };
+    const { error: rErr } = await supabase.from('employee_records').insert(recRow);
+    if (rErr) return NextResponse.json({ error: rErr.message }, { status: 500 });
+
+    // 3. Grant initial leave balances for current year
+    const year = currentLeaveYear();
+    const { data: leaveTypes } = await supabase.from('leave_types').select('*');
+    if (leaveTypes && leaveTypes.length > 0) {
+      const balanceInserts = leaveTypes.map((t) => {
+        let total = 0;
+        if (t.code === 'annual') total = Number(leaveAnnualTotal) || Number(t.days_per_year) || 6;
+        else if (t.code === 'sick') total = Number(leaveSickTotal) || Number(t.days_per_year) || 30;
+        else if (t.code === 'personal') total = Number(leavePersonalTotal) || Number(t.days_per_year) || 3;
+        else total = Number(t.days_per_year) || 0;
+        return {
+          employee_id: empId,
+          leave_type: t.code,
+          year,
+          total_days: total,
+          used_days: 0,
+          note: 'สิทธิ์เริ่มต้นเมื่อสร้างพนักงาน',
+        };
+      });
+      await supabase.from('employee_leave_balances').insert(balanceInserts);
+    }
+
+    await addAuditEntry({
+      user: currentUser.name,
+      action: `เพิ่มพนักงานใหม่ "${name}" (${empId})`,
+      channel: 'HR',
+    });
+
+    return NextResponse.json({
+      success: true,
+      employeeId: empId,
+      message: `เพิ่มพนักงาน ${name} (${empId}) สำเร็จ`,
+    });
+  } catch (err) {
+    console.error('Create employee error:', err);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการสร้างพนักงาน' }, { status: 500 });
+  }
 }

@@ -80,6 +80,14 @@ const SUB_NAV_GROUPS = {
     { href: '/hr/evaluation', icon: '🎯', label: 'ประเมินผลงาน' },
     { href: '/hr/okr', icon: '📈', label: 'เป้าหมาย OKRs' },
   ],
+  '/hr/training': [
+    { href: '/hr/training', icon: '🎓', label: 'หลักสูตรอบรม' },
+    { href: '/hr/trips', icon: '✈️', label: 'ทริปและกิจกรรม' },
+  ],
+  '/hr/trips': [
+    { href: '/hr/training', icon: '🎓', label: 'หลักสูตรอบรม' },
+    { href: '/hr/trips', icon: '✈️', label: 'ทริปและกิจกรรม' },
+  ],
 };
 
 const MENUS = HR_MENUS;
@@ -243,6 +251,9 @@ export default function HrLayout({ children }) {
                 </select>
               </div>
             )}
+            <Link href="/me" className="hr-btn" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#ede9fe', color: '#6d28d9', borderColor: '#ddd6fe', fontWeight: 600 }} title="สลับไปยังหน้าบริการตนเองของพนักงาน">
+              <span>👤</span> โหมดพนักงาน
+            </Link>
             <span className="hr-topbar-date">{today}</span>
             <NotificationBell />
             <Link href="/hr/chat" className="hr-btn hr-btn-icon" title="แชท AI">💬</Link>

@@ -35,11 +35,16 @@ export default function UsersPage() {
   const [formDepartment, setFormDepartment] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formEmployeeId, setFormEmployeeId] = useState('');
+  const [formBranchId, setFormBranchId] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [branches, setBranches] = useState([]);
 
   const loadData = useCallback(async () => {
-    const [usersRes, lineRes] = await Promise.all([
+    const [usersRes, lineRes, depRes, branchRes] = await Promise.all([
       fetch('/api/users', { headers: authHeaders() }),
       fetch('/api/line/mappings', { headers: authHeaders() }),
+      fetch('/api/hr/departments', { headers: authHeaders() }).catch(() => null),
+      fetch('/api/hr/branches', { headers: authHeaders() }).catch(() => null),
     ]);
     if (usersRes.ok) {
       const data = await usersRes.json();
@@ -48,6 +53,14 @@ export default function UsersPage() {
     if (lineRes.ok) {
       const data = await lineRes.json();
       setLineMappings(data.mappings || {});
+    }
+    if (depRes && depRes.ok) {
+      const depData = await depRes.json();
+      setDepartments(depData.items || []);
+    }
+    if (branchRes && branchRes.ok) {
+      const branchData = await branchRes.json();
+      setBranches(branchData.items || []);
     }
   }, []);
 
@@ -74,6 +87,7 @@ export default function UsersPage() {
     setFormDepartment('');
     setFormEmail('');
     setFormEmployeeId('');
+    setFormBranchId('');
     setShowModal(true);
   }
 
@@ -86,6 +100,7 @@ export default function UsersPage() {
     setFormDepartment(user.department || '');
     setFormEmail(user.email || '');
     setFormEmployeeId(user.employeeId || '');
+    setFormBranchId(user.branchId ? String(user.branchId) : '');
     setShowModal(true);
   }
 
@@ -106,6 +121,7 @@ export default function UsersPage() {
         username: formUsername,
         role: formRole,
         department: formDepartment,
+        branchId: formBranchId ? Number(formBranchId) : null,
         email: formEmail,
       };
       if (formPassword) payload.password = formPassword;
@@ -274,16 +290,35 @@ export default function UsersPage() {
             {!editingUser && <div className="hr-field"><label>รหัสพนักงาน (เว้นว่างให้ระบบสร้าง)</label><input className="hr-input" value={formEmployeeId} onChange={(e) => setFormEmployeeId(e.target.value)} /></div>}
             <div className="hr-field">
               <label>บทบาท *</label>
-              <input className="hr-input" list="role-options" value={formRole} onChange={(e) => setFormRole(e.target.value.toLowerCase())} />
-              <datalist id="role-options">
-                <option value="employee" />
-                <option value="hr" />
-                <option value="admin" />
-                <option value="accounting" />
-                <option value="manager" />
-              </datalist>
+              <select className="hr-input" value={formRole} onChange={(e) => setFormRole(e.target.value)}>
+                <option value="employee">พนักงานทั่วไป (employee)</option>
+                <option value="hr">ฝ่ายบุคคล (hr)</option>
+                <option value="manager">ผู้จัดการ / หัวหน้างาน (manager)</option>
+                <option value="accounting">ฝ่ายบัญชี / การเงิน (accounting)</option>
+                <option value="admin">ผู้ดูแลระบบ (admin)</option>
+              </select>
             </div>
-            <div className="hr-field"><label>แผนก</label><input className="hr-input" value={formDepartment} onChange={(e) => setFormDepartment(e.target.value)} /></div>
+            <div className="hr-field">
+              <label>แผนก</label>
+              <select className="hr-input" value={formDepartment} onChange={(e) => setFormDepartment(e.target.value)}>
+                <option value="">— ไม่ระบุ —</option>
+                {departments.map((d) => (
+                  <option key={d.code || d.name} value={d.name}>{d.name} {d.code ? `(${d.code})` : ''}</option>
+                ))}
+                {formDepartment && !departments.some((d) => d.name === formDepartment) && (
+                  <option value={formDepartment}>{formDepartment} (เดิม)</option>
+                )}
+              </select>
+            </div>
+            <div className="hr-field">
+              <label>สาขา</label>
+              <select className="hr-input" value={formBranchId} onChange={(e) => setFormBranchId(e.target.value)}>
+                <option value="">— ไม่ระบุ —</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={String(b.id)}>{b.code} · {b.name}</option>
+                ))}
+              </select>
+            </div>
             <div className="hr-field"><label>Email</label><input className="hr-input" type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} /></div>
             <div className="hr-modal-actions">
               <button className="hr-btn" onClick={() => setShowModal(false)}>ยกเลิก</button>

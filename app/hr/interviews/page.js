@@ -22,6 +22,7 @@ function emptySet() {
 
 export default function InterviewsPage() {
   const [sets, setSets] = useState([]);
+  const [positions, setPositions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // set object (with id when editing)
   const [toast, setToast] = useState('');
@@ -32,6 +33,10 @@ export default function InterviewsPage() {
       .then((r) => r.json())
       .then((d) => setSets(d.items || []))
       .finally(() => setLoading(false));
+    fetch('/api/hr/positions', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setPositions(d.items || []))
+      .catch(() => {});
   }
   useEffect(load, []);
 
@@ -150,7 +155,15 @@ function SetEditor({ value, onChange, onSave, onClose }) {
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="hr-field" style={{ flex: 1 }}>
               <label>ตำแหน่ง (ว่าง = ทุกตำแหน่ง)</label>
-              <input className="hr-input" value={value.position || ''} onChange={(e) => set({ position: e.target.value })} placeholder="เช่น พนักงานขับรถ" />
+              <select className="hr-input" value={value.position || ''} onChange={(e) => set({ position: e.target.value })}>
+                <option value="">— ทุกตำแหน่ง —</option>
+                {positions.map((p) => (
+                  <option key={p.id || p.title} value={p.title}>{p.title} {p.level ? `(${p.level})` : ''}</option>
+                ))}
+                {value.position && !positions.some((p) => p.title === value.position) && (
+                  <option value={value.position}>{value.position} (เดิม)</option>
+                )}
+              </select>
             </div>
             <div className="hr-field" style={{ width: 140 }}>
               <label>ภาษา</label>

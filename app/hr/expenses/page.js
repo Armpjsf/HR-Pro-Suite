@@ -1,6 +1,7 @@
 'use client';
 
 import ResourceTable from '@/components/hr/ResourceTable';
+import { authHeaders } from '@/components/hr/exportUtils';
 
 const EXPENSE_CATEGORIES = [
   { value: 'travel', label: '🚗 ค่าเดินทาง / ค่าทางด่วน' },
@@ -20,7 +21,7 @@ export default function ExpensesPage() {
       config={{
         resource: 'expenses',
         exportName: 'expense_claims',
-        searchPlaceholder: 'ค้นหารหัสพนักงาน/หมวด...',
+        searchPlaceholder: 'ค้นหารหัส/ชื่อพนักงาน/หมวด...',
         columns: [
           { key: 'employee_id', label: 'พนักงาน' },
           { key: 'claim_date', label: 'วันที่เบิก' },
@@ -54,6 +55,61 @@ export default function ExpensesPage() {
           },
           { key: 'approved_by', label: 'ผู้อนุมัติ (HR/หัวหน้า)', type: 'employee' },
         ],
+        renderActions: (row, reload, showToast) =>
+          row.status === 'pending' ? (
+            <div style={{ display: 'inline-flex', gap: 4, marginLeft: 4 }}>
+              <button
+                className="hr-btn hr-btn-icon hr-btn-success"
+                title="อนุมัติการเบิกจ่าย"
+                onClick={async () => {
+                  try {
+                    const stored = typeof window !== 'undefined' ? localStorage.getItem('hr-user') : null;
+                    const u = stored ? JSON.parse(stored) : {};
+                    const res = await fetch(`/api/hr/expenses/${row.id}`, {
+                      method: 'PUT',
+                      headers: authHeaders(true),
+                      body: JSON.stringify({ status: 'approved', approved_by: u.name || u.employeeId || 'HR' }),
+                    });
+                    if (res.ok) {
+                      showToast('อนุมัติการเบิกจ่ายแล้ว');
+                      reload();
+                    } else {
+                      showToast('ดำเนินการไม่สำเร็จ', 'error');
+                    }
+                  } catch {
+                    showToast('เชื่อมต่อล้มเหลว', 'error');
+                  }
+                }}
+              >
+                ✓
+              </button>
+              <button
+                className="hr-btn hr-btn-icon hr-btn-danger"
+                title="ปฏิเสธการเบิกจ่าย"
+                onClick={async () => {
+                  try {
+                    const stored = typeof window !== 'undefined' ? localStorage.getItem('hr-user') : null;
+                    const u = stored ? JSON.parse(stored) : {};
+                    const res = await fetch(`/api/hr/expenses/${row.id}`, {
+                      method: 'PUT',
+                      headers: authHeaders(true),
+                      body: JSON.stringify({ status: 'rejected', approved_by: u.name || u.employeeId || 'HR' }),
+                    });
+                    if (res.ok) {
+                      showToast('ปฏิเสธการเบิกจ่ายแล้ว');
+                      reload();
+                    } else {
+                      showToast('ดำเนินการไม่สำเร็จ', 'error');
+                    }
+                  } catch {
+                    showToast('เชื่อมต่อล้มเหลว', 'error');
+                  }
+                }}
+              >
+                ✗
+              </button>
+            </div>
+          ) : null,
       }}
     />
   );

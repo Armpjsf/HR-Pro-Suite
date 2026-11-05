@@ -73,8 +73,20 @@ export default function ResourceTable({ config }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // โหลดรายชื่อพนักงานเมื่อมี field type 'employee'
-  const needEmployees = fields?.some((f) => f.type === 'employee');
+  // ติดตาม active branch สำหรับกรองข้อมูลทุกตาราง
+  const [activeBranch, setActiveBranch] = useState(
+    typeof window !== 'undefined' ? localStorage.getItem('hr-active-branch') || 'all' : 'all'
+  );
+  useEffect(() => {
+    const handleBranch = (e) => setActiveBranch(e.detail || 'all');
+    window.addEventListener('hr-branch-change', handleBranch);
+    return () => window.removeEventListener('hr-branch-change', handleBranch);
+  }, []);
+
+  // โหลดรายชื่อพนักงานเมื่อมี field หรือ column ที่เกี่ยวกับ employee
+  const needEmployees =
+    fields?.some((f) => f.type === 'employee') ||
+    columns?.some((c) => c.key === 'employee_id' || c.employeeLookup);
   useEffect(() => {
     if (!needEmployees) return;
     fetch('/api/hr/employees', { headers: authHeaders() })
@@ -104,6 +116,17 @@ export default function ResourceTable({ config }) {
       .then((d) => setDepartments(d.items || []))
       .catch(() => {});
   }, [needDepartments]);
+
+  // โหลดรายชื่อตำแหน่งเมื่อมี field type 'position'
+  const [positions, setPositions] = useState([]);
+  const needPositions = fields?.some((f) => f.type === 'position');
+  useEffect(() => {
+    if (!needPositions) return;
+    fetch('/api/hr/positions', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setPositions(d.items || []))
+      .catch(() => {});
+  }, [needPositions]);
 
   function onSearch(value) {
     setSearch(value);
@@ -164,6 +187,17 @@ export default function ResourceTable({ config }) {
 
   function renderCell(col, row) {
     const value = row[col.key];
+    if (col.key === 'employee_id' || col.employeeLookup) {
+      const emp = employees.find((e) => e.employeeId === value);
+      if (emp) {
+        return (
+          <span title={`${emp.name} (${emp.department || '-'})`}>
+            <strong>{value}</strong> <span style={{ color: '#4b5563', fontSize: 13 }}>· {emp.name}</span>
+          </span>
+        );
+      }
+      return value || '-';
+    }
     if (col.branchLookup) {
       if (value === null || value === undefined || value === '') return 'ทุกสาขา';
       const b = branches.find((x) => x.id === value);
@@ -207,8 +241,24 @@ export default function ResourceTable({ config }) {
         <select value={value || ''} onChange={(e) => set(e.target.value)} required={f.required}>
           <option value="">— เลือกแผนก —</option>
           {departments.map((d) => (
-            <option key={d.code} value={d.code}>{d.code} · {d.name}</option>
+            <option key={d.code || d.name} value={d.name}>{d.name} {d.code ? `(${d.code})` : ''}</option>
           ))}
+          {value && !departments.some((d) => d.name === value || d.code === value) && (
+            <option value={value}>{value} (เดิม)</option>
+          )}
+        </select>
+      );
+    }
+    if (f.type === 'position') {
+      return (
+        <select value={value || ''} onChange={(e) => set(e.target.value)} required={f.required}>
+          <option value="">— เลือกตำแหน่ง —</option>
+          {positions.map((p) => (
+            <option key={p.id || p.title} value={p.title}>{p.title} {p.level ? `(${p.level})` : ''}</option>
+          ))}
+          {value && !positions.some((p) => p.title === value) && (
+            <option value={value}>{value} (เดิม)</option>
+          )}
         </select>
       );
     }
@@ -275,6 +325,31 @@ export default function ResourceTable({ config }) {
   }
 
   const hasRowActions = canEdit || canDelete || renderActions;
+  const empMap = new Map((employees || []).map((e) => [e.employeeId, e]));
+
+  const filteredItems = items.filter((row) => {
+    if (activeBranch !== 'all') {
+      if (row.branch_id !== undefined && row.branch_id !== null && row.branch_id !== '') {
+        if (String(row.branch_id) !== String(activeBranch)) return false;
+      } else if (row.employee_id) {
+        const emp = empMap.get(row.employee_id);
+        if (emp && emp.branchId && String(emp.branchId) !== String(activeBranch)) return false;
+      }
+    }
+    if (!search) return true;
+    const q = search.toLowerCase();
+    for (const c of columns) {
+      const v = row[c.key];
+      if (v !== undefined && v !== null && String(v).toLowerCase().includes(q)) return true;
+    }
+    if (row.employee_id) {
+      const emp = empMap.get(row.employee_id);
+      if (emp && ((emp.name && emp.name.toLowerCase().includes(q)) || (emp.department && emp.department.toLowerCase().includes(q)))) {
+        return true;
+      }
+    }
+    return false;
+  });
 
   return (
     <div>
@@ -287,7 +362,7 @@ export default function ResourceTable({ config }) {
           value={search}
           onChange={(e) => onSearch(e.target.value)}
         />
-        <button className="hr-btn" onClick={() => exportExcel(items, columns, exportName)}>📄 Excel</button>
+        <button className="hr-btn" onClick={() => exportExcel(filteredItems, columns, exportName)}>📄 Excel</button>
         <button className="hr-btn" onClick={printPDF}>📑 PDF</button>
         <button className="hr-btn hr-btn-primary" onClick={openAdd}>+ เพิ่ม</button>
       </div>
@@ -301,7 +376,7 @@ export default function ResourceTable({ config }) {
             </tr>
           </thead>
           <tbody>
-            {items.map((row) => (
+            {filteredItems.map((row) => (
               <tr key={row.id}>
                 {columns.map((c) => <td key={c.key}>{renderCell(c, row)}</td>)}
                 {hasRowActions && (
@@ -319,8 +394,15 @@ export default function ResourceTable({ config }) {
             ))}
           </tbody>
         </table>
+        {filteredItems.length === 0 && (
+          <div className="hr-empty">
+            {activeBranch !== 'all' && items.length > 0
+              ? `ไม่พบข้อมูลในสาขานี้ (มีทั้งหมด ${items.length} รายการในสาขาอื่น — ลองสลับฟิลเตอร์เป็น "ทุกสาขา" ที่มุมบนขวา)`
+              : 'ยังไม่มีข้อมูล'}
+          </div>
+        )}
         <div className="hr-mobile-cards">
-          {items.map((row) => {
+          {filteredItems.map((row) => {
             const titleCol = columns[0];
             const subCol = columns[1];
             return (

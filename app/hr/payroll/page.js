@@ -14,65 +14,76 @@ const COMPANY = {
   taxId: '0105560012345',
 };
 
-async function generatePayroll() {
-  const period = prompt('สร้างสลิปอัตโนมัติสำหรับงวด (YYYY-MM) เช่น ' + new Date().toISOString().slice(0, 7));
-  if (!period) return;
-  const overwrite = confirm('ถ้ามีสลิปงวดนี้อยู่แล้ว ต้องการคำนวณทับใหม่ไหม?\n(ตกลง = ทับ, ยกเลิก = ข้ามคนที่มีแล้ว)');
-  const res = await fetch('/api/hr/payroll/generate', {
-    method: 'POST', headers: authHeaders(true),
-    body: JSON.stringify({ period, overwrite }),
-  });
-  const d = await res.json();
-  if (res.ok) {
-    alert(`สร้างสลิปงวด ${d.period} สำเร็จ\nใหม่ ${d.created} · อัปเดต ${d.updated} · ข้าม ${d.skipped}`);
-    window.location.reload();
-  } else {
-    alert(d.error || 'สร้างไม่สำเร็จ');
-  }
-}
-
-async function confirmBatchPay(showToast) {
-  const defaultPeriod = new Date().toISOString().slice(0, 7);
-  const period = prompt('ระบุงวดที่ต้องการยืนยันจ่ายเงินเดือน (YYYY-MM):', defaultPeriod);
-  if (!period) return;
-
-  const ok = confirm(
-    `ยืนยันจ่ายเงินเดือนงวด ${period} ทั้งงวด?\n\n` +
-    `⚡ การดำเนินการอัตโนมัติ:\n` +
-    `1. ปรับสถานะสลิปของทุกคนในงวด ${period} เป็น "จ่ายแล้ว"\n` +
-    `2. ออกสลิปเงินเดือนฉบับสมบูรณ์ & อัปเดตยอด 50 ทวิ ประจำปีทันที\n` +
-    `3. ส่ง In-App Notification แจ้งเตือนยอดสุทธิเข้ามือถือพนักงานทุกคน\n` +
-    `4. ส่งข้อความสลิปสรุปเงินเดือนผ่าน LINE ให้พนักงานที่ผูกบัญชีอัตโนมัติ`
-  );
-  if (!ok) return;
-
-  try {
-    const res = await fetch('/api/hr/payroll/confirm-pay', {
-      method: 'POST',
-      headers: authHeaders(true),
-      body: JSON.stringify({ period }),
-    });
-    const d = await res.json();
-    if (res.ok) {
-      alert(`✅ ${d.message}\n(จำนวน ${d.count} คน | แจ้งในแอพ ${d.inAppSentCount} | แจ้ง LINE ${d.lineSentCount})`);
-      window.location.reload();
-    } else {
-      alert(d.error || 'ยืนยันการจ่ายไม่สำเร็จ');
-    }
-  } catch (err) {
-    alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-  }
-}
-
 export default function PayrollPage() {
   const [viewSlip, setViewSlip] = useState(null);
+  const [showGenModal, setShowGenModal] = useState(false);
+  const [genPeriod, setGenPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [genOverwrite, setGenOverwrite] = useState(false);
+  const [genLoading, setGenLoading] = useState(false);
+
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchPeriod, setBatchPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  function showToast(message, type = 'success') {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  async function handleGeneratePayroll(e) {
+    e.preventDefault();
+    setGenLoading(true);
+    try {
+      const res = await fetch('/api/hr/payroll/generate', {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({ period: genPeriod, overwrite: genOverwrite }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast(`คำนวณสลิปงวด ${d.period} สำเร็จ (ใหม่ ${d.created} · อัปเดต ${d.updated} · ข้าม ${d.skipped})`);
+        setShowGenModal(false);
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        showToast(d.error || 'สร้างไม่สำเร็จ', 'error');
+      }
+    } catch {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
+  async function handleConfirmBatchPay(e) {
+    e.preventDefault();
+    setBatchLoading(true);
+    try {
+      const res = await fetch('/api/hr/payroll/confirm-pay', {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({ period: batchPeriod }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast(`✅ ยืนยันจ่ายงวด ${batchPeriod} สำเร็จ (${d.count} คน | In-App: ${d.inAppSentCount} | LINE: ${d.lineSentCount})`);
+        setShowBatchModal(false);
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        showToast(d.error || 'ยืนยันการจ่ายไม่สำเร็จ', 'error');
+      }
+    } catch {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setBatchLoading(false);
+    }
+  }
 
   async function confirmIndividualPay(row, reload, showToast) {
-    const ok = confirm(
-      `ยืนยันจ่ายเงินเดือนงวด ${row.period} ของพนักงาน ${row.employee_id}?\nยอดสุทธิ: ${baht(row.net)}\n\nระบบจะออกสลิปเงินเดือนทางการและส่งแจ้งเตือนให้พนักงานทันที`
-    );
-    if (!ok) return;
+    if (!confirm(`ยืนยันจ่ายเงินเดือนงวด ${row.period} ของพนักงาน ${row.employee_id}?
+ยอดสุทธิ: ${baht(row.net)}
 
+ระบบจะออกสลิปเงินเดือนทางการและส่งแจ้งเตือนให้พนักงานทันที`)) return;
     try {
       const res = await fetch('/api/hr/payroll/confirm-pay', {
         method: 'POST',
@@ -86,7 +97,7 @@ export default function PayrollPage() {
       } else {
         showToast(d.error || 'ดำเนินการไม่สำเร็จ', 'error');
       }
-    } catch (err) {
+    } catch {
       showToast('เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว', 'error');
     }
   }
@@ -108,16 +119,16 @@ export default function PayrollPage() {
         config={{
           resource: 'payroll',
           exportName: 'payroll_slips',
-          searchPlaceholder: 'ค้นหารหัสพนักงาน/งวด...',
+          searchPlaceholder: 'ค้นหารหัส/ชื่อพนักงาน/งวด...',
           headerExtra: (
             <div className="hr-toolbar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button className="hr-btn hr-btn-secondary" onClick={generatePayroll}>
+              <button className="hr-btn hr-btn-secondary" onClick={() => setShowGenModal(true)}>
                 ⚙️ คำนวณเงินเดือนอัตโนมัติ (ปกส./ภาษี)
               </button>
               <button
                 className="hr-btn hr-btn-primary"
                 style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff', fontWeight: 600 }}
-                onClick={() => confirmBatchPay()}
+                onClick={() => setShowBatchModal(true)}
               >
                 💳 ยืนยันจ่ายเงินเดือนทั้งงวด (ออกสลิป & แจ้งเตือน Auto)
               </button>
@@ -201,9 +212,105 @@ export default function PayrollPage() {
         }}
       />
 
+      {/* Modal คำนวณเงินเดือนอัตโนมัติ */}
+      {showGenModal && (
+        <div className="hr-modal-overlay">
+          <div className="hr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="hr-modal-header">
+              <div className="hr-modal-title">⚙️ คำนวณเงินเดือนอัตโนมัติ</div>
+              <button className="hr-modal-close" onClick={() => setShowGenModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleGeneratePayroll}>
+              <div className="hr-field">
+                <label>ประจำงวด (เดือน/ปี) *</label>
+                <input
+                  type="month"
+                  className="hr-input"
+                  value={genPeriod}
+                  onChange={(e) => setGenPeriod(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, margin: '12px 0', border: '1px solid #e2e8f0', fontSize: 13, lineHeight: 1.6, color: '#475569' }}>
+                <div>⚡ <b>การคำนวณอัตโนมัติประกอบด้วย:</b></div>
+                <div>• ฐานเงินเดือนของพนักงานที่ยังทำงานอยู่</div>
+                <div>• รวมยอด OT อนุมัติแล้วของงวด</div>
+                <div>• หักเงินสมทบประกันสังคม (SSO) สูงสุด 750 บ.</div>
+                <div>• หักภาษี ณ ที่จ่ายตามเกณฑ์ ลย.01</div>
+                <div>• หักค่างวดเงินกู้สวัสดิการที่ยังผ่อนชำระ</div>
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, margin: '10px 0', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={genOverwrite}
+                  onChange={(e) => setGenOverwrite(e.target.checked)}
+                />
+                <span>คำนวณทับสลิปเดิมที่เป็นสถานะร่าง (สลิปที่จ่ายแล้วจะถูกปกป้องไว้เสมอ)</span>
+              </label>
+
+              <div className="hr-modal-actions" style={{ marginTop: 14 }}>
+                <button type="button" className="hr-btn" onClick={() => setShowGenModal(false)}>ยกเลิก</button>
+                <button type="submit" className="hr-btn hr-btn-primary" disabled={genLoading}>
+                  {genLoading ? '⏳ กำลังประมวลผล...' : 'เริ่มคำนวณสลิป'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal ยืนยันจ่ายเงินเดือนทั้งงวด */}
+      {showBatchModal && (
+        <div className="hr-modal-overlay">
+          <div className="hr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <div className="hr-modal-header">
+              <div className="hr-modal-title">💳 ยืนยันจ่ายเงินเดือนทั้งงวด</div>
+              <button className="hr-modal-close" onClick={() => setShowBatchModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleConfirmBatchPay}>
+              <div className="hr-field">
+                <label>ประจำงวดที่ต้องการยืนยันจ่าย *</label>
+                <input
+                  type="month"
+                  className="hr-input"
+                  value={batchPeriod}
+                  onChange={(e) => setBatchPeriod(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div style={{ background: '#ecfdf5', padding: 14, borderRadius: 8, margin: '14px 0', border: '1px solid #a7f3d0', fontSize: 13, lineHeight: 1.6, color: '#065f46' }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>🚀 ดำเนินการอัตโนมัติทันทีหลังยืนยัน:</div>
+                <div>1. ปรับสถานะสลิปของทุกคนในงวดเป็น <b>"จ่ายแล้ว"</b></div>
+                <div>2. ออกสลิปเงินเดือนฉบับสมบูรณ์ & อัปเดตสะสม 50 ทวิ</div>
+                <div>3. ส่งแจ้งเตือนยอดสุทธิเข้ามือถือพนักงาน (In-App)</div>
+                <div>4. ส่งข้อความสลิปเงินเดือนผ่าน LINE อัตโนมัติ</div>
+              </div>
+
+              <div className="hr-modal-actions" style={{ marginTop: 14 }}>
+                <button type="button" className="hr-btn" onClick={() => setShowBatchModal(false)}>ยกเลิก</button>
+                <button
+                  type="submit"
+                  className="hr-btn hr-btn-primary"
+                  style={{ backgroundColor: '#16a34a', borderColor: '#16a34a' }}
+                  disabled={batchLoading}
+                >
+                  {batchLoading ? '⏳ กำลังดำเนินการ...' : 'ยืนยันการจ่ายเงินเดือน'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Official Pay Slip Modal */}
       {viewSlip && (
         <SlipViewModal slip={viewSlip} onClose={() => setViewSlip(null)} />
       )}
+
+      {toast && <div className={`hr-toast ${toast.type}`}>{toast.message}</div>}
     </>
   );
 }
@@ -222,7 +329,6 @@ function SlipViewModal({ slip, onClose }) {
         backgroundColor: '#fff', borderRadius: '12px', width: '100%', maxWidth: '640px',
         maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
       }}>
-        {/* Header Actions */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           padding: '14px 20px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb',
@@ -255,7 +361,6 @@ function SlipViewModal({ slip, onClose }) {
           </div>
         </div>
 
-        {/* Official Slip Content */}
         <div style={{ padding: '24px', fontFamily: 'inherit', color: '#1f2937' }}>
           <div style={{ textAlign: 'center', borderBottom: '2px solid #374151', paddingBottom: '12px', marginBottom: '16px' }}>
             <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{COMPANY.name}</div>

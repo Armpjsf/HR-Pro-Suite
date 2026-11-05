@@ -28,7 +28,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { name, username, password, role, department, email, employeeId } = body;
+    const { name, username, password, role, department, email, employeeId, branchId } = body;
 
     if (!name || !username || !password) {
       return NextResponse.json(
@@ -74,6 +74,7 @@ export async function POST(request) {
       role,
       employeeId: empId,
       department: department || '',
+      branchId: branchId ? Number(branchId) : null,
       avatar: role === 'admin' ? '👑' : role === 'hr' ? '👩‍💼' : '👤',
     };
 

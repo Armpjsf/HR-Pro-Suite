@@ -25,7 +25,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'ไม่พบผู้ใช้' }, { status: 404 });
     }
 
-    const { name, username, password, role, department, email } = body;
+    const { name, username, password, role, department, email, branchId } = body;
 
     if (username && users.some((u) => u.username === username && u.id !== id)) {
       return NextResponse.json({ error: 'Username นี้ถูกใช้แล้ว' }, { status: 409 });
@@ -44,6 +44,7 @@ export async function PUT(request, { params }) {
     }
     if (department !== undefined) updated.department = department;
     if (email !== undefined) updated.email = email;
+    if (branchId !== undefined) updated.branchId = branchId ? Number(branchId) : null;
     if (password) {
       if (password.length < 6) {
         return NextResponse.json(

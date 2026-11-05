@@ -1,6 +1,7 @@
 'use client';
 
 import ResourceTable from '@/components/hr/ResourceTable';
+import { authHeaders } from '@/components/hr/exportUtils';
 
 export default function OtPage() {
   return (
@@ -8,7 +9,7 @@ export default function OtPage() {
       config={{
         resource: 'ot',
         exportName: 'ot_records',
-        searchPlaceholder: 'ค้นหารหัสพนักงาน...',
+        searchPlaceholder: 'ค้นหารหัส/ชื่อพนักงาน/วันที่...',
         columns: [
           { key: 'employee_id', label: 'พนักงาน' },
           { key: 'ot_date', label: 'วันที่' },
@@ -39,6 +40,57 @@ export default function OtPage() {
           },
           { key: 'note', label: 'หมายเหตุ', type: 'text' },
         ],
+        renderActions: (row, reload, showToast) =>
+          row.status === 'pending' ? (
+            <div style={{ display: 'inline-flex', gap: 4, marginLeft: 4 }}>
+              <button
+                className="hr-btn hr-btn-icon hr-btn-success"
+                title="อนุมัติ OT"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/hr/ot/${row.id}`, {
+                      method: 'PUT',
+                      headers: authHeaders(true),
+                      body: JSON.stringify({ status: 'approved' }),
+                    });
+                    if (res.ok) {
+                      showToast('อนุมัติ OT แล้ว');
+                      reload();
+                    } else {
+                      showToast('ดำเนินการไม่สำเร็จ', 'error');
+                    }
+                  } catch {
+                    showToast('เชื่อมต่อล้มเหลว', 'error');
+                  }
+                }}
+              >
+                ✓
+              </button>
+              <button
+                className="hr-btn hr-btn-icon hr-btn-danger"
+                title="ปฏิเสธ OT"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/hr/ot/${row.id}`, {
+                      method: 'PUT',
+                      headers: authHeaders(true),
+                      body: JSON.stringify({ status: 'rejected' }),
+                    });
+                    if (res.ok) {
+                      showToast('ปฏิเสธ OT แล้ว');
+                      reload();
+                    } else {
+                      showToast('ดำเนินการไม่สำเร็จ', 'error');
+                    }
+                  } catch {
+                    showToast('เชื่อมต่อล้มเหลว', 'error');
+                  }
+                }}
+              >
+                ✗
+              </button>
+            </div>
+          ) : null,
       }}
     />
   );
