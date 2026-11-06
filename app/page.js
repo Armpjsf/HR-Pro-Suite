@@ -30,10 +30,13 @@ export default function LoginPage() {
     const token = localStorage.getItem('hr-token') || getCookie('hr-token');
     const storedUser = localStorage.getItem('hr-user');
     const u = storedUser ? JSON.parse(storedUser) : null;
-    if (u?.role && token) {
+    if (token) {
       const res = await fetch('/api/hr/access', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const d = await res.json();
+        if (u && d.role && u.role !== d.role) {
+          localStorage.setItem('hr-user', JSON.stringify({ ...u, role: d.role }));
+        }
         const allowed = d.allowed;
         const canEnter = d.isAdmin || allowed === '__all__' || (Array.isArray(allowed) && allowed.length > 0);
         router.push(canEnter ? '/hr' : '/me');

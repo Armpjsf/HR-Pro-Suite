@@ -151,9 +151,17 @@ export default function HrLayout({ children }) {
       })
       .then((d) => {
         if (!d) return;
+        if (d.role && parsed.role !== d.role) {
+          const updated = { ...parsed, role: d.role };
+          localStorage.setItem('hr-user', JSON.stringify(updated));
+          setUser(updated);
+        }
         const allowed = d.allowed ?? [];
         const canEnter = d.isAdmin || allowed === '__all__' || (Array.isArray(allowed) && allowed.length > 0);
-        if (!canEnter) { router.replace('/me'); return; }
+        if (!canEnter) {
+          router.replace('/me');
+          return;
+        }
         setAccess({ allowed, isAdmin: !!d.isAdmin });
       })
       .catch(() => router.replace('/'));
