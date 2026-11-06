@@ -181,6 +181,16 @@ export default function NotificationBell({ compact = false }) {
     await load();
   }
 
+  // ปิดหน้าต่างเมื่อกดปุ่ม Escape
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
+
   const buttonClass = compact ? 'notify-btn compact' : 'notify-btn';
 
   return (
@@ -190,27 +200,79 @@ export default function NotificationBell({ compact = false }) {
         {unread > 0 && <span className="notify-count">{unread > 9 ? '9+' : unread}</span>}
       </button>
       {open && (
-        <div className="notify-panel">
-          <div className="notify-head">
-            <strong>แจ้งเตือน</strong>
-            {unread > 0 && <button onClick={() => markRead()}>อ่านทั้งหมด</button>}
+        <>
+          <div
+            className="notify-backdrop"
+            onClick={() => setOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 499,
+              background: 'rgba(0, 0, 0, 0.25)',
+              backdropFilter: 'blur(1px)',
+            }}
+          />
+          <div className="notify-panel" style={{ zIndex: 500 }}>
+            <div className="notify-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <strong>แจ้งเตือน</strong>
+                {unread > 0 && (
+                  <span style={{ background: '#fee2e2', color: '#dc2626', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999 }}>
+                    {unread}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {unread > 0 && <button onClick={() => markRead()}>อ่านทั้งหมด</button>}
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  style={{
+                    border: 'none',
+                    background: '#f1f2f8',
+                    color: '#6b7280',
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 'bold',
+                  }}
+                  title="ปิด"
+                  aria-label="ปิดแจ้งเตือน"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <button className="notify-enable" onClick={enablePush}>
+              {pushState === 'enabled' ? '✅ เปิดการแจ้งเตือนแล้ว' : pushState === 'requesting' ? '⏳ กำลังขอสิทธิ์...' : '🔔 เปิดแจ้งเตือนบนเครื่องนี้'}
+            </button>
+            {pushState === 'not-configured' && <div className="notify-hint">ยังไม่ได้ตั้งค่า VAPID keys บน server</div>}
+            {pushState === 'denied' && <div className="notify-hint">⚠️ อุปกรณ์/เบราว์เซอร์ยังไม่อนุญาตแจ้งเตือน (กรุณาเปิดในตั้งค่าระบบ)</div>}
+            {pushState === 'unsupported' && <div className="notify-hint">ระบบแจ้งเตือนแบบ In-App พร้อมทำงานปกติ</div>}
+            <div className="notify-list">
+              {items.length === 0 && <div className="notify-empty">ยังไม่มีแจ้งเตือน</div>}
+              {items.map((item) => (
+                <Link
+                  key={item.id}
+                  className={`notify-item${item.read_at ? '' : ' unread'}`}
+                  href={item.url || '#'}
+                  onClick={() => {
+                    markRead(item.id);
+                    setOpen(false);
+                  }}
+                >
+                  <span>{item.title}</span>
+                  <small>{item.body}</small>
+                </Link>
+              ))}
+            </div>
           </div>
-          <button className="notify-enable" onClick={enablePush}>
-            {pushState === 'enabled' ? '✅ เปิดการแจ้งเตือนแล้ว' : pushState === 'requesting' ? '⏳ กำลังขอสิทธิ์...' : '🔔 เปิดแจ้งเตือนบนเครื่องนี้'}
-          </button>
-          {pushState === 'not-configured' && <div className="notify-hint">ยังไม่ได้ตั้งค่า VAPID keys บน server</div>}
-          {pushState === 'denied' && <div className="notify-hint">⚠️ อุปกรณ์/เบราว์เซอร์ยังไม่อนุญาตแจ้งเตือน (กรุณาเปิดในตั้งค่าระบบ)</div>}
-          {pushState === 'unsupported' && <div className="notify-hint">ระบบแจ้งเตือนแบบ In-App พร้อมทำงานปกติ</div>}
-          <div className="notify-list">
-            {items.length === 0 && <div className="notify-empty">ยังไม่มีแจ้งเตือน</div>}
-            {items.map((item) => (
-              <Link key={item.id} className={`notify-item${item.read_at ? '' : ' unread'}`} href={item.url || '#'} onClick={() => markRead(item.id)}>
-                <span>{item.title}</span>
-                <small>{item.body}</small>
-              </Link>
-            ))}
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

@@ -1099,6 +1099,7 @@ function WorkplaceSection({ back }) {
 function CalendarSection({ back }) {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [data, setData] = useState(null);
+  const [touchStartX, setTouchStartX] = useState(null);
 
   useEffect(() => {
     fetch(`/api/me/calendar?month=${month}`, { headers: authHeaders() })
@@ -1124,17 +1125,98 @@ function CalendarSection({ back }) {
 
   const changeMonth = (delta) => {
     const d = new Date(y, m - 1 + delta, 1);
-    setMonth(d.toISOString().slice(0, 7));
+    const targetY = d.getFullYear();
+    const targetM = String(d.getMonth() + 1).padStart(2, '0');
+    setMonth(`${targetY}-${targetM}`);
   };
+
+  const handleTouchStart = (e) => {
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStartX === null) return;
+    const diff = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(diff) > 45) {
+      if (diff > 0) changeMonth(-1); // swipe ขวา = เดือนก่อนหน้า
+      else changeMonth(1);          // swipe ซ้าย = เดือนถัดไป
+    }
+    setTouchStartX(null);
+  };
+
+  const currentMonthStr = new Date().toISOString().slice(0, 7);
 
   return (
     <>
       <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div className="me-card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none' }} onClick={() => changeMonth(-1)}>◀</button>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>{new Date(y, m - 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</div>
-          <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none' }} onClick={() => changeMonth(1)}>▶</button>
+      <div
+        className="me-card"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        style={{ userSelect: 'none' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <button
+            type="button"
+            className="me-badge me-badge-gray"
+            style={{
+              cursor: 'pointer',
+              border: 'none',
+              minWidth: 40,
+              minHeight: 40,
+              fontSize: 16,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 10,
+            }}
+            onClick={() => changeMonth(-1)}
+            aria-label="เดือนก่อนหน้า"
+          >
+            ◀
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#1f2937' }}>
+              {new Date(y, m - 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
+            </div>
+            {month !== currentMonthStr && (
+              <button
+                type="button"
+                onClick={() => setMonth(currentMonthStr)}
+                style={{
+                  border: 'none',
+                  background: '#ede9fe',
+                  color: '#6d28d9',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '3px 9px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                วันนี้
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            className="me-badge me-badge-gray"
+            style={{
+              cursor: 'pointer',
+              border: 'none',
+              minWidth: 40,
+              minHeight: 40,
+              fontSize: 16,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 10,
+            }}
+            onClick={() => changeMonth(1)}
+            aria-label="เดือนถัดไป"
+          >
+            ▶
+          </button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center', fontSize: 12 }}>
           {DOWS.map((d, i) => <div key={d} style={{ fontWeight: 600, color: !workDays.has(i) ? '#dc2626' : '#9aa1b5', padding: 4 }}>{d}</div>)}
@@ -1182,9 +1264,12 @@ function AttendanceSection({ back }) {
   const [y, m] = month.split('-').map(Number);
   const changeMonth = (delta) => {
     const d = new Date(y, m - 1 + delta, 1);
-    setMonth(d.toISOString().slice(0, 7));
+    const targetY = d.getFullYear();
+    const targetM = String(d.getMonth() + 1).padStart(2, '0');
+    setMonth(`${targetY}-${targetM}`);
   };
 
+  const currentMonthStr = new Date().toISOString().slice(0, 7);
   const CHECK_TYPE_LABEL = { office: '🏢 ออฟฟิศ', offsite: '📍 นอกสถานที่', wfh: '🏠 WFH' };
 
   return (
@@ -1200,10 +1285,68 @@ function AttendanceSection({ back }) {
       )}
 
       <div className="me-card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none' }} onClick={() => changeMonth(-1)}>◀</button>
-          <div style={{ fontWeight: 700 }}>{new Date(y, m - 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</div>
-          <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none' }} onClick={() => changeMonth(1)}>▶</button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <button
+            type="button"
+            className="me-badge me-badge-gray"
+            style={{
+              cursor: 'pointer',
+              border: 'none',
+              minWidth: 40,
+              minHeight: 40,
+              fontSize: 16,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 10,
+            }}
+            onClick={() => changeMonth(-1)}
+            aria-label="เดือนก่อนหน้า"
+          >
+            ◀
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#1f2937' }}>
+              {new Date(y, m - 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
+            </div>
+            {month !== currentMonthStr && (
+              <button
+                type="button"
+                onClick={() => setMonth(currentMonthStr)}
+                style={{
+                  border: 'none',
+                  background: '#ede9fe',
+                  color: '#6d28d9',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '3px 9px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                วันนี้
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            className="me-badge me-badge-gray"
+            style={{
+              cursor: 'pointer',
+              border: 'none',
+              minWidth: 40,
+              minHeight: 40,
+              fontSize: 16,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 10,
+            }}
+            onClick={() => changeMonth(1)}
+            aria-label="เดือนถัดไป"
+          >
+            ▶
+          </button>
         </div>
         {!data && <div className="me-empty">กำลังโหลด...</div>}
         {data?.records?.length === 0 && <div className="me-empty">ไม่มีข้อมูลเดือนนี้</div>}
