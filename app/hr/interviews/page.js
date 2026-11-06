@@ -117,6 +117,7 @@ export default function InterviewsPage() {
       {editing && (
         <SetEditor
           value={editing}
+          positions={positions}
           onChange={setEditing}
           onSave={save}
           onClose={() => setEditing(null)}
@@ -128,7 +129,7 @@ export default function InterviewsPage() {
   );
 }
 
-function SetEditor({ value, onChange, onSave, onClose }) {
+function SetEditor({ value, positions = [], onChange, onSave, onClose }) {
   const set = (patch) => onChange({ ...value, ...patch });
   const questions = value.questions || [];
 

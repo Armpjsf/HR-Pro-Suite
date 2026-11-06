@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
 import { notifyHr } from '@/lib/notifications';
 
-const CATEGORIES = ['travel', 'meal', 'allowance', 'accommodation', 'other'];
+const CATEGORIES = ['travel', 'fuel', 'meal', 'allowance', 'accommodation', 'maintenance', 'other'];
 
 /**
  * GET /api/me/expenses — รายการเบิกค่าใช้จ่ายของตัวเอง
@@ -26,15 +26,15 @@ export async function GET(request) {
 }
 
 /**
- * POST /api/me/expenses — ยื่นเบิกค่าใช้จ่ายใหม่
- * Body: { category, amount, description, claim_date }
+ * POST /api/me/expenses — ยื่นเบิกค่าใช้จ่ายใหม่ (รองรับแนบไฟล์ใบเสร็จ receiptUrl)
+ * Body: { category, amount, description, claim_date, receiptUrl }
  */
 export async function POST(request) {
   const { user, error, status } = requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();
-  const { category, amount, description, claim_date } = body;
+  const { category, amount, description, claim_date, receiptUrl } = body;
 
   if (!CATEGORIES.includes(category)) {
     return NextResponse.json({ error: `หมวดหมู่ไม่ถูกต้อง (${CATEGORIES.join(', ')})` }, { status: 400 });
@@ -43,13 +43,18 @@ export async function POST(request) {
     return NextResponse.json({ error: 'กรุณาระบุจำนวนเงิน' }, { status: 400 });
   }
 
+  let finalDesc = description ? description.trim() : '';
+  if (receiptUrl) {
+    finalDesc = `${finalDesc} [RECEIPT:${receiptUrl}]`.trim();
+  }
+
   const { data, error: dbError } = await supabase
     .from('expense_claims')
     .insert({
       employee_id: user.employeeId,
       category,
       amount: Number(amount),
-      description: description || null,
+      description: finalDesc || null,
       claim_date: claim_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),
       status: 'pending',
     })

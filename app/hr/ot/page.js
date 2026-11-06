@@ -1,9 +1,21 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import ResourceTable from '@/components/hr/ResourceTable';
 import { authHeaders } from '@/components/hr/exportUtils';
 
 export default function OtPage() {
+  const [employees, setEmployees] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/hr/employees', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setEmployees(d.employees || []))
+      .catch(() => {});
+  }, []);
+
+  const salaryMap = new Map(employees.map((e) => [e.employeeId, { salary: Number(e.salary) || 0, type: e.employmentType }]));
+
   return (
     <ResourceTable
       config={{
@@ -28,7 +40,7 @@ export default function OtPage() {
           { key: 'ot_date', label: 'วันที่', type: 'date', required: true },
           { key: 'hours', label: 'จำนวนชั่วโมง', type: 'number', required: true },
           { key: 'rate', label: 'เรท (เท่า)', type: 'number', default: 1.5 },
-          { key: 'amount', label: 'จำนวนเงิน (บาท)', type: 'number' },
+          { key: 'amount', label: 'จำนวนเงิน (บาท) — เว้นว่างเพื่อคำนวณอัตโนมัติจากฐานเงินเดือน', type: 'number' },
           {
             key: 'status', label: 'สถานะ', type: 'select', default: 'pending',
             options: [
@@ -40,6 +52,17 @@ export default function OtPage() {
           },
           { key: 'note', label: 'หมายเหตุ', type: 'text' },
         ],
+        transformBeforeSave: (form) => {
+          let amt = Number(form.amount) || 0;
+          if (!amt && form.employee_id && form.hours) {
+            const empInfo = salaryMap.get(form.employee_id);
+            const rawSal = empInfo?.salary || 0;
+            const dailyWage = empInfo?.type === 'daily' && rawSal <= 3000 ? rawSal : rawSal / 30;
+            const hourlyRate = dailyWage / 8;
+            amt = Math.round(hourlyRate * Number(form.hours || 0) * Number(form.rate || 1.5));
+          }
+          return { ...form, amount: amt };
+        },
         renderActions: (row, reload, showToast) =>
           row.status === 'pending' ? (
             <div style={{ display: 'inline-flex', gap: 4, marginLeft: 4 }}>

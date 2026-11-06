@@ -5,15 +5,20 @@ import { computeSlip } from '@/lib/payroll';
 import { addAuditEntry } from '@/lib/db';
 
 /**
- * POST /api/hr/payroll/generate — สร้างสลิปอัตโนมัติทั้งงวดจากเงินเดือนฐานพนักงาน
+ * POST /api/hr/payroll/generate — สร้างสลิปอัตโนมัติทั้งงวด
  * Body: { period: '2026-06', overwrite?: boolean }
- * คำนวณ ปกส. + ภาษี จากเงินเดือน + ค่าลดหย่อน (ลย.01)
- * รวม OT ที่อนุมัติแล้วในงวด และหักงวดผ่อนเงินกู้ (benefits_loans type=loan) ที่ยัง active
+ * - รองรับพนักงานรายเดือน (monthly) และรายวัน (daily: คูณวันมาทำงานจริงจาก time_records)
+ * - คำนวณ ปกส. + ภาษี จากเงินเดือน + ค่าลดหย่อน (ลย.01)
+ * - รวม OT ที่อนุมัติแล้วในงวด
+ * - รวมยอดเบิกค่าใช้จ่าย/เบี้ยเลี้ยง (expense_claims) ที่อนุมัติแล้วในงวดเข้าช่องเงินได้พิเศษ/โบนัส
+ * - หักวันลาไม่รับค่าจ้าง (leave_types ที่ paid = false) และหักงวดผ่อนเงินกู้ (benefits_loans type=loan)
+ * - ปกป้องสลิปที่สถานะ 'paid' ไม่ให้ถูกเขียนทับ
  */
 function lastDayOfPeriod(period) {
   const [y, m] = period.split('-').map(Number);
   return `${period}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
 }
+
 export async function POST(request) {
   const { user, error, status } = await requireMenu(request, 'payroll');
   if (error) return NextResponse.json({ error }, { status });
@@ -27,15 +32,33 @@ export async function POST(request) {
   const periodStart = `${period}-01`;
   const periodEnd = lastDayOfPeriod(period);
 
-  const [{ data: allRecords }, { data: activeUsers }, { data: existing }, { data: allowances }, { data: otRows }, { data: loanRows }] = await Promise.all([
-    supabase.from('employee_records').select('employee_id, salary').gt('salary', 0),
+  const [
+    { data: allRecords },
+    { data: activeUsers },
+    { data: existing },
+    { data: allowances },
+    { data: otRows },
+    { data: loanRows },
+    { data: timeRows },
+    { data: leaveRows },
+    { data: leaveTypes },
+    { data: expenseRows },
+  ] = await Promise.all([
+    supabase.from('employee_records').select('employee_id, salary, employment_type').gt('salary', 0),
     supabase.from('users').select('employee_id, status'),
-    supabase.from('payroll_slips').select('id, employee_id, status').eq('period', period),
+    supabase.from('payroll_slips').select('id, employee_id, status, bonus').eq('period', period),
     supabase.from('tax_allowances').select('employee_id, data').eq('year', yearBE),
     supabase.from('ot_records').select('employee_id, amount')
       .eq('status', 'approved').gte('ot_date', periodStart).lte('ot_date', periodEnd),
     supabase.from('benefits_loans').select('employee_id, amount, start_date, end_date')
       .eq('type', 'loan').eq('status', 'active'),
+    supabase.from('time_records').select('employee_id, work_date, status, clock_in')
+      .gte('work_date', periodStart).lte('work_date', periodEnd),
+    supabase.from('leave_requests').select('employee_id, leave_type, days, start_date')
+      .eq('status', 'approved').gte('start_date', periodStart).lte('start_date', periodEnd),
+    supabase.from('leave_types').select('code, paid'),
+    supabase.from('expense_claims').select('employee_id, amount')
+      .eq('status', 'approved').gte('claim_date', periodStart).lte('claim_date', periodEnd),
   ]);
 
   // ตัดพนักงานที่พ้นสภาพ/ถูกระงับออกจากงวด
@@ -46,14 +69,42 @@ export async function POST(request) {
 
   const existMap = new Map((existing || []).map((s) => [s.employee_id, s]));
   const allowMap = new Map((allowances || []).map((a) => [a.employee_id, a.data || {}]));
+  const unpaidLeaveTypes = new Set(
+    (leaveTypes || []).filter((lt) => lt.paid === false).map((lt) => lt.code),
+  );
 
-  // รวม OT อนุมัติแล้วของงวดนี้ รายพนักงาน
+  // 1. รวม OT อนุมัติแล้วของงวดนี้ รายพนักงาน
   const otMap = new Map();
   for (const ot of otRows || []) {
     otMap.set(ot.employee_id, (otMap.get(ot.employee_id) || 0) + (Number(ot.amount) || 0));
   }
 
-  // เงินกู้ active ที่คาบเกี่ยวงวดนี้ — ถือ amount เป็นยอดผ่อนต่อเดือน
+  // 2. รวมยอดเบิกค่าใช้จ่าย/เบี้ยเลี้ยงที่อนุมัติแล้วในงวดนี้
+  const expenseMap = new Map();
+  for (const ex of expenseRows || []) {
+    expenseMap.set(ex.employee_id, (expenseMap.get(ex.employee_id) || 0) + (Number(ex.amount) || 0));
+  }
+
+  // 3. นับวันทำงานจริงสำหรับพนักงานรายวัน (daily) และวันขาดงาน (absent)
+  const workDaysMap = new Map();
+  const absentDaysMap = new Map();
+  for (const tr of timeRows || []) {
+    if (tr.status === 'absent') {
+      absentDaysMap.set(tr.employee_id, (absentDaysMap.get(tr.employee_id) || 0) + 1);
+    } else if (tr.status === 'present' || tr.status === 'late' || tr.clock_in) {
+      workDaysMap.set(tr.employee_id, (workDaysMap.get(tr.employee_id) || 0) + 1);
+    }
+  }
+
+  // 4. นับวันลาไม่รับค่าจ้าง (Leave Without Pay)
+  const unpaidLeaveDaysMap = new Map();
+  for (const lv of leaveRows || []) {
+    if (unpaidLeaveTypes.has(lv.leave_type)) {
+      unpaidLeaveDaysMap.set(lv.employee_id, (unpaidLeaveDaysMap.get(lv.employee_id) || 0) + (Number(lv.days) || 0));
+    }
+  }
+
+  // 5. เงินกู้ active ที่คาบเกี่ยวงวดนี้ — ถือ amount เป็นยอดผ่อนต่อเดือน
   const loanMap = new Map();
   for (const loan of loanRows || []) {
     const started = !loan.start_date || loan.start_date <= periodEnd;
@@ -64,10 +115,33 @@ export async function POST(request) {
 
   let created = 0, updated = 0, skipped = 0;
   for (const rec of records || []) {
+    const rawSalary = Number(rec.salary) || 0;
+    const isDaily = rec.employment_type === 'daily';
+    const workDays = workDaysMap.get(rec.employee_id) || 0;
+
+    // หากเป็นพนักงานรายวัน: ถ้าตั้ง salary <= 3000 ถือเป็นค่าแรงต่อวัน (คูณวันทำงานจริง, หากยังไม่มีบันทึกเวลาให้ใช้ 26 วันตั้งต้น)
+    let baseSalary = rawSalary;
+    let dailyRate = rawSalary / 30;
+    if (isDaily) {
+      if (rawSalary <= 3000) {
+        dailyRate = rawSalary;
+        baseSalary = rawSalary * (workDays > 0 ? workDays : 26);
+      } else {
+        dailyRate = rawSalary / 30;
+        baseSalary = workDays > 0 ? Math.round(dailyRate * workDays) : rawSalary;
+      }
+    }
+
+    const unpaidDays = (unpaidLeaveDaysMap.get(rec.employee_id) || 0) + (absentDaysMap.get(rec.employee_id) || 0);
+    const unpaidDeduction = Math.round(dailyRate * unpaidDays);
+    const totalDeduction = (loanMap.get(rec.employee_id) || 0) + unpaidDeduction;
+    const approvedExpenses = expenseMap.get(rec.employee_id) || 0;
+
     const slipData = computeSlip({
-      monthlySalary: rec.salary,
+      monthlySalary: baseSalary,
       otMonthly: otMap.get(rec.employee_id) || 0,
-      otherDeduction: loanMap.get(rec.employee_id) || 0,
+      bonusMonthly: approvedExpenses,
+      otherDeduction: totalDeduction,
       allowances: allowMap.get(rec.employee_id) || {},
     });
     const row = { employee_id: rec.employee_id, period, status: 'draft', ...slipData };
@@ -86,7 +160,11 @@ export async function POST(request) {
     }
   }
 
-  await addAuditEntry({ user: user.name, action: `สร้างสลิปอัตโนมัติงวด ${period} (ใหม่ ${created}, อัปเดต ${updated})`, channel: 'HR' });
+  await addAuditEntry({
+    user: user.name,
+    action: `คำนวณสลิปอัตโนมัติงวด ${period} (ใหม่ ${created}, อัปเดต ${updated}, ข้าม ${skipped})`,
+    channel: 'HR',
+  });
 
   return NextResponse.json({ success: true, created, updated, skipped, period });
 }

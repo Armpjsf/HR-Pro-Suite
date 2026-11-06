@@ -14,11 +14,13 @@ function leaveLabel(key, val, leaveTypes = []) {
   return val?.label || leaveTypes.find((t) => t.code === key)?.name || LEAVE_LABELS[key] || key;
 }
 const EXPENSE_CATS = [
-  { value: 'travel', label: 'ค่าเดินทาง' },
-  { value: 'meal', label: 'ค่าอาหาร' },
-  { value: 'allowance', label: 'เบี้ยเลี้ยง' },
-  { value: 'accommodation', label: 'ค่าที่พัก' },
-  { value: 'other', label: 'อื่นๆ' },
+  { value: 'travel', label: '🚗 ค่าเดินทาง / ทางด่วน' },
+  { value: 'fuel', label: '⛽ ค่าน้ำมันเชื้อเพลิง' },
+  { value: 'meal', label: '🍱 ค่าอาหาร' },
+  { value: 'allowance', label: '💵 เบี้ยเลี้ยง' },
+  { value: 'accommodation', label: '🏨 ค่าที่พัก' },
+  { value: 'maintenance', label: '🔧 ค่าซ่อมบำรุงรถ' },
+  { value: 'other', label: '📦 อื่นๆ' },
 ];
 const STATUS_BADGE = {
   pending: { cls: 'me-badge-yellow', label: 'รออนุมัติ' },
@@ -713,7 +715,7 @@ function MoreTab({ user, router, showToast, data }) {
     { id: 'documentRequests', icon: '📄', label: 'ขอเอกสารรับรอง', desc: 'ขอหนังสือรับรองเงินเดือน/การทำงาน' },
     { id: 'taxcert', icon: '🧾', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้-ภาษีทั้งปี ดู/บันทึก PDF ได้' },
     { id: 'allowance', icon: '📝', label: 'แบบลดหย่อนภาษี (ลย.01)', desc: 'กรอกค่าลดหย่อนส่งให้ HR' },
-    ...(data?.isManager ? [{ id: 'teamleave', icon: '✅', label: 'อนุมัติการลาทีม', desc: 'อนุมัติใบลาของลูกทีม (หัวหน้า)' }] : []),
+    ...(data?.isManager ? [{ id: 'teamleave', icon: '✅', label: 'อนุมัติคำขอลูกทีม (ลา/OT/เบิกจ่าย)', desc: 'อนุมัติขั้นต้นสำหรับหัวหน้างาน' }] : []),
   ];
 
   if (subTab === 'expenses') return <ExpensesSection back={() => setSubTab(null)} showToast={showToast} />;
@@ -759,7 +761,8 @@ function MoreTab({ user, router, showToast, data }) {
 /* ─── Expenses Sub-section ─── */
 function ExpensesSection({ back, showToast }) {
   const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ category: 'travel', amount: '', description: '', claim_date: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({ category: 'travel', amount: '', description: '', claim_date: new Date().toISOString().slice(0, 10), receiptUrl: '' });
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -767,6 +770,30 @@ function ExpensesSection({ back, showToast }) {
     fetch('/api/me/expenses', { headers: authHeaders() })
       .then((r) => r.json()).then((d) => { setItems(d.items || []); setLoaded(true); }).catch(() => setLoaded(true));
   }, []);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
+      const res = await fetch('/api/me/upload', {
+        method: 'POST',
+        headers: token ? { Authorization: 'Bearer ' + token } : {},
+        body: fd,
+      });
+      const d = await res.json();
+      if (!res.ok) { showToast(d.error || 'อัปโหลดไม่สำเร็จ', true); return; }
+      setForm((prev) => ({ ...prev, receiptUrl: d.fileUrl }));
+      showToast('แนบใบเสร็จเรียบร้อย');
+    } catch {
+      showToast('อัปโหลดไฟล์ล้มเหลว', true);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -777,7 +804,7 @@ function ExpensesSection({ back, showToast }) {
       if (!res.ok) { showToast(d.error, true); return; }
       showToast('ยื่นเบิกค่าใช้จ่ายเรียบร้อย');
       setItems((p) => [d.item, ...p]);
-      setForm({ category: 'travel', amount: '', description: '', claim_date: new Date().toISOString().slice(0, 10) });
+      setForm({ category: 'travel', amount: '', description: '', claim_date: new Date().toISOString().slice(0, 10), receiptUrl: '' });
     } catch { showToast('เกิดข้อผิดพลาด', true); }
     finally { setLoading(false); }
   };
@@ -804,9 +831,15 @@ function ExpensesSection({ back, showToast }) {
           </div>
           <div className="me-field">
             <label>รายละเอียด</label>
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="ระบุรายละเอียด" />
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="ระบุรายละเอียด เช่น ทะเบียนรถ / เส้นทาง / ลูกค้า" />
           </div>
-          <button className="me-btn" disabled={loading}>{loading ? '⏳ กำลังส่ง...' : '🧾 ยื่นเบิก'}</button>
+          <div className="me-field">
+            <label>แนบใบเสร็จ / สลิป (JPG, PNG, PDF ไม่เกิน 5MB)</label>
+            <input type="file" accept="image/*,.pdf" className="me-input" onChange={handleFileChange} disabled={uploading} />
+            {uploading && <div style={{ fontSize: 12, color: '#6d5ef5', marginTop: 4 }}>⏳ กำลังอัปโหลดใบเสร็จ...</div>}
+            {form.receiptUrl && !uploading && <div style={{ fontSize: 12, color: '#16a34a', marginTop: 4 }}>✅ แนบไฟล์สำเร็จ พร้อมส่งเบิก</div>}
+          </div>
+          <button className="me-btn" disabled={loading || uploading}>{loading ? '⏳ กำลังส่ง...' : '🧾 ยื่นเบิก'}</button>
         </form>
       </div>
       <div className="me-card">
@@ -816,10 +849,26 @@ function ExpensesSection({ back, showToast }) {
         {items.map((item) => {
           const badge = STATUS_BADGE[item.status] || STATUS_BADGE.pending;
           const catLabel = EXPENSE_CATS.find((c) => c.value === item.category)?.label || item.category;
+          const rawDesc = String(item.description || '');
+          const receiptMatch = rawDesc.match(/\[RECEIPT:([^\]]+)\]/);
+          const receiptFile = receiptMatch ? receiptMatch[1].trim() : null;
+          const cleanDesc = rawDesc.replace(/\[RECEIPT:[^\]]+\]/g, '').trim();
           return (
-            <div key={item.id} className="me-row">
-              <span className="k">{catLabel} · {Number(item.amount).toLocaleString()} ฿</span>
-              <span className={`me-badge ${badge.cls}`}>{badge.label}</span>
+            <div key={item.id} className="me-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="k">{catLabel} · {Number(item.amount).toLocaleString()} ฿</span>
+                <span className={'me-badge ' + badge.cls}>{badge.label}</span>
+              </div>
+              {(cleanDesc || receiptFile) && (
+                <div style={{ fontSize: 12, color: '#6b7280', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{cleanDesc || item.claim_date}</span>
+                  {receiptFile && (
+                    <a href={assetImg(receiptFile)} target="_blank" rel="noreferrer" style={{ color: '#6d5ef5', fontWeight: 600 }}>
+                      📎 ดูใบเสร็จ
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -1485,20 +1534,28 @@ function AllowanceSection({ back, showToast }) {
 
 /* ─── อนุมัติการลาทีม (สำหรับหัวหน้า) ─── */
 function TeamLeaveSection({ back, showToast }) {
+  const [tab, setTab] = useState('leave');
   const [items, setItems] = useState([]);
+  const [otItems, setOtItems] = useState([]);
+  const [expenseItems, setExpenseItems] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
   const load = () => fetch('/api/me/team-leave', { headers: authHeaders() })
-    .then((r) => r.json()).then((d) => { setItems(d.items || []); setLoaded(true); }).catch(() => setLoaded(true));
+    .then((r) => r.json()).then((d) => {
+      setItems(d.items || []);
+      setOtItems(d.otItems || []);
+      setExpenseItems(d.expenseItems || []);
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
 
   useEffect(() => { load(); }, []);
 
-  const act = async (id, action) => {
+  const act = async (id, action, type = 'leave') => {
     const res = await fetch('/api/me/team-leave', {
-      method: 'POST', headers: authHeaders(), body: JSON.stringify({ id, action }),
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ id, action, type }),
     });
     const d = await res.json();
-    if (res.ok) { showToast(action === 'approve' ? 'อนุมัติแล้ว (ส่งต่อ HR)' : 'ปฏิเสธแล้ว'); load(); }
+    if (res.ok) { showToast(action === 'approve' ? 'อนุมัติขั้นต้นแล้ว (ส่งต่อ HR)' : 'ปฏิเสธคำขอแล้ว'); load(); }
     else showToast(d.error || 'ไม่สำเร็จ', true);
   };
 
@@ -1507,30 +1564,114 @@ function TeamLeaveSection({ back, showToast }) {
   return (
     <>
       <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div className="me-card">
-        <div className="me-section-title">✅ อนุมัติการลาของลูกทีม</div>
-        {loaded && items.length === 0 && <div className="me-empty">ไม่มีใบลา</div>}
-        {items.map((l) => (
-          <div key={l.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontWeight: 600 }}>{l.employeeName}</span>
-              <span className={`me-badge ${l.manager_status === 'pending' ? 'me-badge-yellow' : l.manager_status === 'approved' ? 'me-badge-green' : 'me-badge-red'}`}>
-                {l.manager_status === 'pending' ? 'รออนุมัติ' : l.manager_status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธ'}
-              </span>
-            </div>
-            <div style={{ fontSize: 13, color: '#5b6478', margin: '4px 0' }}>
-              {LB[l.leave_type] || l.leave_type} · {l.days} วัน · {l.start_date} ถึง {l.end_date}
-            </div>
-            {l.reason && <div style={{ fontSize: 12.5, color: '#9aa1b5' }}>เหตุผล: {l.reason}</div>}
-            {l.manager_status === 'pending' && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => act(l.id, 'approve')}>✓ อนุมัติ</button>
-                <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#ef4444,#f87171)' }} onClick={() => act(l.id, 'reject')}>✗ ปฏิเสธ</button>
-              </div>
-            )}
-          </div>
-        ))}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <button className={'me-badge ' + (tab === 'leave' ? 'me-badge-purple' : 'me-badge-gray')} style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => setTab('leave')}>
+          🏖️ ใบลา ({items.filter((i) => i.manager_status === 'pending').length})
+        </button>
+        <button className={'me-badge ' + (tab === 'ot' ? 'me-badge-purple' : 'me-badge-gray')} style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => setTab('ot')}>
+          ⏱️ OT ({otItems.filter((i) => i.status === 'pending' && !String(i.note || '').includes('[หัวหน้าอนุมัติ:')).length})
+        </button>
+        <button className={'me-badge ' + (tab === 'expense' ? 'me-badge-purple' : 'me-badge-gray')} style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => setTab('expense')}>
+          🧾 เบิกจ่าย ({expenseItems.filter((i) => i.status === 'pending' && !String(i.description || '').includes('[หัวหน้าอนุมัติ:')).length})
+        </button>
       </div>
+
+      {tab === 'leave' && (
+        <div className="me-card">
+          <div className="me-section-title">✅ อนุมัติการลาของลูกทีม (ขั้นที่ 1 → HR)</div>
+          {loaded && items.length === 0 && <div className="me-empty">ไม่มีใบลาของลูกทีม</div>}
+          {items.map((l) => (
+            <div key={l.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 600 }}>{l.employeeName}</span>
+                <span className={'me-badge ' + (l.manager_status === 'pending' ? 'me-badge-yellow' : l.manager_status === 'approved' ? 'me-badge-green' : 'me-badge-red')}>
+                  {l.manager_status === 'pending' ? 'รอหัวหน้า' : l.manager_status === 'approved' ? 'ส่งต่อ HR แล้ว' : 'ปฏิเสธ'}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: '#5b6478', margin: '4px 0' }}>
+                {LB[l.leave_type] || l.leave_type} · {l.days} วัน · {l.start_date} ถึง {l.end_date}
+              </div>
+              {l.reason && <div style={{ fontSize: 12.5, color: '#9aa1b5' }}>เหตุผล: {l.reason}</div>}
+              {l.manager_status === 'pending' && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => act(l.id, 'approve', 'leave')}>✓ อนุมัติส่งต่อ HR</button>
+                  <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#ef4444,#f87171)' }} onClick={() => act(l.id, 'reject', 'leave')}>✗ ปฏิเสธ</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'ot' && (
+        <div className="me-card">
+          <div className="me-section-title">⏱️ อนุมัติ OT ลูกทีม (ขั้นที่ 1 → HR)</div>
+          {loaded && otItems.length === 0 && <div className="me-empty">ไม่มีคำขอ OT ของลูกทีม</div>}
+          {otItems.map((o) => {
+            const mgrApproved = String(o.note || '').includes('[หัวหน้าอนุมัติ:');
+            return (
+              <div key={o.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 600 }}>{o.employeeName}</span>
+                  <span className={'me-badge ' + (o.status === 'approved' ? 'me-badge-green' : o.status === 'rejected' ? 'me-badge-red' : mgrApproved ? 'me-badge-blue' : 'me-badge-yellow')}>
+                    {o.status === 'approved' ? 'HR อนุมัติแล้ว' : o.status === 'rejected' ? 'ปฏิเสธ' : mgrApproved ? 'ส่งต่อ HR แล้ว' : 'รอหัวหน้า'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: '#5b6478', margin: '4px 0' }}>
+                  วันที่ {o.ot_date} · {o.hours} ชม. (x{o.rate || 1.5})
+                </div>
+                {o.note && <div style={{ fontSize: 12.5, color: '#9aa1b5' }}>{o.note}</div>}
+                {o.status === 'pending' && !mgrApproved && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => act(o.id, 'approve', 'ot')}>✓ อนุมัติส่งต่อ HR</button>
+                    <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#ef4444,#f87171)' }} onClick={() => act(o.id, 'reject', 'ot')}>✗ ปฏิเสธ</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {tab === 'expense' && (
+        <div className="me-card">
+          <div className="me-section-title">🧾 อนุมัติเบิกจ่ายลูกทีม (ขั้นที่ 1 → HR)</div>
+          {loaded && expenseItems.length === 0 && <div className="me-empty">ไม่มีรายการเบิกของลูกทีม</div>}
+          {expenseItems.map((ex) => {
+            const rawDesc = String(ex.description || '');
+            const mgrApproved = rawDesc.includes('[หัวหน้าอนุมัติ:');
+            const receiptMatch = rawDesc.match(/\[RECEIPT:([^\]]+)\]/);
+            const receiptFile = receiptMatch ? receiptMatch[1].trim() : null;
+            const cleanDesc = rawDesc.replace(/\[RECEIPT:[^\]]+\]/g, '').trim();
+            const catLabel = EXPENSE_CATS.find((c) => c.value === ex.category)?.label || ex.category;
+            return (
+              <div key={ex.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 600 }}>{ex.employeeName}</span>
+                  <span className={'me-badge ' + (ex.status === 'approved' || ex.status === 'paid' ? 'me-badge-green' : ex.status === 'rejected' ? 'me-badge-red' : mgrApproved ? 'me-badge-blue' : 'me-badge-yellow')}>
+                    {ex.status === 'approved' ? 'HR อนุมัติแล้ว' : ex.status === 'paid' ? 'จ่ายแล้ว' : ex.status === 'rejected' ? 'ปฏิเสธ' : mgrApproved ? 'ส่งต่อ HR แล้ว' : 'รอหัวหน้า'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: '#5b6478', margin: '4px 0' }}>
+                  {catLabel} · {Number(ex.amount || 0).toLocaleString()} ฿ · วันที่ {ex.claim_date}
+                </div>
+                {cleanDesc && <div style={{ fontSize: 12.5, color: '#9aa1b5' }}>{cleanDesc}</div>}
+                {receiptFile && (
+                  <div style={{ marginTop: 4 }}>
+                    <a href={assetImg(receiptFile)} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#6d5ef5', fontWeight: 600 }}>📎 ดูใบเสร็จแนบ</a>
+                  </div>
+                )}
+                {ex.status === 'pending' && !mgrApproved && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => act(ex.id, 'approve', 'expense')}>✓ อนุมัติส่งต่อ HR</button>
+                    <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#ef4444,#f87171)' }} onClick={() => act(ex.id, 'reject', 'expense')}>✗ ปฏิเสธ</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }

@@ -15,6 +15,19 @@ const EXPENSE_CATEGORIES = [
 
 const CAT_MAP = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c.value, c.label]));
 
+function parseExpenseDescription(raw) {
+  const str = String(raw || '');
+  const receiptMatch = str.match(/\[RECEIPT:([^\]]+)\]/);
+  const receiptFile = receiptMatch ? receiptMatch[1].trim() : null;
+  const cleanText = str.replace(/\[RECEIPT:[^\]]+\]/g, '').trim();
+  return { cleanText, receiptFile };
+}
+
+function receiptViewerUrl(file) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') || '' : '';
+  return `/api/assets/image?file=${encodeURIComponent(file)}&token=${encodeURIComponent(token)}`;
+}
+
 export default function ExpensesPage() {
   return (
     <ResourceTable
@@ -27,7 +40,29 @@ export default function ExpensesPage() {
           { key: 'claim_date', label: 'วันที่เบิก' },
           { key: 'category', label: 'หมวดค่าใช้จ่าย', format: (v) => CAT_MAP[v] || v || '-' },
           { key: 'amount', label: 'จำนวนเงิน', format: (v) => Number(v || 0).toLocaleString('th-TH') + ' ฿' },
-          { key: 'description', label: 'รายละเอียด' },
+          {
+            key: 'description',
+            label: 'รายละเอียด / ใบเสร็จ',
+            format: (v) => {
+              const { cleanText, receiptFile } = parseExpenseDescription(v);
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span>{cleanText || '-'}</span>
+                  {receiptFile && (
+                    <a
+                      href={receiptViewerUrl(receiptFile)}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: 12, color: '#6d5ef5', fontWeight: 600, textDecoration: 'underline' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      📎 ดูใบเสร็จแนบ
+                    </a>
+                  )}
+                </div>
+              );
+            },
+          },
           {
             key: 'status', label: 'สถานะ',
             badge: { pending: 'yellow', approved: 'green', rejected: 'red', paid: 'purple' },

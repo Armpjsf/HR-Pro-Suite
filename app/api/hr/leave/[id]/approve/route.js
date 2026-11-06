@@ -64,7 +64,7 @@ async function markLeaveInTimeRecords(req) {
 
 /**
  * POST /api/hr/leave/[id]/approve — { action: 'approve' | 'reject' }
- * อนุมัติแล้วจะบวกวันลาที่ใช้ใน employee_records ให้อัตโนมัติ (chatbot อ่านค่าเดียวกัน)
+ * อนุมัติแล้วจะบวกวันลาที่ใช้ใน employee_leave_balances + employee_records และซิงค์เข้า time_records อัตโนมัติ
  */
 export async function POST(request, { params }) {
   const { user, error, status } = await requireMenu(request, 'leave');
@@ -86,15 +86,24 @@ export async function POST(request, { params }) {
   if (req.status !== 'pending') {
     return NextResponse.json({ error: 'ใบลานี้ถูกดำเนินการไปแล้ว' }, { status: 409 });
   }
-  // บังคับลำดับอนุมัติ: ถ้าใบลามีหัวหน้า ต้องรอหัวหน้าอนุมัติก่อน HR
-  if (action === 'approve' && req.manager_id && req.manager_status === 'pending') {
-    return NextResponse.json({ error: 'ใบลานี้ยังรอหัวหน้าอนุมัติ กรุณารอหัวหน้าพิจารณาก่อน' }, { status: 409 });
+
+  const nowIso = new Date().toISOString();
+  const newStatus = action === 'approve' ? 'approved' : 'rejected';
+  const updatePayload = {
+    status: newStatus,
+    approved_by: user.name,
+    approved_at: nowIso,
+  };
+  // หากใบลารอหัวหน้าอยู่ และ HR กดอนุมัติ/ปฏิเสธจากหน้าจัดการ ให้ปรับสถานะหัวหน้าควบคู่กันไปเพื่อไม่ให้เกิด Deadlock
+  if (req.manager_status === 'pending') {
+    updatePayload.manager_status = newStatus;
+    updatePayload.manager_approved_by = `${user.name} (HR)`;
+    updatePayload.manager_approved_at = nowIso;
   }
 
-  const newStatus = action === 'approve' ? 'approved' : 'rejected';
   const { error: updErr } = await supabase
     .from('leave_requests')
-    .update({ status: newStatus, approved_by: user.name, approved_at: new Date().toISOString() })
+    .update(updatePayload)
     .eq('id', id)
     .eq('status', 'pending');
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
@@ -127,7 +136,7 @@ export async function POST(request, { params }) {
         total_days: Number(balance?.total_days) || 0,
         used_days: usedDays,
         note: balance?.note || null,
-        updated_at: new Date().toISOString(),
+        updated_at: nowIso,
       });
       if (balanceUpsertErr) return NextResponse.json({ error: balanceUpsertErr.message }, { status: 500 });
     }
@@ -146,7 +155,7 @@ export async function POST(request, { params }) {
       const { error: upsertErr } = await supabase.from('employee_records').upsert({
         employee_id: req.employee_id,
         [col]: newUsed,
-        updated_at: new Date().toISOString(),
+        updated_at: nowIso,
       });
       if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 });
     }

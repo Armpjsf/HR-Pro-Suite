@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { authHeaders } from '@/components/hr/exportUtils';
 
@@ -9,29 +9,72 @@ const LEAVE_LABELS = { annual: 'ลาพักร้อน', sick: 'ลาป�
 export default function HrDashboardPage() {
   const [data, setData] = useState(null);
   const [alerts, setAlerts] = useState(null);
+  const [sendingPush, setSendingPush] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [activeBranch, setActiveBranch] = useState(
+    typeof window !== 'undefined' ? localStorage.getItem('hr-active-branch') || 'all' : 'all'
+  );
 
   useEffect(() => {
-    fetch('/api/hr/dashboard', { headers: authHeaders() })
+    const handleBranch = (e) => setActiveBranch(e.detail || 'all');
+    window.addEventListener('hr-branch-change', handleBranch);
+    return () => window.removeEventListener('hr-branch-change', handleBranch);
+  }, []);
+
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
+
+  const loadDashboard = useCallback((branch) => {
+    const q = branch && branch !== 'all' ? `?branchId=${encodeURIComponent(branch)}` : '';
+    fetch(`/api/hr/dashboard${q}`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((d) => { if (d.stats) setData(d); })
       .catch(() => {});
-    fetch('/api/hr/alerts', { headers: authHeaders() })
+    fetch(`/api/hr/alerts${q}`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((d) => { if (d.alerts) setAlerts(d); })
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    loadDashboard(activeBranch);
+  }, [activeBranch, loadDashboard]);
+
+  async function dispatchPushAlerts() {
+    setSendingPush(true);
+    try {
+      const res = await fetch('/api/hr/alerts', {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({ branchId: activeBranch }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast(d.message || `ส่งแจ้งเตือนสำเร็จ (${d.sentCount} รายการ)`);
+      } else {
+        showToast(d.error || 'ส่งแจ้งเตือนไม่สำเร็จ', 'error');
+      }
+    } catch {
+      showToast('เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว', 'error');
+    } finally {
+      setSendingPush(false);
+    }
+  }
+
   if (!data) return <div className="hr-empty">กำลังโหลด...</div>;
 
   const { stats, attendance, branchStats, driverAlerts, todayBookingList = [], announcements, pendingLeaveList } = data;
+  const branchSuffix = activeBranch !== 'all' ? ' (สาขานี้)' : '';
 
   const cards = [
-    { icon: '👥', value: stats.employees, label: 'พนักงานทั้งหมด', href: '/hr/employees' },
-    { icon: '🏖️', value: stats.pendingLeave, label: 'ใบลารออนุมัติ', href: '/hr/leave' },
-    { icon: '🧾', value: stats.pendingExpenses, label: 'เบิกจ่ายรออนุมัติ', href: '/hr/expenses' },
+    { icon: '👥', value: stats.employees, label: `พนักงานทั้งหมด${branchSuffix}`, href: '/hr/employees' },
+    { icon: '🏖️', value: stats.pendingLeave, label: `ใบลารออนุมัติ${branchSuffix}`, href: '/hr/leave' },
+    { icon: '🧾', value: stats.pendingExpenses, label: `เบิกจ่ายรออนุมัติ${branchSuffix}`, href: '/hr/expenses' },
     { icon: '🎦', value: stats.todayBookings, label: 'ห้องประชุมที่จองวันนี้', href: '/hr/rooms?tab=bookings' },
     { icon: '📣', value: stats.openJobs, label: 'ตำแหน่งเปิดรับ', href: '/hr/recruitment' },
-    { icon: '💰', value: stats.payrollTotal.toLocaleString('th-TH') + ' ฿', label: `เงินเดือนงวด ${stats.period}`, href: '/hr/payroll' },
+    { icon: '💰', value: stats.payrollTotal.toLocaleString('th-TH') + ' ฿', label: `เงินเดือนงวด ${stats.period}${branchSuffix}`, href: '/hr/payroll' },
   ];
 
   return (
@@ -43,7 +86,7 @@ export default function HrDashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 20 }}>⏰</span>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>สถานะการเข้างานวันนี้ (Real-Time Attendance)</div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>สถานะการเข้างานวันนี้ (Real-Time Attendance){branchSuffix}</div>
                 <div style={{ fontSize: 12, color: '#c7d2fe' }}>สรุปยอดการลงเวลาทำงานและตรวจสอบคนเข้างานแบบสด</div>
               </div>
             </div>
@@ -76,11 +119,21 @@ export default function HrDashboardPage() {
       {/* ── 2. Driver License Critical Alerts ── */}
       {driverAlerts && driverAlerts.length > 0 && (
         <div className="hr-card" style={{ marginBottom: 16, borderLeft: '5px solid #ef4444', background: '#fef2f2' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 20 }}>🚨</span>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#991b1b' }}>
-              แจ้งเตือนด่วน: ใบอนุญาตขับขี่คนขับรถใกล้หมดอายุ ({driverAlerts.length} ท่าน)
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 20 }}>🚨</span>
+              <div style={{ fontWeight: 700, fontSize: 15, color: '#991b1b' }}>
+                แจ้งเตือนด่วน: ใบอนุญาตขับขี่คนขับรถใกล้หมดอายุ ({driverAlerts.length} ท่าน)
+              </div>
             </div>
+            <button
+              className="hr-btn"
+              style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626', fontSize: 12 }}
+              onClick={dispatchPushAlerts}
+              disabled={sendingPush}
+            >
+              {sendingPush ? '⏳ กำลังส่ง Push...' : '🔔 ส่งแจ้งเตือน Push Notification ด่วน'}
+            </button>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {driverAlerts.map((d, i) => (
@@ -120,7 +173,9 @@ export default function HrDashboardPage() {
         ))}
       </div>
 
-      {alerts && alerts.totalCount > 0 && <AlertsPanel alerts={alerts.alerts} />}
+      {alerts && alerts.totalCount > 0 && (
+        <AlertsPanel alerts={alerts.alerts} onSendPush={dispatchPushAlerts} sendingPush={sendingPush} />
+      )}
 
       {/* ── 5. Today Meeting Room Bookings ── */}
       <div className="hr-card" style={{ marginBottom: 16 }}>
@@ -158,11 +213,11 @@ export default function HrDashboardPage() {
       {/* ── 6. Pending Leaves & Latest Announcements ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         <div className="hr-card">
-          <h3 className="hr-section-title">🏖️ ใบลารออนุมัติล่าสุด</h3>
+          <h3 className="hr-section-title">🏖️ ใบลารออนุมัติล่าสุด{branchSuffix}</h3>
           {pendingLeaveList.length === 0 && <div className="hr-empty">ไม่มีใบลารออนุมัติ</div>}
           {pendingLeaveList.map((l) => (
             <div key={l.id} className="hr-emp-row">
-              <span className="k">{l.employee_id} · {LEAVE_LABELS[l.leave_type] || l.leave_type} {l.days} วัน</span>
+              <span className="k"><strong>{l.employee_id}</strong> · {l.employeeName || ''} ({LEAVE_LABELS[l.leave_type] || l.leave_type} {l.days} วัน)</span>
               <span className="v">{l.start_date}</span>
             </div>
           ))}
@@ -187,18 +242,20 @@ export default function HrDashboardPage() {
           </div>
         </div>
       </div>
+
+      {toast && <div className={`hr-toast ${toast.type}`}>{toast.message}</div>}
     </div>
   );
 }
 
-function AlertsPanel({ alerts }) {
+function AlertsPanel({ alerts, onSendPush, sendingPush }) {
   const groups = [
     { key: 'license', icon: '🚗', title: 'ใบขับขี่ใกล้หมด/หมดอายุ', color: 'red',
-      render: (a) => `${a.name} · ${a.date}${a.expired ? ' (หมดอายุแล้ว)' : ''}` },
+      render: (a) => `${a.name} · ${a.date}${a.expired ? ' (หมดอายุแล้ว)' : ` (อีก ${a.daysLeft} วัน)`}` },
     { key: 'probation', icon: '⏳', title: 'ครบกำหนดทดลองงาน', color: 'yellow',
-      render: (a) => `${a.name} · ${a.date}` },
+      render: (a) => `${a.name} · ${a.date} (อีก ${a.daysLeft} วัน)` },
     { key: 'contract', icon: '📄', title: 'สัญญาจ้างใกล้หมด', color: 'yellow',
-      render: (a) => `${a.name} · ${a.date}${a.expired ? ' (หมดแล้ว)' : ''}` },
+      render: (a) => `${a.name} · ${a.date}${a.expired ? ' (หมดแล้ว)' : ` (อีก ${a.daysLeft} วัน)`}` },
     { key: 'birthday', icon: '🎂', title: 'วันเกิดใน 7 วัน', color: 'purple',
       render: (a) => `${a.name} · อีก ${a.inDays} วัน` },
     { key: 'anniversary', icon: '🎉', title: 'ครบรอบงานใน 7 วัน', color: 'blue',
@@ -209,7 +266,12 @@ function AlertsPanel({ alerts }) {
 
   return (
     <div className="hr-card" style={{ marginBottom: 16, borderLeft: '4px solid #f59e0b' }}>
-      <h3 className="hr-section-title">🔔 แจ้งเตือนสิทธิและสัญญา</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+        <h3 className="hr-section-title" style={{ margin: 0 }}>🔔 แจ้งเตือนสิทธิและสัญญาอัตโนมัติ (Proactive Alerts)</h3>
+        <button className="hr-btn hr-btn-primary" style={{ fontSize: 12 }} onClick={onSendPush} disabled={sendingPush}>
+          {sendingPush ? '⏳ กำลังส่งแจ้งเตือน...' : '📲 ส่ง Push Notification แจ้งเตือนผู้เกี่ยวข้องทั้งหมด'}
+        </button>
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
         {groups.map((g) => (
           <div key={g.key}>
