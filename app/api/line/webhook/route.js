@@ -299,8 +299,8 @@ export async function POST(request) {
         const text = event.message.text.trim();
 
         // 1. ตรวจสอบคำสั่งลงทะเบียน
-        if (text.startsWith('ลงทะเบียน')) {
-          const empId = text.replace('ลงทะเบียน', '').trim().toUpperCase();
+        if (/^ลงทะเบียน/i.test(text)) {
+          const empId = text.replace(/^ลงทะเบียน\s*[:=\-]?\s*/i, '').trim();
           const employee = await findUserByEmployeeId(empId);
 
           if (!employee) {
