@@ -18,13 +18,67 @@ export default function ApplicantsPage() {
   const [questionSets, setQuestionSets] = useState([]);
   const [interviewFor, setInterviewFor] = useState(null); // applicant row
   const [sessionsFor, setSessionsFor] = useState(null); // applicant row
+  const [hireModal, setHireModal] = useState(null);
+  const [branches, setBranches] = useState([]);
+  const [hireBranchId, setHireBranchId] = useState('');
+  const [hireDate, setHireDate] = useState(new Date().toISOString().slice(0, 10));
+  const [hireSalary, setHireSalary] = useState('');
+  const [hiring, setHiring] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     fetch('/api/hr/interviews/question-sets', { headers: authHeaders() })
       .then((r) => r.json())
       .then((d) => setQuestionSets((d.items || []).filter((s) => s.active)))
       .catch(() => {});
+
+    fetch('/api/hr/branches', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d) => setBranches(d.items || []))
+      .catch(() => {});
   }, []);
+
+  async function handleConfirmHire(e, reload) {
+    e.preventDefault();
+    if (!hireModal) return;
+    setHiring(true);
+    try {
+      const empRes = await fetch('/api/hr/employees', {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({
+          name: hireModal.name,
+          email: hireModal.email,
+          phone: hireModal.phone,
+          position: hireModal.position_applied,
+          branchId: hireBranchId,
+          startDate: hireDate,
+          salary: Number(hireSalary) || 0,
+        }),
+      });
+      const empData = await empRes.json();
+      if (!empRes.ok) throw new Error(empData.error || 'สร้างพนักงานไม่สำเร็จ');
+
+      await fetch(`/api/hr/applicants/${hireModal.id}`, {
+        method: 'PUT',
+        headers: authHeaders(true),
+        body: JSON.stringify({ status: 'hired' }),
+      });
+
+      showToast(`รับคุณ ${hireModal.name} เข้าทำงานแล้ว (รหัส: ${empData.employeeId})`, 'success');
+      setHireModal(null);
+      if (reload) reload();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setHiring(false);
+    }
+  }
 
   return (
     <>
