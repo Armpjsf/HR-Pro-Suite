@@ -335,10 +335,14 @@ function HomeTab({ data, setData, showToast }) {
 
 /* ═══════════════════ LEAVE TAB ═══════════════════ */
 function LeaveTab({ data, setData, showToast }) {
-  const balanceOptions = Object.entries(data.leaveBalance || {}).map(([code, val]) => ({ code, name: leaveLabel(code, val, data.leaveTypes), deduct_balance: true }));
-  const leaveOptions = (data.leaveTypes?.length ? data.leaveTypes : balanceOptions)
-    .filter((t) => data.leaveBalance?.[t.code] || !t.deduct_balance);
-  const firstLeaveType = leaveOptions[0]?.code || Object.keys(data.leaveBalance || {})[0] || 'annual';
+  const leaveOptions = (data.leaveTypes && data.leaveTypes.length > 0)
+    ? data.leaveTypes
+    : [
+        { code: 'annual', name: 'ลาพักร้อน' },
+        { code: 'sick', name: 'ลาป่วย' },
+        { code: 'personal', name: 'ลากิจ' },
+      ];
+  const firstLeaveType = leaveOptions[0]?.code || 'annual';
   const [form, setForm] = useState({ leave_type: firstLeaveType, start_date: '', end_date: '', days: 1, reason: '' });
   const [loading, setLoading] = useState(false);
   const [leaves, setLeaves] = useState(data.leaves || []);
@@ -380,8 +384,20 @@ function LeaveTab({ data, setData, showToast }) {
         <form onSubmit={handleSubmit}>
           <div className="me-field">
             <label>ประเภทการลา</label>
-            <select value={form.leave_type} onChange={(e) => setForm({ ...form, leave_type: e.target.value })}>
-              {leaveOptions.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
+            <select
+              value={form.leave_type}
+              onChange={(e) => setForm({ ...form, leave_type: e.target.value })}
+              required
+            >
+              {leaveOptions.map((t) => {
+                const bal = data.leaveBalance?.[t.code];
+                const remainText = bal ? ` (คงเหลือ ${bal.remaining} วัน)` : '';
+                return (
+                  <option key={t.code} value={t.code}>
+                    {t.name}{remainText}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>

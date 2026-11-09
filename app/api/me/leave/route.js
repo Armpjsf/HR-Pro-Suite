@@ -38,8 +38,34 @@ export async function POST(request) {
       .eq('year', year)
       .maybeSingle();
     if (balanceErr) return NextResponse.json({ error: balanceErr.message }, { status: 500 });
-    if (!balance) return NextResponse.json({ error: 'คุณยังไม่มีสิทธิ์ลาประเภทนี้ กรุณาติดต่อ HR' }, { status: 400 });
-    const remaining = (Number(balance.total_days) || 0) - (Number(balance.used_days) || 0);
+
+    let totalDays = 0;
+    let usedDays = 0;
+
+    if (balance) {
+      totalDays = Number(balance.total_days) || 0;
+      usedDays = Number(balance.used_days) || 0;
+    } else {
+      // หากพนักงานยังไม่มี row ในปีนี้ ให้ตั้งโควต้าเริ่มต้นตาม leave_types
+      const { data: typeDef } = await supabase
+        .from('leave_types')
+        .select('days_per_year')
+        .eq('code', leave_type)
+        .maybeSingle();
+
+      totalDays = Number(typeDef?.days_per_year) || 0;
+      usedDays = 0;
+
+      await supabase.from('employee_leave_balances').insert({
+        employee_id: user.employeeId,
+        leave_type,
+        year,
+        total_days: totalDays,
+        used_days: 0,
+      }).catch(() => {});
+    }
+
+    const remaining = totalDays - usedDays;
     if (Number(days) > remaining) {
       return NextResponse.json({ error: `สิทธิ์ลาคงเหลือไม่พอ (เหลือ ${remaining} วัน)` }, { status: 400 });
     }
