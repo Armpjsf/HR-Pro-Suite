@@ -245,11 +245,11 @@ function createRegistrationPrompt() {
  * Quick Reply buttons อัจฉริยะตามหมวดหมู่คำถาม (คุม Label ไม่เกิน 12-14 ตัวอักษร ป้องกันจอตัดคำ)
  */
 function getQuickReply(intentType = '') {
-  if (intentType === 'leave' || intentType === 'data_query') {
+  if (intentType === 'leave' || intentType === 'leave_submit_guide' || intentType === 'data_query') {
     return {
       items: [
         { type: 'action', action: { type: 'uri', label: '🌐 ยื่นลาในระบบ', uri: 'https://hr-ai-chatbot-tawny.vercel.app/me' } },
-        { type: 'action', action: { type: 'message', label: '📝 ขอฟอร์มใบลา', text: 'ขอแบบฟอร์มใบลา' } },
+        { type: 'action', action: { type: 'message', label: '📅 วันลาคงเหลือ', text: 'วันลาคงเหลือ' } },
         { type: 'action', action: { type: 'message', label: '📋 กฎการลาป่วย', text: 'ระเบียบการลาป่วยต้องใช้ใบรับรองแพทย์ไหม' } },
         { type: 'action', action: { type: 'message', label: '📞 ติดต่อ HR', text: 'ติดต่อ HR' } },
       ],
@@ -259,9 +259,9 @@ function getQuickReply(intentType = '') {
   return {
     items: [
       { type: 'action', action: { type: 'message', label: '📅 วันลาคงเหลือ', text: 'วันลาคงเหลือ' } },
+      { type: 'action', action: { type: 'message', label: '📂 รายการฟอร์ม', text: 'มีแบบฟอร์มอะไรให้โหลดบ้าง' } },
       { type: 'action', action: { type: 'message', label: '📋 ระเบียบทำงาน', text: 'เวลาทำงานและกฎระเบียบบริษัท' } },
       { type: 'action', action: { type: 'message', label: '💰 เงินเดือน/โอที', text: 'รอบการจ่ายเงินเดือนและค่าโอที' } },
-      { type: 'action', action: { type: 'message', label: '🛡️ กฎความปลอดภัย', text: 'แนวปฏิบัติด้านความปลอดภัยคนขับรถ' } },
       { type: 'action', action: { type: 'message', label: '📞 ติดต่อ HR', text: 'ติดต่อ HR' } },
     ],
   };
@@ -375,6 +375,54 @@ export async function POST(request) {
           const flexMsg = createFlexResponse(response.text, response.documents, userMapping.name, downloadToken);
           flexMsg.quickReply = getQuickReply(response.intent);
           messages.push(flexMsg);
+        } else if (response.intent === 'leave_submit_guide') {
+          messages.push({
+            type: 'flex',
+            altText: 'แนะนำขั้นตอนการยื่นลาออนไลน์',
+            contents: {
+              type: 'bubble',
+              header: {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: '🏖️ ยื่นใบลาออนไลน์', weight: 'bold', size: 'sm', color: '#7c3aed' },
+                ],
+              },
+              body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'text',
+                    text: response.text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n').slice(0, 800),
+                    wrap: true,
+                    size: 'sm',
+                    color: '#1f2937',
+                    lineSpacing: '4px',
+                  },
+                ],
+              },
+              footer: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'button',
+                    action: {
+                      type: 'uri',
+                      label: '🌐 เข้าสู่ระบบเพื่อยื่นใบลา',
+                      uri: 'https://hr-ai-chatbot-tawny.vercel.app/me',
+                    },
+                    style: 'primary',
+                    color: '#7c3aed',
+                    height: 'sm',
+                  },
+                ],
+              },
+            },
+            quickReply: getQuickReply(response.intent),
+          });
         } else {
           messages.push({
             type: 'text',
