@@ -131,6 +131,27 @@ export default function EmployeePage() {
       .catch(() => setLoadError(true));
   }, [router]);
 
+  const refreshMeData = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
+    if (!token) return;
+    try {
+      const res = await fetch('/api/me', {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d?.profile) setData(d);
+      }
+    } catch {}
+  }, []);
+
+  // ดึงข้อมูลล่าสุดเสมอเมื่อสลับมาแท็บลางานหรือหน้าแรก
+  useEffect(() => {
+    if (tab === 'leave' || tab === 'home') {
+      refreshMeData();
+    }
+  }, [tab, refreshMeData]);
+
   function handleLogout() {
     localStorage.removeItem('hr-user');
     localStorage.removeItem('hr-token');
@@ -174,8 +195,8 @@ export default function EmployeePage() {
 
       {/* ── Tab content ── */}
       <div className="me-content">
-        {tab === 'home' && <HomeTab data={data} setData={setData} showToast={showToast} />}
-        {tab === 'leave' && <LeaveTab data={data} setData={setData} showToast={showToast} />}
+        {tab === 'home' && <HomeTab data={data} setData={setData} showToast={showToast} onNavigateTab={setTab} />}
+        {tab === 'leave' && <LeaveTab data={data} setData={setData} showToast={showToast} refreshData={refreshMeData} />}
         {tab === 'chat' && <ChatTab user={user} />}
         {tab === 'payslip' && <PayslipTab data={data} />}
         {tab === 'more' && <MoreTab user={user} router={router} showToast={showToast} data={data} />}
@@ -202,7 +223,7 @@ export default function EmployeePage() {
 }
 
 /* ═══════════════════ HOME TAB ═══════════════════ */
-function HomeTab({ data, setData, showToast }) {
+function HomeTab({ data, setData, showToast, onNavigateTab }) {
   const [clockLoading, setClockLoading] = useState(false);
   const [clockStatus, setClockStatus] = useState(data.todayClock);
   const [clockType, setClockType] = useState('office');
@@ -297,6 +318,34 @@ function HomeTab({ data, setData, showToast }) {
         ))}
       </div>
 
+      {/* Recent Leave Requests */}
+      {(data.leaves || []).length > 0 && (
+        <div className="me-card" style={{ marginTop: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div className="me-section-title" style={{ marginBottom: 0 }}>📋 สถานะคำขอล่าสุด</div>
+            <button
+              type="button"
+              onClick={() => onNavigateTab && onNavigateTab('leave')}
+              style={{ border: 'none', background: 'transparent', color: '#6d28d9', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+            >
+              ดูทั้งหมด ›
+            </button>
+          </div>
+          {(data.leaves || []).slice(0, 3).map((l) => {
+            const badge = STATUS_BADGE[l.status] || STATUS_BADGE.pending;
+            return (
+              <div key={l.id} className="me-row">
+                <span className="k" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>{LEAVE_ICONS[l.leave_type] || '📅'}</span>
+                  <span>{LEAVE_LABELS[l.leave_type] || l.leave_type} {l.days} วัน · {l.start_date}</span>
+                </span>
+                <span className={`me-badge ${badge.cls}`}>{badge.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Announcements */}
       <div className="me-card" style={{ marginTop: 14 }}>
         <div className="me-section-title">📢 ประกาศล่าสุด</div>
@@ -334,7 +383,7 @@ function HomeTab({ data, setData, showToast }) {
 }
 
 /* ═══════════════════ LEAVE TAB ═══════════════════ */
-function LeaveTab({ data, setData, showToast }) {
+function LeaveTab({ data, setData, showToast, refreshData }) {
   const leaveOptions = (data.leaveTypes && data.leaveTypes.length > 0)
     ? data.leaveTypes
     : [
@@ -346,6 +395,11 @@ function LeaveTab({ data, setData, showToast }) {
   const [form, setForm] = useState({ leave_type: firstLeaveType, start_date: '', end_date: '', days: 1, reason: '' });
   const [loading, setLoading] = useState(false);
   const [leaves, setLeaves] = useState(data.leaves || []);
+
+  // ซิงค์ leaves เมื่อข้อมูลจาก parent เปลี่ยนแปลง (เช่น หลัง refresh)
+  useEffect(() => {
+    setLeaves(data.leaves || []);
+  }, [data.leaves]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -360,7 +414,14 @@ function LeaveTab({ data, setData, showToast }) {
       if (!res.ok) { showToast(d.error, true); return; }
       showToast('ยื่นใบลาเรียบร้อย');
       setLeaves((prev) => [d.item, ...prev]);
+      if (setData) {
+        setData((prev) => ({
+          ...prev,
+          leaves: [d.item, ...(prev?.leaves || [])],
+        }));
+      }
       setForm({ leave_type: firstLeaveType, start_date: '', end_date: '', days: 1, reason: '' });
+      if (refreshData) refreshData();
     } catch { showToast('เกิดข้อผิดพลาด', true); }
     finally { setLoading(false); }
   };

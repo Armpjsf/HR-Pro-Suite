@@ -137,7 +137,7 @@ export async function POST(request, { params }) {
         used_days: usedDays,
         note: balance?.note || null,
         updated_at: nowIso,
-      });
+      }, { onConflict: 'employee_id,leave_type,year' });
       if (balanceUpsertErr) return NextResponse.json({ error: balanceUpsertErr.message }, { status: 500 });
     }
 
@@ -156,7 +156,7 @@ export async function POST(request, { params }) {
         employee_id: req.employee_id,
         [col]: newUsed,
         updated_at: nowIso,
-      });
+      }, { onConflict: 'employee_id' });
       if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 });
     }
 
