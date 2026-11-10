@@ -69,6 +69,18 @@ export async function POST(request) {
     channel: 'ME',
   });
 
+  // แจ้งเตือนหัวหน้างาน (ถ้ามี) และ HR
+  const { data: meUser } = await supabase.from('users').select('manager_id').eq('employee_id', user.employeeId).maybeSingle();
+  if (meUser?.manager_id) {
+    await createNotification({
+      employeeId: meUser.manager_id,
+      title: 'มีคำขอเบิกค่าใช้จ่ายรอการอนุมัติ',
+      body: `${user.name} ยื่นเบิก ${category} จำนวน ${Number(amount).toLocaleString()} บาท`,
+      url: '/me',
+      type: 'team_expense_pending',
+    });
+  }
+
   await notifyHr('expenses', {
     title: 'มีคำขอเบิกค่าใช้จ่ายใหม่',
     body: `${user.name} ยื่นเบิก ${category} ${Number(amount).toLocaleString()} บาท`,

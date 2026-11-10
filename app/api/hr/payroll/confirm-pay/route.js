@@ -35,12 +35,44 @@ export async function POST(request) {
   const slipIds = slips.map((s) => s.id);
   const now = new Date().toISOString();
 
-  // 1. ปรับสถานะเป็น 'paid' พร้อมเวลาจ่าย
-  const { error: updateErr } = await supabase
+  // 1. ปรับสถานะเป็น 'paid' (fallback ลองอัปเดต paid_at ถ้ามีคอลัมน์ หรือ notified_at)
+  let updateData = { status: 'paid', notified_at: now };
+  let { error: updateErr } = await supabase
     .from('payroll_slips')
-    .update({ status: 'paid', paid_at: now })
+    .update({ ...updateData, paid_at: now })
     .in('id', slipIds);
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+
+  if (updateErr) {
+    // ถ้า fail เพราะไม่มีคอลัมน์ paid_at ให้ update เฉพาะ status และ notified_at
+    const resFallback = await supabase
+      .from('payroll_slips')
+      .update(updateData)
+      .in('id', slipIds);
+    if (resFallback.error) return NextResponse.json({ error: resFallback.error.message }, { status: 500 });
+  }
+
+  // 1.1 ปรับสถานะ OT และรายการเบิกค่าใช้จ่าย (Expense Claims) ในงวดที่จ่ายให้เป็น 'paid'
+  for (const s of slips) {
+    const pStart = `${s.period}-01`;
+    const [y, m] = s.period.split('-').map(Number);
+    const pEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+
+    await supabase
+      .from('ot_records')
+      .update({ status: 'paid' })
+      .eq('employee_id', s.employee_id)
+      .eq('status', 'approved')
+      .gte('ot_date', pStart)
+      .lte('ot_date', pEnd);
+
+    await supabase
+      .from('expense_claims')
+      .update({ status: 'paid' })
+      .eq('employee_id', s.employee_id)
+      .eq('status', 'approved')
+      .gte('claim_date', pStart)
+      .lte('claim_date', pEnd);
+  }
 
   const lineMappings = await getLineMappings();
   let lineSentCount = 0;

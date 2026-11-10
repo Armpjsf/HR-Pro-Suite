@@ -44,6 +44,7 @@ export default function ShiftsPage() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-11
+  const [activeBranch, setActiveBranch] = useState('all');
   const [shifts, setShifts] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [patterns, setPatterns] = useState([]);
@@ -64,6 +65,9 @@ export default function ShiftsPage() {
 
   useEffect(() => {
     load();
+    const handleBranchChange = (e) => setActiveBranch(e.detail || 'all');
+    window.addEventListener('hr-branch-change', handleBranchChange);
+
     fetch('/api/hr/employees', { headers: authHeaders() })
       .then((r) => r.json())
       .then((d) => setEmployees(d.employees || []))
@@ -72,6 +76,8 @@ export default function ShiftsPage() {
       .then((r) => r.json())
       .then((d) => setPatterns(d.items || []))
       .catch(() => {});
+
+    return () => window.removeEventListener('hr-branch-change', handleBranchChange);
   }, [load]);
 
   function nav(delta) {

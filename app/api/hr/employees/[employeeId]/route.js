@@ -72,6 +72,17 @@ export async function PUT(request, { params }) {
       .update(userUpdates)
       .eq('employee_id', employeeId);
     if (uErr) return NextResponse.json({ error: uErr.message }, { status: 500 });
+
+    // ซิงค์ manager_id ไปยัง org_chart_nodes
+    if (userUpdates.manager_id !== undefined) {
+      await supabase
+        .from('org_chart_nodes')
+        .upsert({
+          employee_id: employeeId,
+          parent_employee_id: userUpdates.manager_id || null,
+          updated_at: new Date().toISOString(),
+        });
+    }
   }
 
   const balanceRows = Array.isArray(body.leaveBalances)

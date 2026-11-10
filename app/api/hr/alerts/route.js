@@ -15,8 +15,9 @@ function daysToAnniversary(dateStr, today) {
   return Math.round((next - today) / DAY);
 }
 
-async function computeAlerts(branchId = 'all') {
+async function computeAlerts(branchId = 'all', daysAhead = 90) {
   const today = new Date(fmt(new Date()));
+  const inAhead = fmt(new Date(today.getTime() + daysAhead * DAY));
   const in30 = fmt(new Date(today.getTime() + 30 * DAY));
   const todayStr = fmt(today);
   const month = today.getMonth() + 1;
@@ -48,12 +49,12 @@ async function computeAlerts(branchId = 'all') {
       probation.push({ employeeId: r.employee_id, name, date: r.probation_end, daysLeft, managerId: u.manager_id });
     }
 
-    if (r.contract_end && r.contract_end <= in30) {
+    if (r.contract_end && r.contract_end <= inAhead) {
       const daysLeft = Math.round((new Date(r.contract_end) - today) / DAY);
       contract.push({ employeeId: r.employee_id, name, date: r.contract_end, daysLeft, expired: r.contract_end < todayStr, managerId: u.manager_id });
     }
 
-    if (r.license_expiry && r.license_expiry <= in30) {
+    if (r.license_expiry && r.license_expiry <= inAhead) {
       const daysLeft = Math.round((new Date(r.license_expiry) - today) / DAY);
       license.push({ employeeId: r.employee_id, name, date: r.license_expiry, daysLeft, expired: r.license_expiry < todayStr, managerId: u.manager_id });
     }

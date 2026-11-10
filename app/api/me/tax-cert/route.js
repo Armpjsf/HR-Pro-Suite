@@ -19,6 +19,7 @@ export async function GET(request) {
     .from('payroll_slips')
     .select('*')
     .eq('employee_id', user.employeeId)
+    .eq('status', 'paid')
     .like('period', `${yearCE}-%`)
     .order('period');
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });

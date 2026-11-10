@@ -132,6 +132,27 @@ export default function PayrollPage() {
               >
                 💳 ยืนยันจ่ายเงินเดือนทั้งงวด (ออกสลิป & แจ้งเตือน Auto)
               </button>
+              <button
+                className="hr-btn"
+                onClick={() => window.open(`/api/hr/payroll/export?period=${batchPeriod}&format=bank`, '_blank')}
+                title="ส่งออกไฟล์ CSV สำหรับโอนผ่านธนาคาร"
+              >
+                🏦 Export ธนาคาร (CSV)
+              </button>
+              <button
+                className="hr-btn"
+                onClick={() => window.open(`/api/hr/payroll/export?period=${batchPeriod}&format=pnd1`, '_blank')}
+                title="ส่งออกไฟล์ยื่น ภ.ง.ด.1"
+              >
+                📑 Export ภ.ง.ด.1
+              </button>
+              <button
+                className="hr-btn"
+                onClick={() => window.open(`/api/hr/payroll/export?period=${batchPeriod}&format=sso`, '_blank')}
+                title="ส่งออกไฟล์ สปส.1-10"
+              >
+                🏥 Export สปส.1-10
+              </button>
             </div>
           ),
           columns: [

@@ -124,12 +124,15 @@ export async function POST(request) {
       return NextResponse.json({ error: 'กรุณากรอกชื่อ-นามสกุลพนักงาน' }, { status: 400 });
     }
 
-    // สร้างหรือตรวจสอบรหัสพนักงาน
+    // สร้างหรือตรวจสอบรหัสพนักงาน (ป้องกันรหัสชนกัน)
     let empId = customEmpId?.trim();
     if (!empId) {
       const { data: allUsers } = await supabase.from('users').select('employee_id');
-      const count = (allUsers || []).length + 1;
-      empId = `EMP${String(count).padStart(3, '0')}`;
+      const maxNum = (allUsers || []).reduce((max, u) => {
+        const m = (u.employee_id || '').match(/^(?:EMP|DD-)(\d+)$/i);
+        return m ? Math.max(max, parseInt(m[1], 10)) : max;
+      }, 0);
+      empId = `EMP${String(maxNum + 1).padStart(3, '0')}`;
     }
 
     const { data: existingUser } = await supabase.from('users').select('id').eq('employee_id', empId).maybeSingle();
@@ -143,7 +146,7 @@ export async function POST(request) {
       return NextResponse.json({ error: `Username ${finalUsername} มีผู้ใช้งานแล้ว` }, { status: 409 });
     }
 
-    const finalPassword = password && password.length >= 6 ? password : 'password123';
+    const finalPassword = password && password.length >= 6 ? password : '123456';
     const hash = bcrypt.hashSync(finalPassword, 10);
 
     // 1. Insert users

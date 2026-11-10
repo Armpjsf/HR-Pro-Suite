@@ -98,6 +98,19 @@ export async function DELETE(request, { params }) {
   const { error, status } = await requireMenu(request, resourceMenuKey(resource));
   if (error) return NextResponse.json({ error }, { status });
 
+  if (def.table === 'leave_requests') {
+    const { data: lv } = await supabase.from('leave_requests').select('*').eq('id', id).maybeSingle();
+    if (lv && lv.status === 'approved') {
+      const year = new Date(lv.start_date).getFullYear();
+      const days = Number(lv.days) || 0;
+      const { data: bal } = await supabase.from('employee_leave_balances').select('*').eq('employee_id', lv.employee_id).eq('year', year).eq('leave_type', lv.leave_type).maybeSingle();
+      if (bal) {
+        const nextUsed = Math.max(0, (Number(bal.used_days) || 0) - days);
+        await supabase.from('employee_leave_balances').update({ used_days: nextUsed, updated_at: new Date().toISOString() }).eq('id', bal.id);
+      }
+      await supabase.from('time_records').delete().eq('employee_id', lv.employee_id).eq('status', 'leave').gte('work_date', lv.start_date).lte('work_date', lv.end_date);
+    }
+  }
   const { error: dbError } = await supabase.from(def.table).delete().eq('id', id);
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 

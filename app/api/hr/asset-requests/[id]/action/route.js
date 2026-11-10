@@ -30,14 +30,15 @@ export async function POST(request, { params }) {
   } else {
     // approve
     if (req.type === 'return') {
-      await supabase.from('assets').update({ status: 'available', assigned_to: null }).eq('id', req.asset_id);
+      await supabase.from('assets').update({ status: 'available', assigned_to: null, assigned_date: null }).eq('id', req.asset_id);
+      await supabase.from('asset_requests').update({ status: 'completed', approved_by: user.name }).eq('id', id);
     } else {
       // borrow / replace → จองให้พนักงาน + ย้ายสาขา
       const upd = { status: 'assigned', assigned_to: req.employee_id, assigned_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }) };
       if (req.target_branch_id) upd.branch_id = req.target_branch_id;
       await supabase.from('assets').update(upd).eq('id', req.asset_id);
+      await supabase.from('asset_requests').update({ status: 'approved', approved_by: user.name }).eq('id', id);
     }
-    await supabase.from('asset_requests').update({ status: 'approved', approved_by: user.name }).eq('id', id);
   }
 
   await addAuditEntry({

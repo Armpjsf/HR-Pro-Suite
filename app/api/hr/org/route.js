@@ -99,5 +99,15 @@ export async function PUT(request) {
   const { error: dbError } = await supabase.from('org_chart_nodes').upsert(rows);
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 
+  // ซิงค์ parent_employee_id กลับเข้าสู่ users.manager_id เพื่อให้สายอนุมัติใบลา/OT สัมพันธ์กับผังองค์กรจริง
+  for (const row of rows) {
+    if (row.employee_id) {
+      await supabase
+        .from('users')
+        .update({ manager_id: row.parent_employee_id || null })
+        .eq('employee_id', row.employee_id);
+    }
+  }
+
   return NextResponse.json({ success: true });
 }

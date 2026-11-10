@@ -29,3 +29,31 @@ export async function GET(request) {
 
   return NextResponse.json({ trainings: list, trips: trips || [], okrs: okrs || [] });
 }
+
+/**
+ * PATCH /api/me/workplace — อัปเดตความคืบหน้า OKR ของตัวเอง
+ * Body: { okrId, progress }
+ */
+export async function PATCH(request) {
+  const { user, error, status } = requireAuth(request);
+  if (error) return NextResponse.json({ error }, { status });
+
+  const body = await request.json();
+  const { okrId, progress } = body;
+
+  if (!okrId || progress == null) {
+    return NextResponse.json({ error: 'กรุณาระบุ okrId และ progress' }, { status: 400 });
+  }
+
+  const progNum = Math.min(100, Math.max(0, Number(progress) || 0));
+  const { data, error: dbError } = await supabase
+    .from('okrs')
+    .update({ progress: progNum, updated_at: new Date().toISOString() })
+    .eq('id', okrId)
+    .eq('employee_id', user.employeeId)
+    .select()
+    .single();
+
+  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
+  return NextResponse.json({ success: true, okr: data });
+}

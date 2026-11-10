@@ -76,8 +76,13 @@ export async function POST(request) {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
   const nowTime = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
+  // ตรวจสอบพิกัด GPS สำหรับทุกโหมด (offsite บังคับเปิด GPS เพื่อบันทึกพิกัดจริง)
+  if (check_type === 'offsite' && (latitude == null || longitude == null)) {
+    return NextResponse.json({ error: 'การลงเวลานอกสถานที่ จำเป็นต้องเปิด GPS เพื่อบันทึกพิกัดจริงหน้างาน' }, { status: 400 });
+  }
+
   // Geofencing สำหรับ office check-in
-  let locationName = check_type === 'wfh' ? 'Work From Home' : check_type === 'offsite' ? 'นอกสถานที่' : '';
+  let locationName = check_type === 'wfh' ? 'Work From Home' : check_type === 'offsite' ? `นอกสถานที่ (${Number(latitude).toFixed(4)}, ${Number(longitude).toFixed(4)})` : '';
   let locationBranchId = null;
 
   if (check_type === 'office') {
@@ -148,26 +153,52 @@ export async function POST(request) {
     locationBranchId = nearest.branch_id ?? null;
   }
 
-  // ดึง record วันนี้
-  const { data: existing } = await supabase
+  // ดึง record วันนี้ (และตรวจเช็คกรณีเข้ากะข้ามคืนจากเมื่อวานที่ยังไม่ออกงาน)
+  let { data: existing } = await supabase
     .from('time_records')
     .select('*')
     .eq('employee_id', user.employeeId)
     .eq('work_date', today)
     .maybeSingle();
 
+  // กรณี action === 'out' ถ้ายังไม่พบ record ของวันนี้ ให้ตรวจหา record ของเมื่อวานที่ clock_in แล้วแต่ยังไม่ clock_out (กะข้ามคืน)
+  if (action === 'out' && (!existing || !existing.clock_in)) {
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+    const { data: yRecord } = await supabase
+      .from('time_records')
+      .select('*')
+      .eq('employee_id', user.employeeId)
+      .eq('work_date', yesterday)
+      .not('clock_in', 'is', null)
+      .is('clock_out', null)
+      .maybeSingle();
+    if (yRecord) {
+      existing = yRecord;
+    }
+  }
+
   if (action === 'in') {
     if (existing?.clock_in) {
       return NextResponse.json({ error: 'คุณเข้างานวันนี้แล้ว' }, { status: 400 });
     }
 
-    // ตรวจสาย จากตั้งค่าเวลาทำงานบริษัท
+    // ตรวจสาย: ตรวจสอบจากกะการทำงาน (shifts) ของพนักงานในวันนี้ก่อน หากไม่มีจึงใช้ WorkSettings ของบริษัท/สาขา
     let clockStatus = 'normal';
+    const { data: todayShift } = await supabase
+      .from('shifts')
+      .select('start_time, end_time, shift_type')
+      .eq('employee_id', user.employeeId)
+      .eq('shift_date', today)
+      .maybeSingle();
+
     const ws = await getWorkSettingsForEmployee(user.employeeId);
-    if (ws?.standard_in) {
-      const [sh, sm] = ws.standard_in.split(':').map(Number);
+    const graceMin = Number(ws?.late_grace_min) || 0;
+    const targetStartTime = todayShift?.start_time || ws?.standard_in;
+
+    if (targetStartTime) {
+      const [sh, sm] = targetStartTime.split(':').map(Number);
       const [nh, nm] = nowTime.split(':').map(Number);
-      const limit = sh * 60 + sm + (Number(ws.late_grace_min) || 0);
+      const limit = sh * 60 + sm + graceMin;
       if (nh * 60 + nm > limit) clockStatus = 'late';
     }
 

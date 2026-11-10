@@ -43,6 +43,7 @@ export async function POST(request) {
     { data: leaveRows },
     { data: leaveTypes },
     { data: expenseRows },
+    { data: ssoRows },
   ] = await Promise.all([
     supabase.from('employee_records').select('employee_id, salary, employment_type').gt('salary', 0),
     supabase.from('users').select('employee_id, status'),
@@ -59,6 +60,7 @@ export async function POST(request) {
     supabase.from('leave_types').select('code, paid'),
     supabase.from('expense_claims').select('employee_id, amount')
       .eq('status', 'approved').gte('claim_date', periodStart).lte('claim_date', periodEnd),
+    supabase.from('social_security').select('employee_id, status, monthly_contribution'),
   ]);
 
   // ตัดพนักงานที่พ้นสภาพ/ถูกระงับออกจากงวด
@@ -91,7 +93,7 @@ export async function POST(request) {
   for (const tr of timeRows || []) {
     if (tr.status === 'absent') {
       absentDaysMap.set(tr.employee_id, (absentDaysMap.get(tr.employee_id) || 0) + 1);
-    } else if (tr.status === 'present' || tr.status === 'late' || tr.clock_in) {
+    } else if (tr.status === 'normal' || tr.status === 'present' || tr.status === 'late' || tr.clock_in) {
       workDaysMap.set(tr.employee_id, (workDaysMap.get(tr.employee_id) || 0) + 1);
     }
   }
@@ -104,13 +106,34 @@ export async function POST(request) {
     }
   }
 
-  // 5. เงินกู้ active ที่คาบเกี่ยวงวดนี้ — ถือ amount เป็นยอดผ่อนต่อเดือน
+  // 5. เงินกู้ active ที่คาบเกี่ยวงวดนี้ — คำนวณยอดผ่อนต่อเดือนอัตโนมัติจากระยะเวลาสัญญา
   const loanMap = new Map();
   for (const loan of loanRows || []) {
     const started = !loan.start_date || loan.start_date <= periodEnd;
     const notEnded = !loan.end_date || loan.end_date >= periodStart;
     if (!started || !notEnded) continue;
-    loanMap.set(loan.employee_id, (loanMap.get(loan.employee_id) || 0) + (Number(loan.amount) || 0));
+
+    let monthlyInstallment = Number(loan.amount) || 0;
+    if (loan.start_date && loan.end_date) {
+      const sDate = new Date(loan.start_date);
+      const eDate = new Date(loan.end_date);
+      const diffMonths = Math.max(1, (eDate.getFullYear() - sDate.getFullYear()) * 12 + (eDate.getMonth() - sDate.getMonth()) + 1);
+      // หาก amount เป็นยอดกู้รวมเกิน 5,000 บาท ให้แบ่งตามจำนวนเดือนผ่อน
+      if (monthlyInstallment > 5000 && diffMonths > 1) {
+        monthlyInstallment = Math.round(monthlyInstallment / diffMonths);
+      }
+    }
+    loanMap.set(loan.employee_id, (loanMap.get(loan.employee_id) || 0) + monthlyInstallment);
+  }
+
+  // 6. แผนผังประกันสังคม (กรณี inactive ให้ sso = 0)
+  const ssoMap = new Map();
+  for (const s of ssoRows || []) {
+    if (s.status === 'inactive') {
+      ssoMap.set(s.employee_id, 0);
+    } else if (s.monthly_contribution !== null && s.monthly_contribution !== undefined) {
+      ssoMap.set(s.employee_id, Number(s.monthly_contribution));
+    }
   }
 
   let created = 0, updated = 0, skipped = 0;
@@ -136,13 +159,16 @@ export async function POST(request) {
     const unpaidDeduction = Math.round(dailyRate * unpaidDays);
     const totalDeduction = (loanMap.get(rec.employee_id) || 0) + unpaidDeduction;
     const approvedExpenses = expenseMap.get(rec.employee_id) || 0;
+    const prevBonus = existMap.get(rec.employee_id)?.bonus || 0;
 
     const slipData = computeSlip({
       monthlySalary: baseSalary,
       otMonthly: otMap.get(rec.employee_id) || 0,
-      bonusMonthly: approvedExpenses,
+      bonusMonthly: prevBonus,
+      reimbursements: approvedExpenses,
       otherDeduction: totalDeduction,
       allowances: allowMap.get(rec.employee_id) || {},
+      ssoCustom: ssoMap.has(rec.employee_id) ? ssoMap.get(rec.employee_id) : null,
     });
     const row = { employee_id: rec.employee_id, period, status: 'draft', ...slipData };
 

@@ -65,9 +65,10 @@ export default function ReportsPage() {
     }
   }
 
-  // 3. สรุปเงินเดือนสุทธิ, ภ.ง.ด.1 (ภาษี), และ สปส.1-10 (ประกันสังคม) รายงวด
+  // 3. สรุปเงินเดือนสุทธิ, ภ.ง.ด.1 (ภาษี), และ สปส.1-10 (ประกันสังคม) รายงวด (เฉพาะงวดที่จ่ายแล้ว status === 'paid')
   const byPeriod = {};
   for (const p of filteredPayroll) {
+    if (p.status !== 'paid') continue;
     if (!byPeriod[p.period]) {
       byPeriod[p.period] = { net: 0, tax: 0, ssoEmp: 0, count: 0 };
     }

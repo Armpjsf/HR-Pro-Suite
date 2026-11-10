@@ -464,15 +464,48 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="me-field" style={{ flex: 1 }}>
               <label>วันที่เริ่ม</label>
-              <input type="date" className="me-input" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required />
+              <input
+                type="date"
+                className="me-input"
+                value={form.start_date}
+                onChange={(e) => {
+                  const s = e.target.value;
+                  const end = form.end_date && form.end_date >= s ? form.end_date : s;
+                  const diff = Math.max(1, Math.round((new Date(end) - new Date(s)) / 86400000) + 1);
+                  setForm({ ...form, start_date: s, end_date: end, days: diff });
+                }}
+                required
+              />
             </div>
             <div className="me-field" style={{ flex: 1 }}>
               <label>วันที่สิ้นสุด</label>
-              <input type="date" className="me-input" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required />
+              <input
+                type="date"
+                className="me-input"
+                min={form.start_date}
+                value={form.end_date}
+                onChange={(e) => {
+                  const end = e.target.value;
+                  const s = form.start_date || end;
+                  const diff = Math.max(1, Math.round((new Date(end) - new Date(s)) / 86400000) + 1);
+                  setForm({ ...form, end_date: end, days: diff });
+                }}
+                required
+              />
             </div>
           </div>
           <div className="me-field">
-            <label>จำนวนวัน</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <label style={{ margin: 0 }}>จำนวนวัน</label>
+              <button
+                type="button"
+                className="me-badge me-badge-gray"
+                style={{ cursor: 'pointer', border: 'none', padding: '2px 8px', fontSize: 11 }}
+                onClick={() => setForm({ ...form, days: 0.5 })}
+              >
+                ลาครึ่งวัน (0.5)
+              </button>
+            </div>
             <input type="number" className="me-input" min="0.5" step="0.5" value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} required />
           </div>
           <div className="me-field">
@@ -520,14 +553,20 @@ function ChatTab({ user }) {
   const send = async (text) => {
     if (!text.trim() || loading) return;
     const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-    setMessages((p) => [...p, { id: Date.now(), role: 'user', content: text.trim(), time }]);
+    const userMsg = { id: Date.now(), role: 'user', content: text.trim(), time };
+    const nextMessages = [...messages, userMsg];
+    setMessages(nextMessages);
     setInput('');
     setLoading(true);
     try {
+      const history = messages.map((m) => ({
+        role: m.role === 'ai' ? 'assistant' : 'user',
+        content: m.content,
+      }));
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ message: text.trim() }),
+        body: JSON.stringify({ message: text.trim(), history }),
       });
       const d = await res.json();
       setMessages((p) => [...p, { id: Date.now() + 1, role: 'ai', content: d.reply || d.error || 'เกิดข้อผิดพลาด', documents: d.documents || [], time }]);
@@ -1118,13 +1157,40 @@ function RoomsSection({ back, showToast }) {
 }
 
 /* ─── Workplace (อบรม/ทริป/OKR) Sub-section ─── */
-function WorkplaceSection({ back }) {
+function WorkplaceSection({ back, showToast }) {
   const [data, setData] = useState(null);
+  const [editingOkr, setEditingOkr] = useState(null);
+  const [newProg, setNewProg] = useState(0);
+  const [savingOkr, setSavingOkr] = useState(false);
 
-  useEffect(() => {
+  const loadData = () => {
     fetch('/api/me/workplace', { headers: authHeaders() })
       .then((r) => r.json()).then(setData).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const handleUpdateOkr = async (okrId) => {
+    setSavingOkr(true);
+    try {
+      const res = await fetch('/api/me/workplace', {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ okrId, progress: newProg }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'อัปเดตไม่สำเร็จ');
+      if (showToast) showToast('อัปเดตความคืบหน้า OKR เรียบร้อย');
+      setEditingOkr(null);
+      loadData();
+    } catch (err) {
+      if (showToast) showToast(err.message);
+    } finally {
+      setSavingOkr(false);
+    }
+  };
 
   const TRAIN_STATUS = { planned: 'กำหนดการ', done: 'จบแล้ว' };
 
@@ -1157,7 +1223,20 @@ function WorkplaceSection({ back }) {
         {data && (data.okrs || []).length === 0 && <div className="me-empty">ยังไม่มี OKR ที่ผูกกับคุณ</div>}
         {(data?.okrs || []).map((o) => (
           <div key={o.id} style={{ padding: '10px 0', borderBottom: '1px solid #eef0f5' }}>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{o.objective}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{o.objective}</div>
+              <button
+                type="button"
+                className="me-badge me-badge-purple"
+                style={{ cursor: 'pointer', border: 'none', padding: '3px 8px', fontSize: 11 }}
+                onClick={() => {
+                  setEditingOkr(o.id);
+                  setNewProg(Number(o.progress) || 0);
+                }}
+              >
+                ✏️ ปรับ %
+              </button>
+            </div>
             {o.key_results && <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{o.key_results}</div>}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
               <div style={{ flex: 1, height: 8, background: '#eef0f5', borderRadius: 4, overflow: 'hidden' }}>
@@ -1165,6 +1244,36 @@ function WorkplaceSection({ back }) {
               </div>
               <span style={{ fontSize: 12, fontWeight: 700 }}>{Number(o.progress) || 0}%</span>
             </div>
+            {editingOkr === o.id && (
+              <div style={{ marginTop: 8, padding: 8, background: '#f8fafc', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={newProg}
+                  onChange={(e) => setNewProg(Number(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontSize: 13, fontWeight: 700, minWidth: 40 }}>{newProg}%</span>
+                <button
+                  type="button"
+                  className="me-btn-primary"
+                  style={{ padding: '4px 10px', fontSize: 12 }}
+                  disabled={savingOkr}
+                  onClick={() => handleUpdateOkr(o.id)}
+                >
+                  {savingOkr ? '...' : 'บันทึก'}
+                </button>
+                <button
+                  type="button"
+                  className="me-badge me-badge-gray"
+                  style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', fontSize: 12 }}
+                  onClick={() => setEditingOkr(null)}
+                >
+                  ยกเลิก
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -1446,12 +1555,45 @@ function AttendanceSection({ back }) {
 /* ─── Evaluation Sub-section ─── */
 function EvaluationSection({ back, showToast }) {
   const [data, setData] = useState(null);
-  const [viewTab, setViewTab] = useState('give'); // give | received
+  const [viewTab, setViewTab] = useState('give'); // give | received | form
+  const [targetId, setTargetId] = useState('');
+  const [period, setPeriod] = useState(new Date().getFullYear().toString());
+  const [scores, setScores] = useState({ teamwork: 5, communication: 5, responsibility: 5, punctuality: 5, leadership: 5 });
+  const [comments, setComments] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
+  const loadData = () => {
     fetch('/api/me/evaluations', { headers: authHeaders() })
       .then((r) => r.json()).then(setData).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!targetId.trim()) return showToast('กรุณาระบุรหัสพนักงานที่ต้องการประเมิน');
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/me/evaluations', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ target_id: targetId.trim(), period, scores, comments }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'ส่งผลประเมินไม่สำเร็จ');
+      showToast('ส่งผลประเมิน 360° เรียบร้อยแล้ว');
+      setComments('');
+      setTargetId('');
+      setViewTab('give');
+      loadData();
+    } catch (err) {
+      showToast(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -1465,9 +1607,55 @@ function EvaluationSection({ back, showToast }) {
           style={{ cursor: 'pointer', border: 'none', padding: '8px 16px' }} onClick={() => setViewTab('received')}>
           📊 ผลประเมินฉัน
         </button>
+        <button className={`me-badge ${viewTab === 'form' ? 'me-badge-purple' : 'me-badge-gray'}`}
+          style={{ cursor: 'pointer', border: 'none', padding: '8px 16px', marginLeft: 'auto' }} onClick={() => setViewTab('form')}>
+          ✍️ ประเมินเพื่อนร่วมงาน
+        </button>
       </div>
 
       {!data && <div className="me-empty">กำลังโหลด...</div>}
+
+      {viewTab === 'form' && (
+        <form onSubmit={handleSubmit} className="me-card">
+          <div className="me-section-title">✍️ แบบประเมินเพื่อนร่วมงาน 360°</div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>รหัสพนักงานที่ต้องการประเมิน *</label>
+            <input className="me-input" placeholder="เช่น DD-002, EMP002" value={targetId} onChange={(e) => setTargetId(e.target.value)} required />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>รอบการประเมิน (ปี/รอบ)</label>
+            <input className="me-input" value={period} onChange={(e) => setPeriod(e.target.value)} required />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 'bold', marginBottom: 8 }}>ให้คะแนนเกณฑ์การประเมิน (1-5)</div>
+            {(data?.criteria || [
+              { key: 'teamwork', label: 'การทำงานเป็นทีม' },
+              { key: 'communication', label: 'การสื่อสาร' },
+              { key: 'responsibility', label: 'ความรับผิดชอบ' },
+              { key: 'punctuality', label: 'ความตรงต่อเวลา' },
+              { key: 'leadership', label: 'ภาวะผู้นำ' },
+            ]).map((c) => (
+              <div key={c.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: 13 }}>
+                <span>{c.label}</span>
+                <select className="me-input" style={{ width: 100 }} value={scores[c.key] || 5} onChange={(e) => setScores({ ...scores, [c.key]: Number(e.target.value) })}>
+                  <option value={5}>5 - ดีเลิศ</option>
+                  <option value={4}>4 - ดี</option>
+                  <option value={3}>3 - ปานกลาง</option>
+                  <option value={2}>2 - พอใช้</option>
+                  <option value={1}>1 - ต้องปรับปรุง</option>
+                </select>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>ข้อเสนอแนะเพิ่มเติม</label>
+            <textarea className="me-input" rows={3} placeholder="สิ่งที่ประทับใจ หรือสิ่งที่อยากให้พัฒนา..." value={comments} onChange={(e) => setComments(e.target.value)} />
+          </div>
+          <button type="submit" className="me-btn-primary" disabled={submitting} style={{ width: '100%' }}>
+            {submitting ? 'กำลังส่งข้อมูล...' : 'ส่งผลประเมิน'}
+          </button>
+        </form>
+      )}
 
       {viewTab === 'give' && data && (
         <div className="me-card">

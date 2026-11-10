@@ -6,6 +6,7 @@ import { authHeaders } from '@/components/hr/exportUtils';
 export default function LocationsPage() {
   const [items, setItems] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [activeBranch, setActiveBranch] = useState('all');
   const [toast, setToast] = useState(null);
   const [form, setForm] = useState({ name: '', branch_id: '', latitude: '', longitude: '', radius_meters: 200 });
   const [editing, setEditing] = useState(null);
@@ -19,6 +20,18 @@ export default function LocationsPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    const handleBranchChange = (e) => {
+      setActiveBranch(e.detail || 'all');
+    };
+    window.addEventListener('hr-branch-change', handleBranchChange);
+    return () => window.removeEventListener('hr-branch-change', handleBranchChange);
+  }, []);
+
+  const visibleItems = activeBranch === 'all'
+    ? items
+    : items.filter((it) => String(it.branch_id || '') === String(activeBranch));
   useEffect(() => {
     fetch('/api/hr/branches', { headers: authHeaders() })
       .then((r) => r.json())
@@ -158,10 +171,10 @@ export default function LocationsPage() {
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 && (
-              <tr><td colSpan={7} className="hr-empty">ยังไม่มีจุดปักหมุด</td></tr>
+            {visibleItems.length === 0 && (
+              <tr><td colSpan={7} className="hr-empty">ยังไม่มีจุดปักหมุด{activeBranch !== 'all' ? ' สำหรับสาขานี้' : ''}</td></tr>
             )}
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <tr key={item.id}>
                 <td style={{ fontWeight: 600 }}>📍 {item.name}</td>
                 <td>{item.branchName || 'ใช้ได้ทุกสาขา'}</td>

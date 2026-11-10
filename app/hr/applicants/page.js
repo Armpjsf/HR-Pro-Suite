@@ -70,7 +70,28 @@ export default function ApplicantsPage() {
         body: JSON.stringify({ status: 'hired' }),
       });
 
-      showToast(`รับคุณ ${hireModal.name} เข้าทำงานแล้ว (รหัส: ${empData.employeeId})`, 'success');
+      // สร้าง Onboarding Checklist เริ่มต้นอัตโนมัติให้พนักงานใหม่
+      const defaultTasks = [
+        'ส่งสำเนาบัตรประชาชนและทะเบียนบ้าน',
+        'ส่งหน้าสมุดบัญชีธนาคารสำหรับรับเงินเดือน',
+        'รับมอบอุปกรณ์ทำงานและตรวจเช็คสภาพ',
+        'แนะนำตัวกับทีมงานและหัวหน้าแผนก',
+        'อบรมกฎระเบียบและแนวปฏิบัติความปลอดภัยบริษัท',
+      ];
+      for (const item of defaultTasks) {
+        await fetch('/api/hr/onboarding', {
+          method: 'POST',
+          headers: authHeaders(true),
+          body: JSON.stringify({
+            employee_id: empData.employeeId,
+            item,
+            due_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+            done: false,
+          }),
+        }).catch(() => {});
+      }
+
+      showToast(`รับคุณ ${hireModal.name} เข้าทำงานแล้ว (รหัส: ${empData.employeeId}) พร้อมสร้าง Onboarding ให้เรียบร้อย`, 'success');
       setHireModal(null);
       if (reload) reload();
     } catch (err) {

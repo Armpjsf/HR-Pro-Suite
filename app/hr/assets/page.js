@@ -15,6 +15,7 @@ function imgSrc(file) {
 
 export default function AssetsPage() {
   const [tab, setTab] = useState('list');
+  const [activeBranch, setActiveBranch] = useState('all');
   const [assets, setAssets] = useState([]);
   const [branches, setBranches] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -41,9 +42,18 @@ export default function AssetsPage() {
     setEmployees(e.employees || []);
     setRequests(r.items || []);
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const handleBranchChange = (e) => setActiveBranch(e.detail || 'all');
+    window.addEventListener('hr-branch-change', handleBranchChange);
+    return () => window.removeEventListener('hr-branch-change', handleBranchChange);
+  }, [load]);
 
   const branchName = (id) => { const b = branches.find((x) => x.id === id); return b ? `${b.code} · ${b.name}` : '-'; };
+
+  const visibleAssets = activeBranch === 'all'
+    ? assets
+    : assets.filter((a) => String(a.branch_id || '') === String(activeBranch));
 
   function close() { setOpen(false); setEditing(null); setForm(EMPTY); setImageFile(null); }
   function openAdd() { setEditing(null); setForm(EMPTY); setImageFile(null); setOpen(true); }
@@ -102,7 +112,7 @@ export default function AssetsPage() {
             <button className="hr-btn hr-btn-primary" onClick={openAdd}>+ เพิ่มทรัพย์สิน</button>
           </div>
           <div className="hr-emp-grid">
-            {assets.map((a) => (
+            {visibleAssets.map((a) => (
               <div className="hr-emp-card" key={a.id}>
                 {a.image_url
                   ? <img src={imgSrc(a.image_url)} alt={a.name} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 12, marginBottom: 10 }} />

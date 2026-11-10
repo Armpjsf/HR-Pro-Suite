@@ -298,15 +298,34 @@ export async function POST(request) {
       if (event.type === 'message' && event.message?.type === 'text') {
         const text = event.message.text.trim();
 
-        // 1. ตรวจสอบคำสั่งลงทะเบียน
+        // 1. ตรวจสอบคำสั่งลงทะเบียน (รูปแบบ: ลงทะเบียน <รหัสพนักงาน> <รหัสผ่าน>)
         if (/^ลงทะเบียน/i.test(text)) {
-          const empId = text.replace(/^ลงทะเบียน\s*[:=\-]?\s*/i, '').trim();
-          const employee = await findUserByEmployeeId(empId);
+          const parts = text.replace(/^ลงทะเบียน\s*[:=\-]?\s*/i, '').trim().split(/\s+/);
+          const empId = parts[0];
+          const password = parts.slice(1).join(' ');
 
+          if (!empId) {
+            await replyMessage(event.replyToken, [{
+              type: 'text',
+              text: '❌ กรุณาระบุรหัสพนักงานและรหัสผ่าน\nตัวอย่าง: ลงทะเบียน DD-001 123456',
+            }]);
+            continue;
+          }
+
+          const employee = await findUserByEmployeeId(empId);
           if (!employee) {
             await replyMessage(event.replyToken, [{
               type: 'text',
               text: `❌ ไม่พบรหัสพนักงาน "${empId}" ในระบบบริษัท\nกรุณาตรวจสอบรหัสพนักงานที่ถูกต้อง หรือติดต่อฝ่ายบุคคลนะคะ`,
+            }]);
+            continue;
+          }
+
+          // ตรวจสอบความถูกต้องของรหัสผ่านเพื่อป้องกันการสวมรอย
+          if (!password || (employee.password && employee.password !== password)) {
+            await replyMessage(event.replyToken, [{
+              type: 'text',
+              text: `⚠️ รหัสผ่านไม่ถูกต้อง หรือยังไม่ได้ระบุรหัสผ่าน\nกรุณาพิมพ์: ลงทะเบียน ${empId} <รหัสผ่านระบบ>\n(หากลืมรหัสผ่าน กรุณาติดต่อฝ่ายบุคคล)`,
             }]);
             continue;
           }
