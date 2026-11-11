@@ -130,8 +130,44 @@ export default function InterviewsPage() {
 }
 
 function SetEditor({ value, positions = [], onChange, onSave, onClose }) {
+  const [generating, setGenerating] = useState(false);
+  const [genErr, setGenErr] = useState('');
+
   const set = (patch) => onChange({ ...value, ...patch });
   const questions = value.questions || [];
+
+  async function handleGenerateAI() {
+    const targetPos = (value.position || value.name || '').trim();
+    if (!targetPos) {
+      alert('กรุณาเลือกตำแหน่ง หรือพิมพ์ชื่อตำแหน่งในช่องชื่อชุดก่อนกดให้ AI ออกแบบคำถามครับ');
+      return;
+    }
+    setGenerating(true);
+    setGenErr('');
+    try {
+      const res = await fetch('/api/hr/interviews/question-sets/generate', {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({ position: targetPos }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'ไม่สามารถสร้างคำถามได้');
+      if (d.data) {
+        onChange({
+          ...value,
+          name: d.data.name || value.name,
+          position: d.data.position || value.position,
+          intro_script: d.data.intro_script || value.intro_script,
+          consent_script: d.data.consent_script || value.consent_script,
+          questions: d.data.questions || value.questions,
+        });
+      }
+    } catch (e) {
+      setGenErr(e.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   function setQ(i, patch) {
     const next = questions.map((q, idx) => (idx === i ? { ...q, ...patch } : q));
@@ -148,7 +184,29 @@ function SetEditor({ value, positions = [], onChange, onSave, onClose }) {
           <button className="hr-modal-close" onClick={onClose}>✕</button>
         </div>
 
-        <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 4 }}>
+        <div style={{ maxHeight: '72vh', overflowY: 'auto', paddingRight: 4 }}>
+          {/* แบนเนอร์ผู้ช่วย AI ออกแบบคำถาม */}
+          <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: 12, marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <span style={{ fontWeight: 600, color: '#6d28d9', fontSize: 13 }}>✨ AI ช่วยออกแบบชุดคำถามตามตำแหน่ง</span>
+                <div style={{ fontSize: 12, color: '#7c3aed', marginTop: 2 }}>
+                  เลือกตำแหน่งงานด้านล่าง แล้วกดปุ่มนี้เพื่อให้ AI ร่างคำถามและกำหนดน้ำหนักให้อัตโนมัติ
+                </div>
+              </div>
+              <button
+                type="button"
+                className="hr-btn"
+                style={{ background: '#7c3aed', color: '#fff', border: 'none', fontSize: 13, padding: '7px 14px', borderRadius: 6, cursor: 'pointer' }}
+                onClick={handleGenerateAI}
+                disabled={generating}
+              >
+                {generating ? '⏳ AI กำลังออกแบบคำถาม...' : '✨ ออกแบบชุดคำถามด้วย AI'}
+              </button>
+            </div>
+            {genErr && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 6 }}>⚠️ {genErr}</div>}
+          </div>
+
           <div className="hr-field">
             <label>ชื่อชุด *</label>
             <input className="hr-input" value={value.name} onChange={(e) => set({ name: e.target.value })} placeholder="เช่น คัดกรองพนักงานขับรถ" />

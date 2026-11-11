@@ -229,8 +229,11 @@ export default function ApplicantsPage() {
 }
 
 function InterviewModal({ applicant, questionSets, onClose }) {
+  const [setsList, setSetsList] = useState(questionSets);
   const [setId, setSetId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genNotice, setGenNotice] = useState('');
   const [result, setResult] = useState(null);
   const [err, setErr] = useState('');
   const [copied, setCopied] = useState(false);
@@ -242,10 +245,47 @@ function InterviewModal({ applicant, questionSets, onClose }) {
 
   // เลือกชุดคำถามที่ตรงตำแหน่งให้อัตโนมัติ
   useEffect(() => {
-    const match = questionSets.find((s) => s.position && s.position === applicant.position_applied);
+    const match = setsList.find((s) => s.position && s.position === applicant.position_applied);
     if (match) setSetId(String(match.id));
-    else if (questionSets.length) setSetId(String(questionSets[0].id));
-  }, [questionSets, applicant]);
+    else if (setsList.length) setSetId(String(setsList[0].id));
+  }, [setsList, applicant]);
+
+  async function handleGenerateForApplicant() {
+    const pos = (applicant.position_applied || '').trim();
+    if (!pos) {
+      alert('ผู้สมัครยังไม่มีการระบุตำแหน่งงาน');
+      return;
+    }
+    setGenerating(true);
+    setErr('');
+    setGenNotice('');
+    try {
+      const genRes = await fetch('/api/hr/interviews/question-sets/generate', {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({ position: pos }),
+      });
+      const genData = await genRes.json();
+      if (!genRes.ok) throw new Error(genData.error || 'AI ไม่สามารถออกแบบคำถามได้');
+
+      const saveRes = await fetch('/api/hr/interviews/question-sets', {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify(genData.data),
+      });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) throw new Error(saveData.error || 'ไม่สามารถบันทึกชุดคำถามได้');
+
+      const newSet = saveData.item;
+      setSetsList((prev) => [newSet, ...prev]);
+      setSetId(String(newSet.id));
+      setGenNotice(`✨ AI ได้ออกแบบชุดคำถามสำหรับตำแหน่ง "${pos}" และเลือกให้อัตโนมัติแล้ว!`);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   async function submit() {
     setSaving(true);
@@ -297,12 +337,36 @@ function InterviewModal({ applicant, questionSets, onClose }) {
               </label>
               <select className="hr-input" value={setId} onChange={(e) => setSetId(e.target.value)}>
                 <option value="">— ไม่ระบุ (ใช้คำถามมาตรฐาน) —</option>
-                {questionSets.map((s) => (
+                {setsList.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}{s.position ? ` (${s.position})` : ''}
                   </option>
                 ))}
               </select>
+
+              {applicant.position_applied && (
+                <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                  <span style={{ fontSize: 12, color: '#6b7280' }}>
+                    {!setsList.some((s) => s.position === applicant.position_applied)
+                      ? `⚠️ ยังไม่มีชุดคำถามตรงตำแหน่ง "${applicant.position_applied}"`
+                      : `ต้องการให้ AI ร่างชุดคำถามใหม่สำหรับตำแหน่งนี้?`}
+                  </span>
+                  <button
+                    type="button"
+                    className="hr-btn"
+                    style={{ fontSize: 12, padding: '5px 12px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                    onClick={handleGenerateForApplicant}
+                    disabled={generating}
+                  >
+                    {generating ? '⏳ AI กำลังออกแบบคำถาม...' : `✨ ให้ AI เจนชุดคำถามสำหรับ "${applicant.position_applied}"`}
+                  </button>
+                </div>
+              )}
+              {genNotice && (
+                <div style={{ marginTop: 8, padding: 8, background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 6, fontSize: 12, color: '#6d28d9' }}>
+                  {genNotice}
+                </div>
+              )}
 
               <div style={{ marginTop: 12, padding: 12, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13 }}>
                 <b>💡 ระบบสัมภาษณ์ฟรี 100% (ไม่ต้องพึ่งค่าโทรศัพท์):</b>
