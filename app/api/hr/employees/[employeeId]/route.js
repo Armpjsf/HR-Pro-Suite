@@ -3,7 +3,7 @@ import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { currentLeaveYear, legacyTotalsFromBalanceRows } from '@/lib/leave-balances';
 
-const EMPLOYMENT_TYPES = ['monthly', 'daily', 'contract', 'parttime'];
+const EMPLOYMENT_TYPES = ['monthly', 'daily', 'contract', 'parttime', 'daily:end_month', 'daily:biweekly', 'daily:daily'];
 const USER_STATUSES = ['active', 'resigned', 'suspended'];
 
 /**
@@ -117,8 +117,9 @@ export async function PUT(request, { params }) {
     emergency_name: body.emergencyName || null,
     emergency_phone: body.emergencyPhone || null,
     emergency_relation: body.emergencyRelation || null,
-    employment_type: body.employmentType || 'monthly',
-    pay_cycle: body.payCycle || (body.employmentType === 'daily' ? 'end_month' : 'monthly'),
+    employment_type: body.employmentType === 'daily'
+      ? `daily:${body.payCycle || 'end_month'}`
+      : (body.employmentType || 'monthly'),
     birth_date: body.birthDate || null,
     probation_end: body.probationEnd || null,
     contract_end: body.contractEnd || null,

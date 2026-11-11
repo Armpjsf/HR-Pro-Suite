@@ -45,7 +45,7 @@ export async function POST(request) {
     { data: expenseRows },
     { data: ssoRows },
   ] = await Promise.all([
-    supabase.from('employee_records').select('employee_id, salary, employment_type, pay_cycle').gt('salary', 0),
+    supabase.from('employee_records').select('employee_id, salary, employment_type').gt('salary', 0),
     supabase.from('users').select('employee_id, status'),
     supabase.from('payroll_slips').select('id, employee_id, status, bonus').eq('period', period),
     supabase.from('tax_allowances').select('employee_id, data').eq('year', yearBE),
@@ -139,7 +139,7 @@ export async function POST(request) {
   let created = 0, updated = 0, skipped = 0;
   for (const rec of records || []) {
     const rawSalary = Number(rec.salary) || 0;
-    const isDaily = rec.employment_type === 'daily';
+    const isDaily = String(rec.employment_type || '').startsWith('daily');
     const workDays = workDaysMap.get(rec.employee_id) || 0;
 
     // หากเป็นพนักงานรายวัน (Daily): จ่ายเฉพาะวันที่เช็คอินเข้างานจริง (workDays) เท่านั้น

@@ -67,8 +67,10 @@ export async function GET(request) {
       emergencyName: rec.emergency_name || '',
       emergencyPhone: rec.emergency_phone || '',
       emergencyRelation: rec.emergency_relation || '',
-      employmentType: rec.employment_type || 'monthly',
-      payCycle: rec.pay_cycle || (rec.employment_type === 'daily' ? 'end_month' : 'monthly'),
+      employmentType: String(rec.employment_type || '').startsWith('daily') ? 'daily' : (rec.employment_type || 'monthly'),
+      payCycle: String(rec.employment_type || '').startsWith('daily:')
+        ? String(rec.employment_type).split(':')[1]
+        : (rec.employment_type === 'daily' ? 'end_month' : 'monthly'),
       photoUrl: rec.photo_url || '',
       startDate: rec.start_date || '',
       salary: Number(rec.salary) || 0,
@@ -184,8 +186,9 @@ export async function POST(request) {
       emergency_name: emergencyName || '',
       emergency_phone: emergencyPhone || '',
       emergency_relation: emergencyRelation || '',
-      employment_type: employmentType || 'monthly',
-      pay_cycle: payCycle || (employmentType === 'daily' ? 'end_month' : 'monthly'),
+      employment_type: employmentType === 'daily'
+        ? `daily:${payCycle || 'end_month'}`
+        : (employmentType || 'monthly'),
       leave_annual_total: Number(leaveAnnualTotal) || 6,
       leave_sick_total: Number(leaveSickTotal) || 30,
       leave_personal_total: Number(leavePersonalTotal) || 3,
