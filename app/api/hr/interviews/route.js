@@ -47,7 +47,7 @@ export async function POST(request) {
   const row = {
     applicant_id: applicant.id,
     question_set_id: body.question_set_id || null,
-    phone: applicant.phone,
+    phone: applicant.phone || '-',
     status: 'queued',
     created_by: user?.employeeId || null,
   };
@@ -62,8 +62,11 @@ export async function POST(request) {
   // เลื่อนสถานะผู้สมัครเป็น "สัมภาษณ์" ให้เห็นความคืบหน้าในตาราง
   await supabase.from('applicants').update({ status: 'interview' }).eq('id', applicant.id);
 
-  // เฟส 3: ถ้าตั้งค่า Twilio แล้ว → โทรออกจริงทันที
-  if (twilioConfigured()) {
+  const interviewPath = `/interview/${data.id}`;
+  const shareMessage = `เรียนคุณ ${applicant.name} บริษัทขอเชิญท่านเข้ารับการสัมภาษณ์งานเบื้องต้นออนไลน์ (AI Voice Interview)\nตำแหน่ง: ${applicant.position_applied || 'ทั่วไป'}\nคลิกลิงก์เพื่อเริ่มสัมภาษณ์: [URL]${interviewPath}\n(ใช้เวลาเพียง 3-5 นาที สามารถเปิดผ่านโทรศัพท์มือถือและพูดคุยกับ AI ได้ทันทีครับ)`;
+
+  // ถ้าตั้งค่า Twilio แล้ว → ให้ตัวเลือกโทรออกจริง
+  if (twilioConfigured() && applicant.phone && applicant.phone !== '-') {
     try {
       const { sid } = await placeInterviewCall({ sessionId: data.id, toPhone: applicant.phone });
       await supabase
@@ -72,20 +75,26 @@ export async function POST(request) {
         .eq('id', data.id);
       return NextResponse.json({
         item: { ...data, status: 'calling', provider_call_sid: sid },
-        notice: `กำลังโทรหา ${applicant.name} (${applicant.phone})... เปิดหน้าผลสัมภาษณ์เพื่อดูบทสนทนาแบบเรียลไทม์`,
+        interview_url: interviewPath,
+        share_message: shareMessage,
+        notice: `กำลังโทรหา ${applicant.name} (${applicant.phone})... หรือสามารถส่งลิงก์สัมภาษณ์ออนไลน์ให้ผู้สมัครได้ทันที`,
       });
     } catch (e) {
-      await supabase.from('interview_sessions').update({ status: 'failed' }).eq('id', data.id);
-      return NextResponse.json(
-        { item: { ...data, status: 'failed' }, error: `โทรออกไม่สำเร็จ: ${e.message}` },
-        { status: 502 },
-      );
+      await supabase.from('interview_sessions').update({ status: 'queued' }).eq('id', data.id);
+      return NextResponse.json({
+        item: data,
+        interview_url: interviewPath,
+        share_message: shareMessage,
+        notice: `โทรออกผ่านเบอร์ไม่สำเร็จ (${e.message}) — แต่ท่านสามารถส่งลิงก์สัมภาษณ์ออนไลน์ฟรีให้ผู้สมัครได้ตามปกติ`,
+      });
     }
   }
 
-  // ยังไม่ตั้งค่า Twilio — เก็บเข้าคิวไว้ก่อน
+  // โหมดหลัก: Web Voice Interview ฟรี 100%
   return NextResponse.json({
     item: data,
-    notice: 'สร้างรอบสัมภาษณ์แล้ว (เข้าคิว) — ตั้งค่า Twilio ใน .env.local เพื่อเปิดการโทรอัตโนมัติ',
+    interview_url: interviewPath,
+    share_message: shareMessage,
+    notice: 'สร้างรอบสัมภาษณ์เรียบร้อยแล้ว! สามารถคัดลอกลิงก์สัมภาษณ์ออนไลน์ส่งให้ผู้สมัครทาง LINE หรือ SMS ได้ทันที (ฟรี ไม่เสียค่าโทร)',
   });
 }

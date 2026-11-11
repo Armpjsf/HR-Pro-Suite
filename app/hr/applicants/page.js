@@ -233,6 +233,7 @@ function InterviewModal({ applicant, questionSets, onClose }) {
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState(null);
   const [err, setErr] = useState('');
+  const [copied, setCopied] = useState(false);
 
   // เลือกชุดคำถามที่ตรงตำแหน่งให้อัตโนมัติ
   useEffect(() => {
@@ -260,42 +261,138 @@ function InterviewModal({ applicant, questionSets, onClose }) {
     }
   }
 
+  const interviewFullUrl = typeof window !== 'undefined' && result?.item?.id
+    ? `${window.location.origin}/interview/${result.item.id}`
+    : '';
+
+  const copyLink = (text) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <div className="hr-modal-overlay" onClick={onClose}>
-      <div className="hr-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="hr-modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
         <div className="hr-modal-header">
-          <h3>🎙️ โทรสัมภาษณ์ด้วย AI</h3>
+          <h3>🎙️ สัมภาษณ์ออนไลน์ด้วย AI (Web Voice)</h3>
           <button className="hr-modal-close" onClick={onClose}>✕</button>
         </div>
         <div style={{ padding: '4px 4px 12px' }}>
           <p style={{ margin: '4px 0' }}><b>ผู้สมัคร:</b> {applicant.name}</p>
           <p style={{ margin: '4px 0' }}><b>ตำแหน่ง:</b> {applicant.position_applied || '-'}</p>
-          <p style={{ margin: '4px 0' }}><b>เบอร์โทร:</b> {applicant.phone || <span style={{ color: '#c00' }}>ยังไม่มีเบอร์</span>}</p>
+          <p style={{ margin: '4px 0' }}><b>เบอร์โทร:</b> {applicant.phone || '-'}</p>
 
-          <label style={{ display: 'block', marginTop: 10, marginBottom: 4, fontWeight: 600, fontSize: 13 }}>ชุดคำถามสัมภาษณ์</label>
-          <select className="hr-input" value={setId} onChange={(e) => setSetId(e.target.value)}>
-            <option value="">— ไม่ระบุ (ใช้คำถามมาตรฐาน) —</option>
-            {questionSets.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}{s.position ? ` (${s.position})` : ''}
-              </option>
-            ))}
-          </select>
+          {!result ? (
+            <>
+              <label style={{ display: 'block', marginTop: 10, marginBottom: 4, fontWeight: 600, fontSize: 13 }}>
+                ชุดคำถามสัมภาษณ์ (ตามสายงาน)
+              </label>
+              <select className="hr-input" value={setId} onChange={(e) => setSetId(e.target.value)}>
+                <option value="">— ไม่ระบุ (ใช้คำถามมาตรฐาน) —</option>
+                {questionSets.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}{s.position ? ` (${s.position})` : ''}
+                  </option>
+                ))}
+              </select>
 
-          {!result && (
-            <div style={{ marginTop: 12, padding: 10, background: '#fff7e6', border: '1px solid #ffe0a3', borderRadius: 8, fontSize: 13 }}>
-              ℹ️ ระบบจะสร้างรอบสัมภาษณ์และเลื่อนสถานะผู้สมัครเป็น “สัมภาษณ์”
-              หากตั้งค่า Twilio แล้ว จะ <b>โทรออกอัตโนมัติทันที</b> (AI จะแจ้งขอความยินยอมบันทึกเสียงก่อนเริ่ม)
+              <div style={{ marginTop: 12, padding: 12, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13 }}>
+                <b>💡 ระบบสัมภาษณ์ฟรี 100% (ไม่ต้องพึ่งค่าโทรศัพท์):</b>
+                <div style={{ marginTop: 4, color: '#166534', lineHeight: 1.5 }}>
+                  เมื่อกดสร้างรอบสัมภาษณ์ ระบบจะสร้าง <b>“ลิงก์สัมภาษณ์ออนไลน์ AI”</b> ให้คุณนำไปส่งให้ผู้สมัครผ่าน LINE หรือ SMS ผู้สมัครเปิดผ่านมือถือแล้วพูดคุยตอบโต้กับ AI ด้วยเสียงได้ทันที และระบบจะให้คะแนนอัตโนมัติ
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ padding: 12, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, marginBottom: 12 }}>
+                <div style={{ fontWeight: 600, color: '#15803d', marginBottom: 4 }}>
+                  ✅ สร้างรอบสัมภาษณ์เรียบร้อยแล้ว!
+                </div>
+                <div style={{ fontSize: 13, color: '#166534' }}>
+                  คัดลอกลิงก์หรือข้อความด้านล่าง ส่งให้ผู้สมัครทาง LINE / SMS ได้เลยครับ
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
+                  🔗 ลิงก์สัมภาษณ์สำหรับผู้สมัคร (Web Voice):
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    readOnly
+                    className="hr-input"
+                    style={{ background: '#ffffff', fontSize: 13, color: '#1e293b' }}
+                    value={interviewFullUrl}
+                  />
+                  <button
+                    type="button"
+                    className="hr-btn hr-btn-primary"
+                    style={{ whiteSpace: 'nowrap' }}
+                    onClick={() => copyLink(interviewFullUrl)}
+                  >
+                    {copied ? 'คัดลอกแล้ว ✓' : '📋 คัดลอก'}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
+                  💬 ข้อความสำเร็จรูปสำหรับส่ง LINE / SMS:
+                </label>
+                <textarea
+                  readOnly
+                  rows={4}
+                  className="hr-input"
+                  style={{ background: '#ffffff', fontSize: 12, color: '#334155', resize: 'none' }}
+                  value={
+                    result.share_message
+                      ? result.share_message.replace('[URL]', window.location.origin)
+                      : `เรียนคุณ ${applicant.name} บริษัทขอเชิญท่านเข้ารับการสัมภาษณ์งานเบื้องต้นออนไลน์ (AI Voice Interview)\nตำแหน่ง: ${applicant.position_applied || 'ทั่วไป'}\nคลิกเพื่อเริ่มสัมภาษณ์: ${interviewFullUrl}\n(ใช้เวลาเพียง 3-5 นาที สามารถเปิดผ่านโทรศัพท์มือถือและพูดคุยกับ AI ได้ทันทีครับ)`
+                  }
+                />
+                <button
+                  type="button"
+                  className="hr-btn"
+                  style={{ marginTop: 6, fontSize: 12 }}
+                  onClick={() =>
+                    copyLink(
+                      result.share_message
+                        ? result.share_message.replace('[URL]', window.location.origin)
+                        : `เรียนคุณ ${applicant.name} บริษัทขอเชิญท่านเข้ารับการสัมภาษณ์งานเบื้องต้นออนไลน์ (AI Voice Interview)\nตำแหน่ง: ${applicant.position_applied || 'ทั่วไป'}\nคลิกเพื่อเริ่มสัมภาษณ์: ${interviewFullUrl}\n(ใช้เวลาเพียง 3-5 นาที สามารถเปิดผ่านโทรศัพท์มือถือและพูดคุยกับ AI ได้ทันทีครับ)`
+                    )
+                  }
+                >
+                  📋 คัดลอกข้อความทั้งหมด
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <a
+                  href={`/interview/${result.item.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hr-btn"
+                  style={{ flex: 1, textAlign: 'center', textDecoration: 'none', background: '#3b82f6', color: '#fff' }}
+                >
+                  🚀 เปิดห้องสัมภาษณ์ (ทดสอบ)
+                </a>
+                <Link
+                  href={`/hr/interviews/${result.item.id}`}
+                  className="hr-btn"
+                  style={{ flex: 1, textAlign: 'center', textDecoration: 'none' }}
+                >
+                  📄 ดูหน้าผลสัมภาษณ์ (HR)
+                </Link>
+              </div>
             </div>
           )}
 
           {err && <p style={{ color: '#c00', marginTop: 10 }}>{err}</p>}
-
-          {result && (
-            <div style={{ marginTop: 12, padding: 10, background: '#e8f7ee', border: '1px solid #b7e4c7', borderRadius: 8, fontSize: 13 }}>
-              ✅ {result.notice || 'สร้างรอบสัมภาษณ์แล้ว'}
-            </div>
-          )}
         </div>
         <div className="hr-modal-actions">
           {result ? (
@@ -305,10 +402,10 @@ function InterviewModal({ applicant, questionSets, onClose }) {
               <button className="hr-btn" onClick={onClose}>ยกเลิก</button>
               <button
                 className="hr-btn hr-btn-primary"
-                disabled={saving || !applicant.phone}
+                disabled={saving}
                 onClick={submit}
               >
-                {saving ? 'กำลังสร้าง...' : 'สร้างรอบสัมภาษณ์'}
+                {saving ? 'กำลังสร้าง...' : 'สร้างห้องสัมภาษณ์ AI'}
               </button>
             </>
           )}
@@ -351,12 +448,11 @@ function SessionsModal({ applicant, onClose }) {
           {sessions && sessions.map((s) => {
             const st = SESSION_STATUS[s.status] || { label: s.status, color: '#6b7280' };
             return (
-              <Link
+              <div
                 key={s.id}
-                href={`/hr/interviews/${s.id}`}
-                style={{ display: 'block', padding: 10, marginBottom: 8, border: '1px solid #e5e7eb', borderRadius: 8, textDecoration: 'none', color: 'inherit' }}
+                style={{ padding: 12, marginBottom: 10, border: '1px solid #e5e7eb', borderRadius: 8, background: '#fafafa' }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: st.color, fontWeight: 600 }}>{st.label}</span>
                   <span style={{ color: '#6b7280', fontSize: 12 }}>
                     {new Date(s.created_at).toLocaleString('th-TH')}
@@ -366,7 +462,26 @@ function SessionsModal({ applicant, onClose }) {
                   <div style={{ marginTop: 4 }}>คะแนน: <b>{s.score}</b>{s.max_score ? ` / ${s.max_score}` : ''}</div>
                 )}
                 {s.summary && <div style={{ marginTop: 4, fontSize: 13, color: '#374151' }}>{s.summary}</div>}
-              </Link>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <Link
+                    href={`/hr/interviews/${s.id}`}
+                    className="hr-btn"
+                    style={{ fontSize: 12, padding: '4px 8px', textDecoration: 'none' }}
+                  >
+                    📄 รายละเอียด & คะแนน
+                  </Link>
+                  <a
+                    href={`/interview/${s.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hr-btn"
+                    style={{ fontSize: 12, padding: '4px 8px', textDecoration: 'none', background: '#3b82f6', color: '#fff' }}
+                  >
+                    🎙️ ห้องสัมภาษณ์ AI
+                  </a>
+                </div>
+              </div>
             );
           })}
         </div>

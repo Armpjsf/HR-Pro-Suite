@@ -63,6 +63,16 @@ export default function InterviewDetailPage() {
 
   const { session, turns, applicant, questionSet } = data;
   const st = SESSION_STATUS[session.status] || { label: session.status, color: '#6b7280' };
+  const interviewUrl = typeof window !== 'undefined' ? `${window.location.origin}/interview/${session.id}` : '';
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(interviewUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   return (
     <div className="hr-page">
@@ -76,6 +86,39 @@ export default function InterviewDetailPage() {
             </button>
           )}
           <button className="hr-btn hr-btn-danger" onClick={remove} style={{ marginLeft: 8 }}>ลบ</button>
+        </div>
+      </div>
+
+      {/* กล่องลิงก์สัมภาษณ์ออนไลน์ Web Voice */}
+      <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <div style={{ fontWeight: 600, color: '#166534', fontSize: 13 }}>
+              🌐 ลิงก์สัมภาษณ์ออนไลน์ (Web Voice Interview ฟรี 100%):
+            </div>
+            <div style={{ fontSize: 12, color: '#15803d', marginTop: 2 }}>
+              ส่งลิงก์นี้ให้ผู้สมัครเปิดในมือถือเพื่อพูดคุยสัมภาษณ์ด้วยเสียงกับ AI ได้ทันที
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="hr-btn hr-btn-primary"
+              style={{ fontSize: 12 }}
+              onClick={copyLink}
+            >
+              {copied ? 'คัดลอกแล้ว ✓' : '📋 คัดลอกลิงก์'}
+            </button>
+            <a
+              href={`/interview/${session.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="hr-btn"
+              style={{ fontSize: 12, textDecoration: 'none', background: '#3b82f6', color: '#fff' }}
+            >
+              🚀 เปิดห้องสัมภาษณ์ (ทดสอบ)
+            </a>
+          </div>
         </div>
       </div>
 
