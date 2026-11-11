@@ -121,37 +121,37 @@ export default function PayrollPage() {
           exportName: 'payroll_slips',
           searchPlaceholder: 'ค้นหารหัส/ชื่อพนักงาน/งวด...',
           headerExtra: (
-            <div className="hr-toolbar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button className="hr-btn hr-btn-secondary" onClick={() => setShowGenModal(true)}>
-                ⚙️ คำนวณเงินเดือนอัตโนมัติ (ปกส./ภาษี)
+            <div className="hr-toolbar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 12 }}>
+              <button className="hr-btn" onClick={() => setShowGenModal(true)}>
+                <span>⚙️</span> คำนวณเงินเดือนอัตโนมัติ
               </button>
               <button
                 className="hr-btn hr-btn-primary"
-                style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff', fontWeight: 600 }}
+                style={{ background: 'var(--hr-green)', borderColor: 'transparent' }}
                 onClick={() => setShowBatchModal(true)}
               >
-                💳 ยืนยันจ่ายเงินเดือนทั้งงวด (ออกสลิป & แจ้งเตือน Auto)
+                <span>💳</span> ยืนยันจ่ายเงินเดือนทั้งงวด (ออกสลิป & แจ้งเตือน Auto)
               </button>
               <button
                 className="hr-btn"
                 onClick={() => window.open(`/api/hr/payroll/export?period=${batchPeriod}&format=bank`, '_blank')}
                 title="ส่งออกไฟล์ CSV สำหรับโอนผ่านธนาคาร"
               >
-                🏦 Export ธนาคาร (CSV)
+                <span>🏦</span> Export ธนาคาร (CSV)
               </button>
               <button
                 className="hr-btn"
                 onClick={() => window.open(`/api/hr/payroll/export?period=${batchPeriod}&format=pnd1`, '_blank')}
                 title="ส่งออกไฟล์ยื่น ภ.ง.ด.1"
               >
-                📑 Export ภ.ง.ด.1
+                <span>📑</span> Export ภ.ง.ด.1
               </button>
               <button
                 className="hr-btn"
                 onClick={() => window.open(`/api/hr/payroll/export?period=${batchPeriod}&format=sso`, '_blank')}
                 title="ส่งออกไฟล์ สปส.1-10"
               >
-                🏥 Export สปส.1-10
+                <span>🏥</span> Export สปส.1-10
               </button>
             </div>
           ),
@@ -167,7 +167,7 @@ export default function PayrollPage() {
             { key: 'deduction', label: 'หักอื่นๆ', format: (v) => '-' + baht(v) },
             {
               key: 'net', label: 'สุทธิ',
-              format: (v) => <strong style={{ color: '#16a34a' }}>{baht(v)}</strong>,
+              format: (v) => <strong style={{ color: 'var(--hr-green)' }}>{baht(v)}</strong>,
             },
             {
               key: 'status', label: 'สถานะ',
@@ -215,7 +215,7 @@ export default function PayrollPage() {
                 <button
                   className="hr-btn hr-btn-icon"
                   title="ยืนยันจ่ายเงินเดือน (ออกสลิป & แจ้งเตือน Auto)"
-                  style={{ color: '#16a34a', fontWeight: 'bold' }}
+                  style={{ color: 'var(--hr-green)', fontWeight: 'bold' }}
                   onClick={() => confirmIndividualPay(row, reload, showToast)}
                 >
                   ✅
@@ -253,7 +253,7 @@ export default function PayrollPage() {
                 />
               </div>
 
-              <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, margin: '12px 0', border: '1px solid #e2e8f0', fontSize: 13, lineHeight: 1.6, color: '#475569' }}>
+              <div style={{ background: '#F8F9FE', padding: 14, borderRadius: 14, margin: '14px 0', border: '1px solid rgba(60,60,67,0.1)', fontSize: 13, lineHeight: 1.6, color: 'var(--hr-text-2)' }}>
                 <div>⚡ <b>การคำนวณอัตโนมัติประกอบด้วย:</b></div>
                 <div>• ฐานเงินเดือนของพนักงานที่ยังทำงานอยู่</div>
                 <div>• รวมยอด OT อนุมัติแล้วของงวด</div>
@@ -302,7 +302,7 @@ export default function PayrollPage() {
                 />
               </div>
 
-              <div style={{ background: '#ecfdf5', padding: 14, borderRadius: 8, margin: '14px 0', border: '1px solid #a7f3d0', fontSize: 13, lineHeight: 1.6, color: '#065f46' }}>
+              <div style={{ background: 'rgba(52, 199, 89, 0.08)', padding: 14, borderRadius: 14, margin: '14px 0', border: '1px solid rgba(52, 199, 89, 0.22)', fontSize: 13, lineHeight: 1.6, color: '#15803d' }}>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>🚀 ดำเนินการอัตโนมัติทันทีหลังยืนยัน:</div>
                 <div>1. ปรับสถานะสลิปของทุกคนในงวดเป็น <b>"จ่ายแล้ว"</b></div>
                 <div>2. ออกสลิปเงินเดือนฉบับสมบูรณ์ & อัปเดตสะสม 50 ทวิ</div>
@@ -341,133 +341,98 @@ function SlipViewModal({ slip, onClose }) {
   const totalDed = Number(slip.tax || 0) + Number(slip.sso || 0) + Number(slip.deduction || 0);
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, padding: '16px', backdropFilter: 'blur(3px)',
-    }}>
-      <div style={{
-        backgroundColor: '#fff', borderRadius: '12px', width: '100%', maxWidth: '640px',
-        maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
-      }}>
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '14px 20px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb',
-          borderTopLeftRadius: '12px', borderTopRightRadius: '12px',
-        }}>
-          <div style={{ fontWeight: 600, fontSize: '15px', color: '#111827' }}>
-            สลิปเงินเดือนงวด {slip.period} — {slip.employee_id}
+    <div className="hr-modal-overlay" onClick={onClose}>
+      <div className="hr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+        <div className="hr-modal-header" style={{ paddingBottom: 12, borderBottom: '1px solid var(--hr-border)' }}>
+          <div>
+            <div className="hr-modal-title">สลิปเงินเดือนงวด {slip.period}</div>
+            <div style={{ fontSize: 12, color: 'var(--hr-text-3)', marginTop: 2 }}>{slip.employee_id} · เลขที่เอกสาร PR{String(slip.id).padStart(4, '0')}</div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => window.print()}
-              style={{
-                backgroundColor: '#7c3aed', color: '#fff', border: 'none',
-                padding: '6px 14px', borderRadius: '6px', fontSize: '13px',
-                cursor: 'pointer', fontWeight: 500,
-              }}
-            >
-              🖨️ พิมพ์ / PDF
-            </button>
-            <button
-              onClick={onClose}
-              style={{
-                backgroundColor: '#e5e7eb', color: '#374151', border: 'none',
-                padding: '6px 12px', borderRadius: '6px', fontSize: '13px',
-                cursor: 'pointer', fontWeight: 500,
-              }}
-            >
-              ✕ ปิด
-            </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="hr-btn" onClick={() => window.print()}>🖨️ พิมพ์ / PDF</button>
+            <button className="hr-modal-close" onClick={onClose}>✕</button>
           </div>
         </div>
 
-        <div style={{ padding: '24px', fontFamily: 'inherit', color: '#1f2937' }}>
-          <div style={{ textAlign: 'center', borderBottom: '2px solid #374151', paddingBottom: '12px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{COMPANY.name}</div>
-            <div style={{ fontSize: '11px', color: '#6b7280' }}>{COMPANY.address} · เลขประจำตัวผู้เสียภาษี: {COMPANY.taxId}</div>
-            <div style={{
-              display: 'inline-block', backgroundColor: '#7c3aed', color: '#fff',
-              padding: '3px 12px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold',
-              marginTop: '8px', letterSpacing: '0.5px',
-            }}>
+        <div style={{ padding: '16px 0', color: 'var(--hr-text)' }}>
+          <div style={{ textAlign: 'center', borderBottom: '2px solid var(--hr-border-solid)', paddingBottom: 14, marginBottom: 16 }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>{COMPANY.name}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--hr-text-3)', marginTop: 2 }}>{COMPANY.address} · เลขประจำตัวผู้เสียภาษี: {COMPANY.taxId}</div>
+            <span className="hr-badge hr-badge-blue" style={{ marginTop: 8, fontSize: 11.5, padding: '4px 12px' }}>
               ใบจ่ายเงินเดือน / PAY SLIP
-            </div>
+            </span>
           </div>
 
           <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px',
-            backgroundColor: '#f9fafb', padding: '12px', borderRadius: '8px', fontSize: '12px',
-            marginBottom: '16px', border: '1px solid #e5e7eb',
+            display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10,
+            background: '#F8F9FE', padding: 14, borderRadius: 14, fontSize: 12.5,
+            marginBottom: 16, border: '1px solid rgba(60,60,67,0.08)',
           }}>
-            <div><strong>รหัสพนักงาน:</strong> {slip.employee_id}</div>
-            <div><strong>ประจำงวด:</strong> {slip.period}</div>
-            <div><strong>เลขที่เอกสาร:</strong> PR{String(slip.id).padStart(4, '0')}</div>
+            <div><span style={{ color: 'var(--hr-text-3)' }}>รหัสพนักงาน:</span> <strong>{slip.employee_id}</strong></div>
+            <div><span style={{ color: 'var(--hr-text-3)' }}>ประจำงวด:</span> <strong>{slip.period}</strong></div>
+            <div><span style={{ color: 'var(--hr-text-3)' }}>เลขที่เอกสาร:</span> <strong>PR{String(slip.id).padStart(4, '0')}</strong></div>
             <div>
-              <strong>สถานะ:</strong>{' '}
-              <span style={{
-                color: slip.status === 'paid' ? '#16a34a' : '#9ca3af',
-                fontWeight: 'bold',
-              }}>
-                {slip.status === 'paid' ? '● จ่ายเรียบร้อยแล้ว' : '○ ร่าง (รออนุมัติจ่าย)'}
+              <span style={{ color: 'var(--hr-text-3)' }}>สถานะ:</span>{' '}
+              <span className={`hr-badge hr-badge-${slip.status === 'paid' ? 'green' : 'gray'}`}>
+                {slip.status === 'paid' ? '● จ่ายแล้ว (สมบูรณ์)' : '○ ร่าง (รออนุมัติ)'}
               </span>
             </div>
             {slip.paid_at && (
-              <div style={{ gridColumn: 'span 2' }}>
-                <strong>วันที่ยืนยันจ่าย:</strong> {new Date(slip.paid_at).toLocaleString('th-TH')}
+              <div style={{ gridColumn: 'span 2', color: 'var(--hr-text-3)', fontSize: 12 }}>
+                วันที่ยืนยันจ่าย: {new Date(slip.paid_at).toLocaleString('th-TH')}
               </div>
             )}
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', marginBottom: '16px' }}>
+          <table className="hr-table" style={{ marginBottom: 16, border: '1px solid var(--hr-border)', borderRadius: 12, overflow: 'hidden' }}>
             <thead>
-              <tr style={{ backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-                <th style={{ textAlign: 'left', padding: '8px 10px', color: '#374151' }}>รายการได้ (Earnings)</th>
-                <th style={{ textAlign: 'right', padding: '8px 10px', color: '#374151' }}>จำนวนเงิน (บาท)</th>
-                <th style={{ textAlign: 'left', padding: '8px 10px', color: '#374151' }}>รายการหัก (Deductions)</th>
-                <th style={{ textAlign: 'right', padding: '8px 10px', color: '#374151' }}>จำนวนเงิน (บาท)</th>
+              <tr>
+                <th>รายการได้ (Earnings)</th>
+                <th style={{ textAlign: 'right' }}>จำนวน (บาท)</th>
+                <th>รายการหัก (Deductions)</th>
+                <th style={{ textAlign: 'right' }}>จำนวน (บาท)</th>
               </tr>
             </thead>
             <tbody>
-              <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td style={{ padding: '8px 10px' }}>เงินเดือน / ค่าจ้างฐาน</td>
-                <td style={{ textAlign: 'right', padding: '8px 10px' }}>{num(slip.base_salary)}</td>
-                <td style={{ padding: '8px 10px' }}>เงินสมทบประกันสังคม (SSO)</td>
-                <td style={{ textAlign: 'right', padding: '8px 10px', color: '#dc2626' }}>{num(slip.sso)}</td>
+              <tr>
+                <td>เงินเดือน / ค่าจ้างฐาน</td>
+                <td style={{ textAlign: 'right' }}>{num(slip.base_salary)}</td>
+                <td>เงินสมทบประกันสังคม (SSO)</td>
+                <td style={{ textAlign: 'right', color: 'var(--hr-red)' }}>{num(slip.sso)}</td>
               </tr>
-              <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td style={{ padding: '8px 10px' }}>ค่าล่วงเวลา (OT)</td>
-                <td style={{ textAlign: 'right', padding: '8px 10px' }}>{num(slip.ot_pay)}</td>
-                <td style={{ padding: '8px 10px' }}>ภาษีเงินได้หัก ณ ที่จ่าย (WHT)</td>
-                <td style={{ textAlign: 'right', padding: '8px 10px', color: '#dc2626' }}>{num(slip.tax)}</td>
+              <tr>
+                <td>ค่าล่วงเวลา (OT)</td>
+                <td style={{ textAlign: 'right' }}>{num(slip.ot_pay)}</td>
+                <td>ภาษีเงินได้หัก ณ ที่จ่าย (WHT)</td>
+                <td style={{ textAlign: 'right', color: 'var(--hr-red)' }}>{num(slip.tax)}</td>
               </tr>
-              <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td style={{ padding: '8px 10px' }}>โบนัส / ค่าตอบแทนพิเศษ</td>
-                <td style={{ textAlign: 'right', padding: '8px 10px' }}>{num(slip.bonus)}</td>
-                <td style={{ padding: '8px 10px' }}>หักขาดงาน / ค่าปรับ / อื่นๆ</td>
-                <td style={{ textAlign: 'right', padding: '8px 10px', color: '#dc2626' }}>{num(slip.deduction)}</td>
+              <tr>
+                <td>โบนัส / ค่าตอบแทนพิเศษ</td>
+                <td style={{ textAlign: 'right' }}>{num(slip.bonus)}</td>
+                <td>หักขาดงาน / ค่าปรับ / อื่นๆ</td>
+                <td style={{ textAlign: 'right', color: 'var(--hr-red)' }}>{num(slip.deduction)}</td>
               </tr>
             </tbody>
             <tfoot>
-              <tr style={{ backgroundColor: '#f9fafb', fontWeight: 'bold', borderTop: '2px solid #e5e7eb' }}>
-                <td style={{ padding: '8px 10px' }}>รวมเงินได้ทั้งสิ้น</td>
-                <td style={{ textAlign: 'right', padding: '8px 10px', color: '#16a34a' }}>{num(income)}</td>
-                <td style={{ padding: '8px 10px' }}>รวมเงินหักทั้งสิ้น</td>
-                <td style={{ textAlign: 'right', padding: '8px 10px', color: '#dc2626' }}>{num(totalDed)}</td>
+              <tr style={{ background: '#FAFAFC', fontWeight: 700 }}>
+                <td>รวมเงินได้ทั้งสิ้น</td>
+                <td style={{ textAlign: 'right', color: 'var(--hr-green)' }}>{num(income)}</td>
+                <td>รวมเงินหักทั้งสิ้น</td>
+                <td style={{ textAlign: 'right', color: 'var(--hr-red)' }}>{num(totalDed)}</td>
               </tr>
             </tfoot>
           </table>
 
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0',
-            padding: '14px 18px', borderRadius: '8px', marginBottom: '16px',
+            background: 'rgba(52, 199, 89, 0.09)', border: '1px solid rgba(52, 199, 89, 0.25)',
+            padding: '14px 18px', borderRadius: 14, marginBottom: 16,
           }}>
-            <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#065f46' }}>ยอดเงินได้สุทธิ (Net Pay)</span>
-            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#047857' }}>{num(slip.net)} ฿</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>ยอดเงินได้สุทธิ (Net Pay)</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{num(slip.net)} ฿</span>
           </div>
 
-          <div style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center', marginTop: '16px', borderTop: '1px dashed #e5e7eb', paddingTop: '10px' }}>
+          <div style={{ fontSize: 11, color: 'var(--hr-text-3)', textAlign: 'center', borderTop: '1px dashed var(--hr-border)', paddingTop: 10 }}>
             เอกสารนี้สร้างจากระบบ HR Pro Suite — ถือเป็นเอกสารรับรองทางบัญชีและการจ่ายเงินเดือนของ {COMPANY.legalName}
           </div>
         </div>

@@ -282,16 +282,55 @@ export default function EmployeesPage() {
       </div>
 
       <div className="hr-toolbar">
-        <button className={`hr-tab${view === 'cards' ? ' active' : ''}`} onClick={() => setView('cards')}>🪪 การ์ด</button>
-        <button className={`hr-tab${view === 'table' ? ' active' : ''}`} onClick={() => setView('table')}>📋 ตาราง</button>
-        <input className="hr-search" placeholder="ค้นหาชื่อ/แผนก/ตำแหน่ง..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, whiteSpace: 'nowrap' }}>
-          <input type="checkbox" checked={showResigned} onChange={(e) => setShowResigned(e.target.checked)} />
+        <div className="hr-segmented-control" role="tablist">
+          <button
+            type="button"
+            className={`hr-segmented-item${view === 'cards' ? ' active' : ''}`}
+            onClick={() => setView('cards')}
+          >
+            🪪 การ์ด
+          </button>
+          <button
+            type="button"
+            className={`hr-segmented-item${view === 'table' ? ' active' : ''}`}
+            onClick={() => setView('table')}
+          >
+            📋 ตาราง
+          </button>
+        </div>
+
+        <div className="hr-search-box">
+          <span className="hr-search-icon" aria-hidden="true">🔍</span>
+          <input
+            className="hr-search"
+            placeholder="ค้นหาชื่อ/แผนก/ตำแหน่ง..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              className="hr-search-clear"
+              onClick={() => setSearch('')}
+              aria-label="ล้างคำค้นหา"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--hr-text-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <input
+            type="checkbox"
+            checked={showResigned}
+            onChange={(e) => setShowResigned(e.target.checked)}
+            style={{ width: 16, height: 16, accentColor: '#007AFF' }}
+          />
           แสดงคนพ้นสภาพ
         </label>
         <button className="hr-btn" onClick={grantLeave} disabled={granting}>{granting ? '⏳...' : `🎁 แจกสิทธิ์ลาปี ${leaveYear}`}</button>
-        <button className="hr-btn" onClick={() => exportExcel(filtered, EXPORT_COLUMNS, 'employees')}>📄 Excel</button>
-        <button className="hr-btn" onClick={printPDF}>📑 PDF</button>
+        <button className="hr-btn" onClick={() => exportExcel(filtered, EXPORT_COLUMNS, 'employees')}><span>📊</span> Excel</button>
+        <button className="hr-btn" onClick={printPDF}><span>🖨️</span> PDF</button>
         <button className="hr-btn hr-btn-primary" onClick={() => {
           setAddForm({
             name: '', nameEn: '', employeeId: '', username: '', password: '',
@@ -301,7 +340,7 @@ export default function EmployeesPage() {
             employmentType: 'monthly',
           });
           setIsAdding(true);
-        }}>+ เพิ่มพนักงาน</button>
+        }}><span>＋</span> เพิ่มพนักงาน</button>
       </div>
 
       {view === 'cards' ? (
@@ -321,7 +360,7 @@ export default function EmployeesPage() {
                   <div className="hr-emp-name">
                     {emp.name}
                     {emp.status && emp.status !== 'active' && (
-                      <span style={{ marginLeft: 6, fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#fee2e2', color: '#b91c1c' }}>
+                      <span className="hr-badge hr-badge-red" style={{ marginLeft: 6 }}>
                         {STATUS_LABELS[emp.status] || emp.status}
                       </span>
                     )}

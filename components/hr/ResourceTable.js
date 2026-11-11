@@ -30,11 +30,15 @@ export default function ResourceTable({ config }) {
     canEdit = true, canDelete = true,
     exportName = resource,
     renderActions, headerExtra, transformBeforeSave,
+    rowFilter, onItemsChange,
+    statusFilter = true,
+    emptyHint,
   } = config;
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusTab, setStatusTab] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [confirmDeleteRow, setConfirmDeleteRow] = useState(null);
@@ -331,8 +335,10 @@ export default function ResourceTable({ config }) {
 
   const hasRowActions = canEdit || canDelete || renderActions;
   const empMap = new Map((employees || []).map((e) => [e.employeeId, e]));
+  const statusCol = statusFilter ? columns.find((c) => c.key === 'status' && c.badge) : null;
 
-  const filteredItems = items.filter((row) => {
+  // กรองตามสาขา + rowFilter ภายนอก (ยังไม่กรองสถานะ/ค้นหา) — ใช้นับจำนวนใน segmented
+  const scopedItems = items.filter((row) => {
     if (activeBranch !== 'all') {
       if (row.branch_id !== undefined && row.branch_id !== null && row.branch_id !== '') {
         if (String(row.branch_id) !== String(activeBranch)) return false;
@@ -341,6 +347,12 @@ export default function ResourceTable({ config }) {
         if (emp && emp.branchId && String(emp.branchId) !== String(activeBranch)) return false;
       }
     }
+    if (rowFilter && !rowFilter(row)) return false;
+    return true;
+  });
+
+  const filteredItems = scopedItems.filter((row) => {
+    if (statusCol && statusTab !== 'all' && String(row.status) !== statusTab) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     for (const c of columns) {
@@ -356,9 +368,50 @@ export default function ResourceTable({ config }) {
     return false;
   });
 
+  // แจ้งรายการทั้งหมด (หลังกรองสาขา) ให้หน้าแม่ใช้ทำสรุป — ใช้ ref กัน loop
+  const onItemsRef = useRef(onItemsChange);
+  onItemsRef.current = onItemsChange;
+  useEffect(() => {
+    if (onItemsRef.current) onItemsRef.current(items, { loading, activeBranch, empMap });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, loading, activeBranch, employees]);
+
+  const statusCounts = {};
+  if (statusCol) {
+    for (const row of scopedItems) statusCounts[row.status] = (statusCounts[row.status] || 0) + 1;
+  }
+  const statusOptions = statusCol
+    ? Object.keys({ ...(statusCol.badgeLabels || statusCol.badge), ...statusCounts })
+    : [];
+  const thStyle = (c) => (c.align ? { textAlign: c.align } : undefined);
+
   return (
     <div>
       {headerExtra}
+
+      {statusCol && statusOptions.length > 0 && (
+        <div className="hr-segmented-wrap" style={{ marginBottom: 12 }}>
+          <div className="hr-segmented-control" role="tablist">
+            <button
+              type="button"
+              className={`hr-segmented-item${statusTab === 'all' ? ' active' : ''}`}
+              onClick={() => setStatusTab('all')}
+            >
+              ทั้งหมด ({scopedItems.length})
+            </button>
+            {statusOptions.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className={`hr-segmented-item${statusTab === opt ? ' active' : ''}`}
+                onClick={() => setStatusTab(opt)}
+              >
+                {statusCol.badgeLabels?.[opt] || opt} ({statusCounts[opt] || 0})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="hr-toolbar">
         <div className="hr-search-box">

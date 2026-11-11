@@ -91,6 +91,19 @@ const SUB_NAV_GROUPS = {
 };
 
 const MENUS = HR_MENUS;
+
+// สีไอคอนทรง Squircle แยกตามหมวด (แบบ iOS Settings)
+const GROUP_COLORS = {
+  'ภาพรวม': '#007AFF',
+  'โครงสร้างองค์กร': '#5856D6',
+  'เวลาและการลา': '#FF9500',
+  'เงินและสวัสดิการ': '#34C759',
+  'เอกสารและประกาศ': '#FF2D55',
+  'งานสนับสนุน': '#00C7BE',
+  'พัฒนาองค์กร': '#AF52DE',
+  'ผู้ดูแลระบบ': '#8E8E93',
+};
+const groupColor = (name) => GROUP_COLORS[name] || '#007AFF';
 const MOBILE_PRIMARY_KEYS = ['dashboard', 'employees', 'leave', 'time', 'chat'];
 
 function groupMenus(menus) {
@@ -246,7 +259,7 @@ export default function HrLayout({ children }) {
                   title={sidebarCollapsed ? `${m.label} (${group.name})` : undefined}
                   className={`hr-nav-item${pathname === m.href ? ' active' : ''}`}
                 >
-                  <span className="hr-nav-icon">{m.icon}</span>
+                  <span className="hr-nav-icon" style={{ '--sq': groupColor(group.name) }}>{m.icon}</span>
                   {!sidebarCollapsed && <span className="hr-nav-label">{m.label}</span>}
                 </Link>
               ))}
@@ -268,8 +281,12 @@ export default function HrLayout({ children }) {
       <div className="hr-main">
         <header className="hr-topbar">
           <div className="hr-topbar-left">
-            <div className="hr-breadcrumb">HR Pro Suite / {pageLabel}</div>
-            <div className="hr-page-title">{pageLabel}</div>
+            <div className="hr-breadcrumb">
+              <span>HR Pro Suite</span>
+              {current?.group && <><span className="sep">›</span><span>{current.group}</span></>}
+              <span className="sep">›</span>
+              <strong>{pageLabel}</strong>
+            </div>
           </div>
           <div className="hr-topbar-right">
             {branches.length > 0 && (
@@ -296,13 +313,21 @@ export default function HrLayout({ children }) {
             >
               <span>👤</span> โหมดพนักงาน
             </Link>
-            <span className="hr-topbar-date">{today}</span>
             <NotificationBell />
             <Link href="/hr/chat" className="hr-btn hr-btn-icon" title="แชท AI">💬</Link>
             <button className="hr-btn hr-btn-icon" title="ออกจากระบบ" onClick={logout}>⏻</button>
           </div>
         </header>
         <main className="hr-content">
+          {pathname !== '/hr/chat' && <div className="hr-large-title-wrap">
+            {current && (
+              <span className="hr-large-title-icon" style={{ background: groupColor(current.group) }}>{current.icon}</span>
+            )}
+            <div>
+              <h1 className="hr-large-title">{pageLabel}</h1>
+              <div className="hr-large-sub">{current?.group ? `${current.group} · ` : ''}{today}</div>
+            </div>
+          </div>}
           {SUB_NAV_GROUPS[pathname] && <SubNavTabs items={SUB_NAV_GROUPS[pathname]} />}
           {children}
         </main>

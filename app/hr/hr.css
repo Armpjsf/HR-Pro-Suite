@@ -1037,3 +1037,380 @@
   .hr-modal-overlay { padding: 10px; align-items: flex-end; }
   .hr-modal { max-height: 86vh; border-radius: 22px 22px 14px 14px; }
 }
+
+
+/* ============================================================================
+   v2 — Visible iPadOS Overhaul Layer
+   (Sidebar squircles, Large Title, Widgets, Inset Grouped Lists, Colored Stats)
+   ============================================================================ */
+
+/* ---- Sidebar: Apple Business Essentials look ---- */
+.hr-sidebar {
+  background: rgba(246, 246, 248, 0.88);
+}
+
+.hr-nav-item {
+  padding: 6px 10px;
+  gap: 11px;
+  font-size: 13.5px;
+  color: var(--hr-text);
+}
+
+.hr-nav-icon {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 7.5px;
+  background: var(--sq, #007AFF);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.hr-nav-item.active {
+  background: var(--hr-accent);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.28);
+}
+.hr-nav-item.active .hr-nav-icon {
+  background: rgba(255, 255, 255, 0.24);
+  box-shadow: none;
+}
+
+.hr-sidebar.collapsed .hr-nav-item { padding: 6px 0; }
+.hr-sidebar.collapsed .hr-nav-icon { width: 36px; height: 36px; border-radius: 10px; font-size: 17px; }
+.hr-sidebar.collapsed .hr-nav-group + .hr-nav-group {
+  border-top: 1px solid rgba(60, 60, 67, 0.1);
+  padding-top: 8px;
+}
+
+.hr-nav-heading {
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: var(--hr-text-3);
+}
+
+/* ---- Slim Toolbar + Breadcrumb ---- */
+.hr-topbar { padding: 10px 28px; min-height: 54px; }
+.hr-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--hr-text-3);
+}
+.hr-breadcrumb .sep { color: #C7C7CC; font-size: 15px; }
+.hr-breadcrumb strong { color: var(--hr-text); font-weight: 600; }
+
+/* ---- iOS Large Title ---- */
+.hr-content { padding: 26px 32px 40px; }
+
+.hr-large-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+  animation: iosSpringIn 0.32s var(--ios-spring, cubic-bezier(0.32, 0.72, 0, 1));
+}
+
+.hr-large-title-icon {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), inset 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+}
+
+.hr-large-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--hr-text);
+}
+
+.hr-large-sub {
+  margin-top: 3px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--hr-text-3);
+}
+
+/* ---- Cards: softer, larger squircle ---- */
+.hr-card,
+.hr-stat-card,
+.hr-emp-card,
+.hr-table-wrap {
+  border-radius: 20px;
+  border-color: rgba(60, 60, 67, 0.08);
+}
+.hr-card { padding: 20px; }
+
+.hr-section-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* ---- Stat Cards → iOS Widgets with colored squircle icons (applies to EVERY page) ---- */
+.hr-stat-card {
+  padding: 18px;
+  gap: 14px;
+  transition: transform 0.18s var(--ios-spring, ease), box-shadow 0.18s;
+}
+a .hr-stat-card:hover,
+.hr-stat-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+}
+a:active .hr-stat-card { transform: scale(0.97); }
+
+.hr-stat-icon {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 13px;
+  font-size: 22px;
+  background: var(--sq, #007AFF);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+.hr-stat-row > :nth-child(6n+1) .hr-stat-icon { --sq: #007AFF; }
+.hr-stat-row > :nth-child(6n+2) .hr-stat-icon { --sq: #FF9500; }
+.hr-stat-row > :nth-child(6n+3) .hr-stat-icon { --sq: #34C759; }
+.hr-stat-row > :nth-child(6n+4) .hr-stat-icon { --sq: #5856D6; }
+.hr-stat-row > :nth-child(6n+5) .hr-stat-icon { --sq: #FF2D55; }
+.hr-stat-row > :nth-child(6n+6) .hr-stat-icon { --sq: #00C7BE; }
+
+.hr-stat-value { font-size: 26px; font-weight: 800; }
+.hr-stat-label { font-size: 12.5px; font-weight: 500; }
+
+/* ---- Widget primitives ---- */
+.hr-widget-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.hr-span-12 { grid-column: span 12; }
+.hr-span-8 { grid-column: span 8; }
+.hr-span-7 { grid-column: span 7; }
+.hr-span-6 { grid-column: span 6; }
+.hr-span-5 { grid-column: span 5; }
+.hr-span-4 { grid-column: span 4; }
+
+.hr-widget-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.hr-widget-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.hr-widget-sub { font-size: 12.5px; color: var(--hr-text-3); font-weight: 500; margin-top: 1px; }
+
+.hr-squircle {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: var(--sq, #007AFF);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+
+.hr-link-more {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--hr-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.hr-link-more:hover { text-decoration: underline; }
+
+/* Stacked attendance bar */
+.hr-stack-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(118, 118, 128, 0.12);
+  margin: 6px 0 16px;
+}
+.hr-stack-bar > span { height: 100%; transition: width 0.5s var(--ios-spring, ease); }
+
+.hr-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.hr-metric {
+  background: #F7F7FA;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.hr-metric-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--hr-text-2);
+}
+.hr-metric-dot { width: 8px; height: 8px; border-radius: 50%; }
+.hr-metric-value {
+  margin-top: 4px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.hr-metric-value small { font-size: 13px; font-weight: 500; color: var(--hr-text-3); margin-left: 3px; }
+
+/* Inset grouped list */
+.hr-list { display: flex; flex-direction: column; }
+.hr-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+}
+.hr-list-row + .hr-list-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 46px;
+  right: 0;
+  height: 1px;
+  background: rgba(60, 60, 67, 0.09);
+}
+a.hr-list-row:hover { background: rgba(0, 122, 255, 0.04); border-radius: 10px; }
+.hr-list-main { flex: 1; min-width: 0; }
+.hr-list-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hr-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hr-list-sub { font-size: 12.5px; color: var(--hr-text-3); margin-top: 1px; }
+.hr-list-trail {
+  font-size: 12.5px;
+  color: var(--hr-text-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.hr-chevron { color: #C7C7CC; font-size: 18px; line-height: 1; }
+
+.hr-avatar-sm {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* Calendar-event (Today panel) */
+.hr-event {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--ev-bg, rgba(0, 122, 255, 0.07));
+  position: relative;
+  overflow: hidden;
+}
+.hr-event::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--ev, #007AFF);
+}
+.hr-event + .hr-event { margin-top: 8px; }
+.hr-event-time {
+  min-width: 54px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ev, #007AFF);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+.hr-event-title { font-size: 14px; font-weight: 600; }
+.hr-event-meta { font-size: 12px; color: var(--hr-text-3); margin-top: 2px; }
+
+/* Branch chips */
+.hr-chip-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 16px; }
+.hr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #FFFFFF;
+  border: 1px solid rgba(60, 60, 67, 0.1);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.hr-chip b {
+  font-variant-numeric: tabular-nums;
+  color: var(--hr-accent);
+}
+
+/* Critical banner (iOS notification style) */
+.hr-banner-critical {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: #FFFFFF;
+  border: 1px solid rgba(255, 59, 48, 0.25);
+  box-shadow: 0 6px 20px rgba(255, 59, 48, 0.1);
+  margin-bottom: 16px;
+}
+
+/* Responsive for v2 layer */
+@media (max-width: 1100px) {
+  .hr-span-8, .hr-span-7, .hr-span-6, .hr-span-5, .hr-span-4 { grid-column: span 12; }
+}
+@media (max-width: 900px) {
+  .hr-content { padding: 14px 14px 92px; }
+  .hr-card { padding: 16px; border-radius: 18px; }
+  .hr-topbar { padding: 10px 14px; }
+  .hr-large-title-wrap { margin-bottom: 14px; gap: 12px; }
+  .hr-large-title { font-size: 26px; }
+  .hr-large-title-icon { width: 42px; height: 42px; min-width: 42px; font-size: 21px; border-radius: 11px; }
+  .hr-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hr-breadcrumb span:not(:last-child), .hr-breadcrumb .sep { display: none; }
+}
