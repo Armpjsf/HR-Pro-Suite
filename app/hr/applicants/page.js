@@ -234,6 +234,11 @@ function InterviewModal({ applicant, questionSets, onClose }) {
   const [result, setResult] = useState(null);
   const [err, setErr] = useState('');
   const [copied, setCopied] = useState(false);
+  const [origin, setOrigin] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') setOrigin(window.location.origin);
+  }, []);
 
   // เลือกชุดคำถามที่ตรงตำแหน่งให้อัตโนมัติ
   useEffect(() => {
@@ -261,8 +266,8 @@ function InterviewModal({ applicant, questionSets, onClose }) {
     }
   }
 
-  const interviewFullUrl = typeof window !== 'undefined' && result?.item?.id
-    ? `${window.location.origin}/interview/${result.item.id}`
+  const interviewFullUrl = result?.item?.id
+    ? (origin ? `${origin}/interview/${result.item.id}` : `/interview/${result.item.id}`)
     : '';
 
   const copyLink = (text) => {
@@ -351,7 +356,7 @@ function InterviewModal({ applicant, questionSets, onClose }) {
                   style={{ background: '#ffffff', fontSize: 12, color: '#334155', resize: 'none' }}
                   value={
                     result.share_message
-                      ? result.share_message.replace('[URL]', window.location.origin)
+                      ? result.share_message.replace('[URL]', origin || '')
                       : `เรียนคุณ ${applicant.name} บริษัทขอเชิญท่านเข้ารับการสัมภาษณ์งานเบื้องต้นออนไลน์ (AI Voice Interview)\nตำแหน่ง: ${applicant.position_applied || 'ทั่วไป'}\nคลิกเพื่อเริ่มสัมภาษณ์: ${interviewFullUrl}\n(ใช้เวลาเพียง 3-5 นาที สามารถเปิดผ่านโทรศัพท์มือถือและพูดคุยกับ AI ได้ทันทีครับ)`
                   }
                 />
@@ -362,7 +367,7 @@ function InterviewModal({ applicant, questionSets, onClose }) {
                   onClick={() =>
                     copyLink(
                       result.share_message
-                        ? result.share_message.replace('[URL]', window.location.origin)
+                        ? result.share_message.replace('[URL]', origin || '')
                         : `เรียนคุณ ${applicant.name} บริษัทขอเชิญท่านเข้ารับการสัมภาษณ์งานเบื้องต้นออนไลน์ (AI Voice Interview)\nตำแหน่ง: ${applicant.position_applied || 'ทั่วไป'}\nคลิกเพื่อเริ่มสัมภาษณ์: ${interviewFullUrl}\n(ใช้เวลาเพียง 3-5 นาที สามารถเปิดผ่านโทรศัพท์มือถือและพูดคุยกับ AI ได้ทันทีครับ)`
                     )
                   }

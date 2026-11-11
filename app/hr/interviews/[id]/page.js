@@ -20,6 +20,13 @@ export default function InterviewDetailPage() {
   const router = useRouter();
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
+  const [scoring, setScoring] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [origin, setOrigin] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') setOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     let timer;
@@ -38,7 +45,6 @@ export default function InterviewDetailPage() {
     return () => clearTimeout(timer);
   }, [id]);
 
-  const [scoring, setScoring] = useState(false);
   async function scoreNow() {
     setScoring(true);
     try {
@@ -63,8 +69,7 @@ export default function InterviewDetailPage() {
 
   const { session, turns, applicant, questionSet } = data;
   const st = SESSION_STATUS[session.status] || { label: session.status, color: '#6b7280' };
-  const interviewUrl = typeof window !== 'undefined' ? `${window.location.origin}/interview/${session.id}` : '';
-  const [copied, setCopied] = useState(false);
+  const interviewUrl = origin ? `${origin}/interview/${session.id}` : `/interview/${session.id}`;
 
   const copyLink = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
