@@ -228,6 +228,12 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
   const [clockStatus, setClockStatus] = useState(data.todayClock);
   const [clockType, setClockType] = useState('office');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [nowTime, setNowTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNowTime(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   const handleClock = async (action) => {
     setClockLoading(true);
@@ -260,35 +266,66 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
   const clockedIn = !!clockStatus?.clock_in;
   const clockedOut = !!clockStatus?.clock_out;
   const attendanceStats = data.attendanceStats || { late: 0, absent: 0 };
+  const dateLabel = nowTime.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const timeLabel = nowTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 
   return (
     <>
-      {/* Clock in/out */}
-      <div className="me-card">
-        <div className="me-section-title">⏰ ลงเวลาทำงาน</div>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          {['office', 'offsite', 'wfh'].map((t) => (
-            <button key={t} className={`me-badge ${clockType === t ? 'me-badge-purple' : 'me-badge-gray'}`}
-              style={{ cursor: 'pointer', border: 'none', padding: '6px 14px', fontSize: 13 }}
-              onClick={() => setClockType(t)}>
-              {t === 'office' ? '🏢 ออฟฟิศ' : t === 'offsite' ? '📍 นอกสถานที่' : '🏠 WFH'}
+      {/* iOS Attendance Clock Widget */}
+      <div className="me-clock-widget">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div className="me-clock-date-label">{dateLabel}</div>
+            <div className="me-clock-digital">{timeLabel} <span style={{ fontSize: 14, fontWeight: 600, color: '#8E8E93' }}>น.</span></div>
+          </div>
+          <span className={`me-badge ${clockedOut ? 'me-badge-blue' : clockedIn ? 'me-badge-green' : 'me-badge-gray'}`}>
+            {clockedOut ? '✓ เลิกงานแล้ว' : clockedIn ? '● กำลังปฏิบัติงาน' : 'ยังไม่ได้เข้างาน'}
+          </span>
+        </div>
+
+        <div className="me-clock-hours-bar">
+          <span>🕘 เวลาทำงานปกติ</span>
+          <strong style={{ fontVariantNumeric: 'tabular-nums' }}>08:30 – 17:30 น.</strong>
+        </div>
+
+        <div className="me-segmented-picker" role="radiogroup" aria-label="สถานที่ปฏิบัติงาน">
+          {[
+            { id: 'office', label: '🏢 ออฟฟิศ' },
+            { id: 'offsite', label: '📍 นอกสถานที่' },
+            { id: 'wfh', label: '🏠 WFH' },
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`me-segmented-opt${clockType === t.id ? ' active' : ''}`}
+              onClick={() => setClockType(t.id)}
+            >
+              {t.label}
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="me-btn" style={{ flex: 1, background: clockedIn ? '#d1d5db' : undefined }}
-            disabled={clockLoading || clockedIn} onClick={() => handleClock('in')}>
-            {clockLoading ? '⏳' : '🟢'} เข้างาน
+
+        <div className="me-clock-btn-row">
+          <button
+            className="me-clock-btn in"
+            disabled={clockLoading || clockedIn}
+            onClick={() => handleClock('in')}
+          >
+            {clockLoading ? '⏳ กำลังบันทึก...' : 'Clock In · เข้างาน'}
           </button>
-          <button className="me-btn" style={{ flex: 1, background: !clockedIn || clockedOut ? '#d1d5db' : 'linear-gradient(135deg,#ef4444,#f87171)' }}
-            disabled={clockLoading || !clockedIn || clockedOut} onClick={() => handleClock('out')}>
-            {clockLoading ? '⏳' : '🔴'} ออกงาน
+          <button
+            className="me-clock-btn out"
+            disabled={clockLoading || !clockedIn || clockedOut}
+            onClick={() => handleClock('out')}
+          >
+            {clockLoading ? '⏳' : 'Clock Out · ออกงาน'}
           </button>
         </div>
+
         {clockedIn && (
-          <div style={{ marginTop: 10, fontSize: 13, color: '#5b6478' }}>
-            ✅ เข้างาน {clockStatus.clock_in?.slice(0, 5)} {clockStatus.location_name && `(${clockStatus.location_name})`}
-            {clockedOut && <> · ออกงาน {clockStatus.clock_out?.slice(0, 5)}</>}
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(60,60,67,0.08)', fontSize: 12.5, color: '#3C3C43', display: 'flex', justifyContent: 'space-between' }}>
+            <span>✅ เข้างาน <strong>{clockStatus.clock_in?.slice(0, 5)}</strong> {clockStatus.location_name && `(${clockStatus.location_name})`}</span>
+            {clockedOut && <span>ออกงาน <strong>{clockStatus.clock_out?.slice(0, 5)}</strong></span>}
           </div>
         )}
       </div>
@@ -820,18 +857,18 @@ function MoreTab({ user, router, showToast, data }) {
   const [subTab, setSubTab] = useState(null);
 
   const menus = [
-    { id: 'expenses', icon: '🧾', label: 'เบิกค่าใช้จ่าย', desc: 'ยื่นเบิกค่าเดินทาง เบี้ยเลี้ยง ฯลฯ' },
-    { id: 'ot', icon: '⏱️', label: 'ขอค่าล่วงเวลา (OT)', desc: 'ยื่นขอ OT + ดูสถานะอนุมัติ' },
-    { id: 'rooms', icon: '🎦', label: 'จองห้องประชุม', desc: 'ดูตารางห้องว่าง + จองห้อง' },
-    { id: 'workplace', icon: '🎓', label: 'อบรม / ทริป / OKR', desc: 'ดูตารางอบรม ทริปบริษัท และ OKR ของฉัน' },
-    { id: 'calendar', icon: '📆', label: 'ปฏิทินงาน', desc: 'ดูตารางกะ วันลา วันหยุด' },
-    { id: 'attendance', icon: '⏰', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติ Clock-in/out ย้อนหลัง' },
-    { id: 'evaluation', icon: '⭐', label: 'ประเมินเพื่อนร่วมงาน', desc: 'ให้คะแนน + ดูผลประเมิน' },
-    { id: 'assets', icon: '📦', label: 'ทรัพย์สิน/อุปกรณ์', desc: 'ดูอุปกรณ์ + ขอเบิก/คืน/เปลี่ยน' },
-    { id: 'documentRequests', icon: '📄', label: 'ขอเอกสารรับรอง', desc: 'ขอหนังสือรับรองเงินเดือน/การทำงาน' },
-    { id: 'taxcert', icon: '🧾', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้-ภาษีทั้งปี ดู/บันทึก PDF ได้' },
-    { id: 'allowance', icon: '📝', label: 'แบบลดหย่อนภาษี (ลย.01)', desc: 'กรอกค่าลดหย่อนส่งให้ HR' },
-    ...(data?.isManager ? [{ id: 'teamleave', icon: '✅', label: 'อนุมัติคำขอลูกทีม (ลา/OT/เบิกจ่าย)', desc: 'อนุมัติขั้นต้นสำหรับหัวหน้างาน' }] : []),
+    { id: 'expenses', icon: '🧾', color: '#007AFF', label: 'เบิกค่าใช้จ่าย', desc: 'ยื่นเบิกค่าเดินทาง เบี้ยเลี้ยง ฯลฯ' },
+    { id: 'ot', icon: '⏱️', color: '#FF9500', label: 'ขอค่าล่วงเวลา (OT)', desc: 'ยื่นขอ OT + ดูสถานะอนุมัติ' },
+    { id: 'rooms', icon: '🎦', color: '#5856D6', label: 'จองห้องประชุม', desc: 'ดูตารางห้องว่าง + จองห้อง' },
+    { id: 'workplace', icon: '🎓', color: '#AF52DE', label: 'อบรม / ทริป / OKR', desc: 'ดูตารางอบรม ทริปบริษัท และ OKR ของฉัน' },
+    { id: 'calendar', icon: '📆', color: '#FF2D55', label: 'ปฏิทินงาน', desc: 'ดูตารางกะ วันลา วันหยุด' },
+    { id: 'attendance', icon: '⏰', color: '#34C759', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติ Clock-in/out ย้อนหลัง' },
+    { id: 'evaluation', icon: '⭐', color: '#FFCC00', label: 'ประเมินเพื่อนร่วมงาน', desc: 'ให้คะแนน + ดูผลประเมิน' },
+    { id: 'assets', icon: '📦', color: '#00C7BE', label: 'ทรัพย์สิน/อุปกรณ์', desc: 'ดูอุปกรณ์ + ขอเบิก/คืน/เปลี่ยน' },
+    { id: 'documentRequests', icon: '📄', color: '#007AFF', label: 'ขอเอกสารรับรอง', desc: 'ขอหนังสือรับรองเงินเดือน/การทำงาน' },
+    { id: 'taxcert', icon: '🧾', color: '#5856D6', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้-ภาษีทั้งปี ดู/บันทึก PDF ได้' },
+    { id: 'allowance', icon: '📝', color: '#34C759', label: 'แบบลดหย่อนภาษี (ลย.01)', desc: 'กรอกค่าลดหย่อนส่งให้ HR' },
+    ...(data?.isManager ? [{ id: 'teamleave', icon: '✅', color: '#FF3B30', label: 'อนุมัติคำขอลูกทีม (ลา/OT/เบิกจ่าย)', desc: 'อนุมัติขั้นต้นสำหรับหัวหน้างาน' }] : []),
   ];
 
   if (subTab === 'expenses') return <ExpensesSection back={() => setSubTab(null)} showToast={showToast} />;
@@ -850,11 +887,17 @@ function MoreTab({ user, router, showToast, data }) {
   return (
     <>
       <div className="me-card">
-        <div className="me-section-title">📱 เมนูเพิ่มเติม</div>
+        <div className="me-section-title">📱 บริการพนักงาน (Self-Service)</div>
         {menus.map((m) => (
-          <div key={m.id} className="me-row" style={{ cursor: 'pointer', padding: '14px 0' }} onClick={() => setSubTab(m.id)}>
-            <span className="k"><span style={{ fontSize: 18, marginRight: 8 }}>{m.icon}</span>{m.label}</span>
-            <span className="v" style={{ fontSize: 18, color: '#9aa1b5' }}>›</span>
+          <div key={m.id} className="me-row" style={{ cursor: 'pointer', padding: '11px 0' }} onClick={() => setSubTab(m.id)}>
+            <span className="k" style={{ display: 'flex', alignItems: 'center' }}>
+              <span className="me-menu-icon-badge" style={{ background: m.color }}>{m.icon}</span>
+              <span>
+                <div style={{ fontWeight: 600, color: '#1C1C1E', fontSize: 14 }}>{m.label}</div>
+                <div style={{ fontSize: 11.5, color: '#8E8E93', marginTop: 1 }}>{m.desc}</div>
+              </span>
+            </span>
+            <span className="v" style={{ fontSize: 20, color: '#C7C7CC', fontWeight: 400 }}>›</span>
           </div>
         ))}
       </div>

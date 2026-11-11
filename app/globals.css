@@ -1,13 +1,68 @@
 /* ============================================
-   HR AI Chatbot — Design System
-   Dark Mode + Glassmorphism + Purple/Emerald
+   HR Pro Suite — Apple iOS Design System Foundation
+   Human Interface Guidelines (iOS 18 / iPadOS / macOS)
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap');
 
-/* ── CSS Variables ── */
+/* ── Apple iOS Design Tokens & Semantic Variables ── */
 :root {
-  /* Colors */
+  /* iOS System Palette (Light Mode Default for Apps) */
+  --ios-bg-grouped: #F2F2F7;
+  --ios-bg-secondary: #FFFFFF;
+  --ios-bg-tertiary: #E5E5EA;
+  --ios-fill-tertiary: rgba(118, 118, 128, 0.12);
+  --ios-fill-quaternary: rgba(116, 116, 128, 0.08);
+
+  /* iOS Typography Colors */
+  --ios-label: #000000;
+  --ios-label-secondary: #3C3C43;
+  --ios-label-tertiary: #8E8E93;
+  --ios-label-quaternary: #C7C7CC;
+
+  /* iOS System Tint Colors */
+  --ios-blue: #007AFF;
+  --ios-blue-hover: #0062CC;
+  --ios-indigo: #5856D6;
+  --ios-purple: #AF52DE;
+  --ios-green: #34C759;
+  --ios-mint: #00C7BE;
+  --ios-teal: #30B0C7;
+  --ios-orange: #FF9500;
+  --ios-red: #FF3B30;
+  --ios-pink: #FF2D55;
+  --ios-yellow: #FFCC00;
+
+  /* iOS Separators & Hairline Borders */
+  --ios-separator: rgba(60, 60, 67, 0.12);
+  --ios-separator-opaque: #E5E5EA;
+
+  /* iOS Frosted Glass Materials (Only for Nav, Floating Bars, Modals) */
+  --ios-glass-regular: rgba(255, 255, 255, 0.78);
+  --ios-glass-thick: rgba(255, 255, 255, 0.88);
+  --ios-glass-Chrome: rgba(249, 249, 251, 0.82);
+  --ios-glass-border: rgba(255, 255, 255, 0.65);
+  --ios-blur: saturate(180%) blur(24px);
+
+  /* iOS Radii (Continuous Squircle Approximation) */
+  --ios-radius-xs: 8px;
+  --ios-radius-sm: 10px;
+  --ios-radius-md: 14px;
+  --ios-radius-lg: 18px;
+  --ios-radius-xl: 24px;
+  --ios-radius-pill: 9999px;
+
+  /* iOS Elevations */
+  --ios-shadow-card: 0 2px 12px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --ios-shadow-float: 0 12px 32px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.05);
+  --ios-shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  /* iOS Spring Physics & Motion */
+  --ios-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ios-spring-bounce: cubic-bezier(0.175, 0.885, 0.32, 1.15);
+  --ios-focus-ring: 0 0 0 3px rgba(0, 122, 255, 0.32);
+
+  /* Legacy Dark Theme Variables (Preserved for AI Chat standalone components) */
   --bg-primary: #0a0a14;
   --bg-secondary: #111128;
   --bg-tertiary: #1a1a3e;
@@ -19,37 +74,37 @@
   --text-secondary: #a0a0c0;
   --text-muted: #6060a0;
 
-  --accent-purple: #7c3aed;
-  --accent-purple-light: #a78bfa;
-  --accent-purple-glow: rgba(124, 58, 237, 0.3);
-  --accent-emerald: #10b981;
-  --accent-emerald-light: #34d399;
-  --accent-emerald-glow: rgba(16, 185, 129, 0.3);
-  --accent-pink: #ec4899;
-  --accent-amber: #f59e0b;
-  --accent-red: #ef4444;
-  --accent-blue: #3b82f6;
+  --accent-purple: #007AFF;
+  --accent-purple-light: #5856D6;
+  --accent-purple-glow: rgba(0, 122, 255, 0.28);
+  --accent-emerald: #34C759;
+  --accent-emerald-light: #30D158;
+  --accent-emerald-glow: rgba(52, 199, 89, 0.28);
+  --accent-pink: #FF2D55;
+  --accent-amber: #FF9500;
+  --accent-red: #FF3B30;
+  --accent-blue: #007AFF;
 
   --border-color: rgba(255, 255, 255, 0.08);
   --border-light: rgba(255, 255, 255, 0.12);
 
   /* Gradients */
-  --gradient-purple: linear-gradient(135deg, #7c3aed, #a78bfa);
-  --gradient-emerald: linear-gradient(135deg, #059669, #34d399);
+  --gradient-purple: linear-gradient(135deg, #007AFF, #5856D6);
+  --gradient-emerald: linear-gradient(135deg, #34C759, #00C7BE);
   --gradient-hero: linear-gradient(135deg, #0a0a14 0%, #1a1040 50%, #0a0a14 100%);
-  --gradient-card: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(16, 185, 129, 0.05));
+  --gradient-card: linear-gradient(135deg, rgba(0, 122, 255, 0.1), rgba(52, 199, 89, 0.05));
   --gradient-line-green: linear-gradient(135deg, #06c755, #00b900);
 
   /* Shadows */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow-purple: 0 0 30px rgba(124, 58, 237, 0.2);
-  --shadow-glow-emerald: 0 0 30px rgba(16, 185, 129, 0.2);
+  --shadow-glow-purple: 0 4px 16px rgba(0, 122, 255, 0.25);
+  --shadow-glow-emerald: 0 4px 16px rgba(52, 199, 89, 0.25);
 
-  /* Typography */
-  --font-sans: 'Inter', 'Noto Sans Thai', -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* Apple SF Pro + Thai Typography Stack */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Noto Sans Thai', 'Thonburi', sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
 
   /* Spacing */
   --radius-sm: 8px;
@@ -59,10 +114,43 @@
   --radius-full: 9999px;
 
   /* Transitions */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-bounce: 500ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --transition-fast: 150ms cubic-bezier(0.32, 0.72, 0, 1);
+  --transition-base: 260ms cubic-bezier(0.32, 0.72, 0, 1);
+  --transition-slow: 400ms cubic-bezier(0.32, 0.72, 0, 1);
+  --transition-bounce: 500ms cubic-bezier(0.175, 0.885, 0.32, 1.15);
+}
+
+/* ── Global Keyframes & iOS Skeleton Shimmer ── */
+@keyframes iosShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes iosSpringIn {
+  0% { opacity: 0; transform: scale(0.94) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes iosSheetUp {
+  0% { opacity: 0; transform: translateY(100%); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.ios-skeleton {
+  background: linear-gradient(90deg, #E5E5EA 25%, #F2F2F7 50%, #E5E5EA 75%);
+  background-size: 200% 100%;
+  animation: iosShimmer 1.5s infinite linear;
+  border-radius: 8px;
+}
+
+/* ── Accessibility: Reduced Motion Support ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ── Reset & Base ── */

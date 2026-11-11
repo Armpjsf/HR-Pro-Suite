@@ -1,62 +1,85 @@
-/* /me — Employee self-service, mobile-first light theme. ทุก rule อยู่ใต้ .me-root */
+/* ============================================================================
+   /me — Apple iOS Mobile Employee Experience (Human Interface Guidelines)
+   Scoped under .me-root
+   ============================================================================ */
 
 .me-root {
-  --me-bg: #f4f5fb;
-  --me-card: #ffffff;
-  --me-border: #e7e9f4;
-  --me-text: #1d2433;
-  --me-text-2: #5b6478;
-  --me-text-3: #9aa1b5;
-  --me-accent: #6d5ef5;
-  --me-green: #16a34a;
-  --me-red: #dc2626;
-  --me-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+  --me-bg: var(--ios-bg-grouped, #F2F2F7);
+  --me-card: var(--ios-bg-card, #FFFFFF);
+  --me-border: var(--ios-separator, rgba(60, 60, 67, 0.11));
+  --me-text: var(--ios-label-primary, #1C1C1E);
+  --me-text-2: var(--ios-label-secondary, #3C3C43);
+  --me-text-3: var(--ios-label-tertiary, #8E8E93);
+  --me-accent: var(--ios-blue, #007AFF);
+  --me-indigo: var(--ios-indigo, #5856D6);
+  --me-green: var(--ios-green, #34C759);
+  --me-orange: var(--ios-orange, #FF9500);
+  --me-red: var(--ios-red, #FF3B30);
+  --me-shadow: 0 2px 14px rgba(0, 0, 0, 0.045), 0 0.5px 1px rgba(0, 0, 0, 0.03);
 
   min-height: 100vh;
   background: var(--me-bg);
   color: var(--me-text);
-  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 14px;
   max-width: 560px;
   margin: 0 auto;
-  padding-bottom: 84px; /* เผื่อ bottom tab bar */
+  padding-bottom: 104px;
+  -webkit-font-smoothing: antialiased;
 }
 
 .me-root *, .me-root *::before, .me-root *::after { box-sizing: border-box; }
 
+/* ===== Sticky Frosted Glass Header (iOS Navigation Bar) ===== */
 .me-header {
-  background: linear-gradient(135deg, #6d5ef5, #8b7cf8);
-  color: #fff;
-  padding: 22px 18px 26px;
-  border-radius: 0 0 24px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(190%) blur(24px);
+  -webkit-backdrop-filter: saturate(190%) blur(24px);
+  color: var(--me-text);
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--me-border);
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 13px;
 }
 
 .me-avatar {
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
+  background: linear-gradient(135deg, #007AFF, #5856D6);
+  color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 21px;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.22);
 }
 
-.me-name { font-weight: 700; font-size: 17px; }
-.me-sub { font-size: 12.5px; opacity: 0.85; }
+.me-name {
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--me-text);
+}
+.me-sub {
+  font-size: 12.5px;
+  color: var(--me-text-3);
+  margin-top: 1px;
+}
 .me-header-actions { margin-left: auto; display: flex; gap: 8px; }
 
 .me-header-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.2);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(118, 118, 128, 0.12);
   border: none;
-  color: #fff;
-  font-size: 16px;
+  color: var(--me-text);
+  font-size: 15px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -64,20 +87,133 @@
   text-decoration: none;
 }
 
-.me-content { padding: 16px 14px; }
+.me-content { padding: 16px 16px; }
 
+/* ===== iOS Grouped Cards & Widgets ===== */
 .me-card {
   background: var(--me-card);
   border: 1px solid var(--me-border);
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow: var(--me-shadow);
   padding: 16px;
   margin-bottom: 14px;
 }
 
-.me-section-title { font-size: 15px; font-weight: 700; margin: 0 0 12px; }
+.me-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--me-text);
+  margin: 0 0 12px;
+}
 
-/* Leave balance cards */
+/* ===== iOS Attendance Clock Widget (Reference Image 1) ===== */
+.me-clock-widget {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FBFBFD 100%);
+  border: 1px solid var(--me-border);
+  border-radius: 22px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.me-clock-date-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--me-text-3);
+}
+
+.me-clock-digital {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--me-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  margin: 4px 0 8px;
+}
+
+.me-clock-hours-bar {
+  margin: 8px 0 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #F2F2F7;
+  font-size: 12px;
+  color: var(--me-text-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.me-segmented-picker {
+  display: flex;
+  gap: 4px;
+  padding: 3.5px;
+  background: rgba(118, 118, 128, 0.12);
+  border-radius: 11px;
+  margin-bottom: 14px;
+}
+
+.me-segmented-opt {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 7px 8px;
+  border-radius: 8.5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--me-text-2);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.me-segmented-opt.active {
+  background: #FFFFFF;
+  color: var(--me-text);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.me-clock-btn-row {
+  display: flex;
+  gap: 10px;
+}
+
+.me-clock-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 13px 16px;
+  border: none;
+  border-radius: 14px;
+  font-size: 14.5px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.15s;
+}
+.me-clock-btn:active:not(:disabled) { transform: scale(0.97); }
+.me-clock-btn.in {
+  background: var(--me-green);
+  box-shadow: 0 6px 16px rgba(52, 199, 89, 0.28);
+}
+.me-clock-btn.out {
+  background: var(--me-orange);
+  box-shadow: 0 6px 16px rgba(255, 149, 0, 0.28);
+}
+.me-clock-btn:disabled {
+  background: #E5E5EA;
+  color: #8E8E93;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ===== Leave Balance & Attendance Mini Widget Cards ===== */
 .me-leave-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -87,38 +223,56 @@
 }
 .me-attendance-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 4px 0 14px;
+  margin: 0 0 12px;
 }
 .me-balance-grid {
-  margin: 0 0 18px;
+  margin: 0 0 14px;
 }
 
 .me-leave-card {
   background: var(--me-card);
   border: 1px solid var(--me-border);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: var(--me-shadow);
-  padding: 12px 8px;
+  padding: 13px 8px;
   text-align: center;
 }
 
-.me-leave-icon { font-size: 19px; }
-.me-leave-remain { font-size: 19px; font-weight: 700; color: var(--me-accent); }
-.me-leave-label { font-size: 11px; color: var(--me-text-3); }
+.me-leave-icon { font-size: 20px; margin-bottom: 2px; }
+.me-leave-remain {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--me-accent);
+  font-variant-numeric: tabular-nums;
+}
+.me-leave-label { font-size: 11.5px; color: var(--me-text-3); font-weight: 500; margin-top: 1px; }
 
-/* Rows */
+/* ===== iOS Inset Grouped Rows & Colorful Icon Badges (Reference Image 4) ===== */
 .me-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  padding: 9px 0;
-  border-top: 1px solid #f1f2f8;
+  padding: 10.5px 0;
+  border-top: 1px solid rgba(60, 60, 67, 0.08);
   font-size: 13.5px;
 }
 .me-row:first-of-type { border-top: none; }
-.me-row .k { color: var(--me-text-2); }
-.me-row .v { font-weight: 600; text-align: right; }
+.me-row .k { color: var(--me-text); font-weight: 500; }
+.me-row .v { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+.me-menu-icon-badge {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  color: #FFFFFF;
+  margin-right: 11px;
+}
 
 .me-announcement-row {
   width: 100%;
@@ -128,41 +282,55 @@
   background: transparent;
   font-family: inherit;
   cursor: pointer;
+  text-align: left;
 }
-.me-announcement-row:hover { background: #fafbff; }
+.me-announcement-row:hover { background: rgba(0, 122, 255, 0.04); }
 
+/* ===== Semantic iOS Badges ===== */
 .me-badge {
-  display: inline-block;
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3.5px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
   white-space: nowrap;
 }
-.me-badge-green { background: #dcfce7; color: #15803d; }
-.me-badge-red { background: #fee2e2; color: #b91c1c; }
-.me-badge-yellow { background: #fef3c7; color: #b45309; }
-.me-badge-gray { background: #f1f2f8; color: #5b6478; }
-.me-badge-blue { background: #dbeafe; color: #1d4ed8; }
-.me-badge-purple { background: #ede9fe; color: #6d28d9; }
+.me-badge-green { background: rgba(52, 199, 89, 0.14); color: #15803d; }
+.me-badge-red { background: rgba(255, 59, 48, 0.14); color: #c81e1e; }
+.me-badge-yellow { background: rgba(255, 149, 0, 0.15); color: #b45309; }
+.me-badge-gray { background: rgba(118, 118, 128, 0.12); color: #5b6478; }
+.me-badge-blue { background: rgba(0, 122, 255, 0.13); color: #0062cc; }
+.me-badge-purple { background: rgba(88, 86, 214, 0.14); color: #4f46e5; }
 
-/* Payslip */
-.me-slip-net { font-size: 17px; font-weight: 700; color: var(--me-green); }
+/* Payslip Net */
+.me-slip-net {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--me-green);
+  font-variant-numeric: tabular-nums;
+}
 
-/* Form */
+/* ===== Forms & Buttons ===== */
 .me-field { margin-bottom: 12px; }
 .me-field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--me-text-2); margin-bottom: 5px; }
 .me-input, .me-field select, .me-field textarea {
   width: 100%;
-  padding: 11px 12px;
-  border: 1px solid var(--me-border);
+  padding: 11px 13px;
+  border: 1px solid #E5E5EA;
   border-radius: 12px;
-  background: #f6f7fc;
+  background: #F9F9FB;
   font-size: 14px;
   font-family: inherit;
   color: var(--me-text);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
-.me-input:focus, .me-field select:focus, .me-field textarea:focus { outline: none; border-color: var(--me-accent); background: #fff; }
+.me-input:focus, .me-field select:focus, .me-field textarea:focus {
+  outline: none;
+  border-color: var(--me-accent);
+  background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.14);
+}
 .me-field textarea { resize: vertical; min-height: 60px; }
 
 .me-btn {
@@ -170,63 +338,82 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 12px 18px;
+  padding: 12.5px 18px;
   border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #6d5ef5, #8b7cf8);
-  color: #fff;
+  border-radius: 13px;
+  background: var(--me-accent);
+  color: #FFFFFF;
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   width: 100%;
-  box-shadow: 0 4px 10px rgba(109, 94, 245, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25);
+  transition: transform 0.12s cubic-bezier(0.32, 0.72, 0, 1), background 0.15s;
 }
-.me-btn:disabled { opacity: 0.5; }
+.me-btn:hover:not(:disabled) { background: #0066D6; }
+.me-btn:active:not(:disabled) { transform: scale(0.97); }
+.me-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.me-empty { padding: 22px; text-align: center; color: var(--me-text-3); font-size: 13px; }
+.me-empty { padding: 26px; text-align: center; color: var(--me-text-3); font-size: 13px; }
 
-/* Bottom tab bar */
+/* ===== Floating Frosted Glass Bottom Tab Bar (iOS Dock Style) ===== */
 .me-tabbar {
   position: fixed;
-  bottom: 0;
+  bottom: calc(10px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
-  max-width: 560px;
-  background: var(--me-card);
-  border-top: 1px solid var(--me-border);
+  width: calc(100% - 24px);
+  max-width: 536px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: saturate(190%) blur(24px);
+  -webkit-backdrop-filter: saturate(190%) blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 24px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05);
   display: flex;
+  padding: 5px 6px;
   z-index: 50;
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .me-tab {
   flex: 1;
-  padding: 9px 0 8px;
+  padding: 7px 0 6px;
   text-align: center;
   background: none;
   border: none;
+  border-radius: 18px;
   cursor: pointer;
   color: var(--me-text-3);
   font-size: 10.5px;
+  font-weight: 600;
   font-family: inherit;
+  transition: color 0.15s, background 0.15s, transform 0.12s;
 }
-.me-tab .ico { display: block; font-size: 19px; margin-bottom: 2px; }
-.me-tab.active { color: var(--me-accent); font-weight: 700; }
+.me-tab:active { transform: scale(0.94); }
+.me-tab .ico { display: block; font-size: 19px; margin-bottom: 1px; }
+.me-tab.active {
+  color: var(--me-accent);
+  background: rgba(0, 122, 255, 0.1);
+  font-weight: 700;
+}
 
+/* ===== Toast & iOS Bottom Action Sheet ===== */
 .me-toast {
   position: fixed;
   bottom: 96px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 11px 18px;
-  border-radius: 12px;
-  background: #1d2433;
+  padding: 11px 20px;
+  border-radius: 999px;
+  background: rgba(28, 28, 30, 0.92);
+  backdrop-filter: blur(16px);
   color: #fff;
   font-size: 13px;
+  font-weight: 600;
   z-index: 200;
   white-space: nowrap;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
 }
 .me-toast.error { background: var(--me-red); }
 
@@ -234,22 +421,25 @@
   position: fixed;
   inset: 0;
   z-index: 250;
-  background: rgba(29, 36, 51, 0.42);
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 16px;
+  padding: 12px;
 }
 .me-sheet {
   width: 100%;
   max-width: 560px;
-  max-height: min(76vh, 620px);
+  max-height: min(78vh, 640px);
   overflow-y: auto;
-  background: #fff;
+  background: #FFFFFF;
   border: 1px solid var(--me-border);
-  border-radius: 18px 18px 14px 14px;
-  box-shadow: 0 18px 45px rgba(16, 24, 40, 0.24);
+  border-radius: 24px 24px 18px 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.24);
   padding: 18px;
+  animation: iosSheetUp 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 .me-sheet-head {
   display: flex;
@@ -257,16 +447,16 @@
   align-items: flex-start;
   gap: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f1f2f8;
+  border-bottom: 1px solid rgba(60, 60, 67, 0.08);
 }
-.me-sheet-title { font-size: 16px; font-weight: 800; }
+.me-sheet-title { font-size: 16px; font-weight: 700; }
 .me-sheet-meta { margin-top: 4px; font-size: 12px; color: var(--me-text-3); }
 .me-sheet-close {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border: none;
-  border-radius: 10px;
-  background: #f1f2f8;
+  border-radius: 50%;
+  background: rgba(118, 118, 128, 0.14);
   color: var(--me-text-2);
   cursor: pointer;
 }

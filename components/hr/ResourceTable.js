@@ -21,16 +21,7 @@ function formatWeekdays(value) {
 }
 
 /**
- * ตาราง CRUD อเนกประสงค์สำหรับทุกหน้า /hr — ขับเคลื่อนด้วย config:
- * {
- *   resource, title, icon,
- *   columns: [{ key, label, badge?: {value: colorName}, format?: (v,row)=>node }],
- *   fields:  [{ key, label, type: text|number|date|time|select|textarea|employee|checkbox,
- *               options?: [{value,label}], required?, default? }],
- *   searchPlaceholder?, canEdit?, canDelete?, exportName?,
- *   renderActions?: (row, reload, showToast) => node,
- *   headerExtra?: node,
- * }
+ * ตาราง CRUD อเนกประสงค์สำหรับทุกหน้า /hr — Apple iOS / iPadOS Design System
  */
 export default function ResourceTable({ config }) {
   const {
@@ -46,6 +37,8 @@ export default function ResourceTable({ config }) {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [confirmDeleteRow, setConfirmDeleteRow] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -54,7 +47,7 @@ export default function ResourceTable({ config }) {
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3200);
   }, []);
 
   const load = useCallback(async (q = '') => {
@@ -97,7 +90,7 @@ export default function ResourceTable({ config }) {
 
   // โหลดรายชื่อสาขาเมื่อมี field type 'branch'
   const [branches, setBranches] = useState([]);
-  const needBranches = fields?.some((f) => f.type === 'branch');
+  const needBranches = fields?.some((f) => f.type === 'branch') || columns?.some((c) => c.branchLookup);
   useEffect(() => {
     if (!needBranches) return;
     fetch('/api/hr/branches', { headers: authHeaders() })
@@ -131,13 +124,13 @@ export default function ResourceTable({ config }) {
   function onSearch(value) {
     setSearch(value);
     clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => load(value), 350);
+    searchTimer.current = setTimeout(() => load(value), 300);
   }
 
   function openAdd() {
     setEditing(null);
     const initial = {};
-    for (const f of fields) initial[f.key] = f.default ?? (f.type === 'checkbox' ? false : '');
+    for (const f of fields || []) initial[f.key] = f.default ?? (f.type === 'checkbox' ? false : '');
     setForm(initial);
     setShowModal(true);
   }
@@ -145,7 +138,7 @@ export default function ResourceTable({ config }) {
   function openEdit(row) {
     setEditing(row);
     const initial = {};
-    for (const f of fields) initial[f.key] = row[f.key] ?? (f.type === 'checkbox' ? false : '');
+    for (const f of fields || []) initial[f.key] = row[f.key] ?? (f.type === 'checkbox' ? false : '');
     setForm(initial);
     setShowModal(true);
   }
@@ -164,7 +157,7 @@ export default function ResourceTable({ config }) {
       const data = await res.json();
       if (res.ok) {
         setShowModal(false);
-        showToast(editing ? 'แก้ไขข้อมูลแล้ว' : 'เพิ่มข้อมูลแล้ว');
+        showToast(editing ? 'บันทึกการแก้ไขเรียบร้อย' : 'เพิ่มรายการใหม่เรียบร้อย');
         load(search);
       } else {
         showToast(data.error || 'บันทึกไม่สำเร็จ', 'error');
@@ -175,14 +168,26 @@ export default function ResourceTable({ config }) {
     setSaving(false);
   }
 
-  async function remove(row) {
-    if (!confirm('ยืนยันการลบข้อมูลนี้?')) return;
-    const res = await fetch(`/api/hr/${resource}/${row.id}`, {
-      method: 'DELETE',
-      headers: authHeaders(),
-    });
-    if (res.ok) { showToast('ลบข้อมูลแล้ว'); load(search); }
-    else showToast('ลบไม่สำเร็จ', 'error');
+  async function executeRemove() {
+    if (!confirmDeleteRow) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/hr/${resource}/${confirmDeleteRow.id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        showToast('ลบรายการเรียบร้อยแล้ว');
+        setConfirmDeleteRow(null);
+        load(search);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        showToast(d.error || 'ลบไม่สำเร็จ', 'error');
+      }
+    } catch {
+      showToast('เกิดข้อผิดพลาดในการลบ', 'error');
+    }
+    setDeleting(false);
   }
 
   function renderCell(col, row) {
@@ -192,7 +197,8 @@ export default function ResourceTable({ config }) {
       if (emp) {
         return (
           <span title={`${emp.name} (${emp.department || '-'})`}>
-            <strong>{value}</strong> <span style={{ color: '#4b5563', fontSize: 13 }}>· {emp.name}</span>
+            <strong style={{ color: '#000' }}>{value}</strong>{' '}
+            <span style={{ color: '#3C3C43', fontSize: 13 }}>· {emp.name}</span>
           </span>
         );
       }
@@ -281,8 +287,7 @@ export default function ResourceTable({ config }) {
           type="checkbox"
           checked={!!value}
           onChange={(e) => set(e.target.checked)}
-          style={{ width: 'auto' }}
-          className="hr-input"
+          style={{ width: 20, height: 20, accentColor: '#007AFF', cursor: 'pointer' }}
         />
       );
     }
@@ -356,15 +361,38 @@ export default function ResourceTable({ config }) {
       {headerExtra}
 
       <div className="hr-toolbar">
-        <input
-          className="hr-search"
-          placeholder={searchPlaceholder}
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-        />
-        <button className="hr-btn" onClick={() => exportExcel(filteredItems, columns, exportName)}>📄 Excel</button>
-        <button className="hr-btn" onClick={printPDF}>📑 PDF</button>
-        <button className="hr-btn hr-btn-primary" onClick={openAdd}>+ เพิ่ม</button>
+        <div className="hr-search-box">
+          <span className="hr-search-icon" aria-hidden="true">🔍</span>
+          <input
+            className="hr-search"
+            placeholder={searchPlaceholder}
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              className="hr-search-clear"
+              onClick={() => onSearch('')}
+              aria-label="ล้างคำค้นหา"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
+          <button className="hr-btn" onClick={() => exportExcel(filteredItems, columns, exportName)}>
+            <span>📊</span> ส่งออก Excel
+          </button>
+          <button className="hr-btn" onClick={printPDF}>
+            <span>🖨️</span> พิมพ์ PDF
+          </button>
+          {fields && fields.length > 0 && (
+            <button className="hr-btn hr-btn-primary" onClick={openAdd}>
+              <span>＋</span> เพิ่มรายการ
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="hr-table-wrap hr-responsive-cards">
@@ -372,11 +400,26 @@ export default function ResourceTable({ config }) {
           <thead>
             <tr>
               {columns.map((c) => <th key={c.key}>{c.label}</th>)}
-              {hasRowActions && <th></th>}
+              {hasRowActions && <th style={{ textAlign: 'right' }}>จัดการ</th>}
             </tr>
           </thead>
           <tbody>
-            {filteredItems.map((row) => (
+            {loading && Array.from({ length: 5 }).map((_, idx) => (
+              <tr key={`sk-${idx}`}>
+                {columns.map((c) => (
+                  <td key={c.key}>
+                    <div className="ios-skeleton" style={{ height: 16, width: '75%' }} />
+                  </td>
+                ))}
+                {hasRowActions && (
+                  <td style={{ textAlign: 'right' }}>
+                    <div className="ios-skeleton" style={{ height: 24, width: 64, marginLeft: 'auto' }} />
+                  </td>
+                )}
+              </tr>
+            ))}
+
+            {!loading && filteredItems.map((row) => (
               <tr key={row.id}>
                 {columns.map((c) => <td key={c.key}>{renderCell(c, row)}</td>)}
                 {hasRowActions && (
@@ -386,7 +429,7 @@ export default function ResourceTable({ config }) {
                       <button className="hr-btn hr-btn-icon" title="แก้ไข" onClick={() => openEdit(row)} style={{ marginLeft: 6 }}>✏️</button>
                     )}
                     {canDelete && (
-                      <button className="hr-btn hr-btn-icon hr-btn-danger" title="ลบ" onClick={() => remove(row)} style={{ marginLeft: 6 }}>🗑️</button>
+                      <button className="hr-btn hr-btn-icon hr-btn-danger" title="ลบ" onClick={() => setConfirmDeleteRow(row)} style={{ marginLeft: 6 }}>🗑️</button>
                     )}
                   </td>
                 )}
@@ -394,15 +437,27 @@ export default function ResourceTable({ config }) {
             ))}
           </tbody>
         </table>
-        {filteredItems.length === 0 && (
+
+        {!loading && filteredItems.length === 0 && (
           <div className="hr-empty">
-            {activeBranch !== 'all' && items.length > 0
-              ? `ไม่พบข้อมูลในสาขานี้ (มีทั้งหมด ${items.length} รายการในสาขาอื่น — ลองสลับฟิลเตอร์เป็น "ทุกสาขา" ที่มุมบนขวา)`
-              : 'ยังไม่มีข้อมูล'}
+            <div style={{ fontSize: 34, marginBottom: 8, opacity: 0.7 }}>🗂️</div>
+            <div style={{ fontWeight: 600, color: '#1d2433', fontSize: 15, marginBottom: 4 }}>
+              {activeBranch !== 'all' && items.length > 0
+                ? 'ไม่พบข้อมูลในสาขาที่เลือก'
+                : search
+                  ? `ไม่พบข้อมูลที่ตรงกับ "${search}"`
+                  : 'ยังไม่มีรายการข้อมูล'}
+            </div>
+            <div style={{ fontSize: 13, color: '#8E8E93' }}>
+              {activeBranch !== 'all' && items.length > 0
+                ? `มีทั้งหมด ${items.length} รายการในสาขาอื่น — ลองสลับตัวกรองเป็น "ทุกสาขา" ที่แถบด้านบน`
+                : 'คลิกปุ่ม "+ เพิ่มรายการ" ด้านบนเพื่อสร้างข้อมูลใหม่'}
+            </div>
           </div>
         )}
+
         <div className="hr-mobile-cards">
-          {filteredItems.map((row) => {
+          {!loading && filteredItems.map((row) => {
             const titleCol = columns[0];
             const subCol = columns[1];
             return (
@@ -424,10 +479,10 @@ export default function ResourceTable({ config }) {
                   <div className="hr-mobile-row-actions">
                     {renderActions && renderActions(row, () => load(search), showToast)}
                     {canEdit && (
-                      <button className="hr-btn" title="แก้ไข" onClick={() => openEdit(row)}>แก้ไข</button>
+                      <button className="hr-btn" title="แก้ไข" onClick={() => openEdit(row)}>✏️ แก้ไข</button>
                     )}
                     {canDelete && (
-                      <button className="hr-btn hr-btn-danger" title="ลบ" onClick={() => remove(row)}>ลบ</button>
+                      <button className="hr-btn hr-btn-danger" title="ลบ" onClick={() => setConfirmDeleteRow(row)}>🗑️ ลบ</button>
                     )}
                   </div>
                 )}
@@ -435,19 +490,18 @@ export default function ResourceTable({ config }) {
             );
           })}
         </div>
-        {!loading && items.length === 0 && <div className="hr-empty">ยังไม่มีข้อมูล</div>}
-        {loading && <div className="hr-empty">กำลังโหลด...</div>}
       </div>
 
+      {/* Form Sheet Modal */}
       {showModal && (
-        <div className="hr-modal-overlay">
+        <div className="hr-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="hr-modal" onClick={(e) => e.stopPropagation()}>
             <div className="hr-modal-header">
-              <div className="hr-modal-title">{editing ? 'แก้ไขข้อมูล' : 'เพิ่มข้อมูล'}</div>
-              <button className="hr-modal-close" onClick={() => setShowModal(false)}>✕</button>
+              <div className="hr-modal-title">{editing ? 'แก้ไขข้อมูล' : 'เพิ่มข้อมูลใหม่'}</div>
+              <button className="hr-modal-close" onClick={() => setShowModal(false)} aria-label="ปิดหน้าต่าง">✕</button>
             </div>
             <form onSubmit={save}>
-              {fields.map((f) => (
+              {(fields || []).map((f) => (
                 <div className="hr-field" key={f.key}>
                   <label>{f.label}{f.required ? ' *' : ''}</label>
                   {renderField(f)}
@@ -456,10 +510,42 @@ export default function ResourceTable({ config }) {
               <div className="hr-modal-actions">
                 <button type="button" className="hr-btn" onClick={() => setShowModal(false)}>ยกเลิก</button>
                 <button type="submit" className="hr-btn hr-btn-primary" disabled={saving}>
-                  {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+                  {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Native iOS Alert Confirmation Dialog for Deletion */}
+      {confirmDeleteRow && (
+        <div className="hr-modal-overlay" onClick={() => !deleting && setConfirmDeleteRow(null)}>
+          <div className="hr-ios-alert" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true">
+            <div className="hr-ios-alert-body">
+              <div className="hr-ios-alert-title">ยืนยันการลบรายการ?</div>
+              <div className="hr-ios-alert-desc">
+                คุณต้องการลบข้อมูลนี้ใช่หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้
+              </div>
+            </div>
+            <div className="hr-ios-alert-actions">
+              <button
+                type="button"
+                className="hr-ios-alert-btn cancel"
+                disabled={deleting}
+                onClick={() => setConfirmDeleteRow(null)}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="hr-ios-alert-btn destructive"
+                disabled={deleting}
+                onClick={executeRemove}
+              >
+                {deleting ? 'กำลังลบ...' : 'ลบรายการ'}
+              </button>
+            </div>
           </div>
         </div>
       )}

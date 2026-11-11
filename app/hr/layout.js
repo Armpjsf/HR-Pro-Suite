@@ -116,6 +116,19 @@ export default function HrLayout({ children }) {
   const [activeBranch, setActiveBranch] = useState(
     typeof window !== 'undefined' ? localStorage.getItem('hr-active-branch') || 'all' : 'all'
   );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    typeof window !== 'undefined' ? localStorage.getItem('hr-sidebar-collapsed') === '1' : false
+  );
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hr-sidebar-collapsed', next ? '1' : '0');
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetch('/api/hr/branches', { headers: authHeaders() })
@@ -200,57 +213,74 @@ export default function HrLayout({ children }) {
 
   return (
     <div className="hr-root">
-      <aside className="hr-sidebar">
+      <aside className={`hr-sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="hr-logo">
-          <div className="hr-logo-icon">
+          <div className="hr-logo-icon" title="HR Pro Suite">
             <img src="/brand/hr-pro-logo.svg" alt="HR Pro Suite" />
           </div>
-          <div>
-            <div className="hr-logo-title">HR Pro Suite</div>
-            <div className="hr-logo-sub">บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต</div>
-          </div>
+          {!sidebarCollapsed && (
+            <div className="hr-logo-text">
+              <div className="hr-logo-title">HR Pro Suite</div>
+              <div className="hr-logo-sub">บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต</div>
+            </div>
+          )}
+          <button
+            type="button"
+            className="hr-sidebar-toggle"
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? 'ขยายแถบเมนูด้านข้าง' : 'ย่อแถบเมนูเป็นไอคอน (เพิ่มพื้นที่ตาราง)'}
+            aria-label={sidebarCollapsed ? 'ขยายแถบเมนูด้านข้าง' : 'ย่อแถบเมนูเป็นไอคอน'}
+          >
+            {sidebarCollapsed ? '»' : '«'}
+          </button>
         </div>
-        <nav className="hr-nav">
+
+        <nav className="hr-nav" aria-label="เมนูจัดการทรัพยากรบุคคล">
           {groupedMenus.map((group) => (
             <div className="hr-nav-group" key={group.name}>
-              <div className="hr-nav-heading">{group.name}</div>
+              {!sidebarCollapsed && <div className="hr-nav-heading">{group.name}</div>}
               {group.items.map((m) => (
                 <Link
                   key={m.key}
                   href={m.href}
+                  title={sidebarCollapsed ? `${m.label} (${group.name})` : undefined}
                   className={`hr-nav-item${pathname === m.href ? ' active' : ''}`}
                 >
                   <span className="hr-nav-icon">{m.icon}</span>
-                  {m.label}
+                  {!sidebarCollapsed && <span className="hr-nav-label">{m.label}</span>}
                 </Link>
               ))}
             </div>
           ))}
         </nav>
-        <div className="hr-sidebar-user">
+
+        <div className="hr-sidebar-user" title={sidebarCollapsed ? `${user.name} (${user.role})` : undefined}>
           <div className="hr-sidebar-avatar">{(user.name || '?')[0]}</div>
-          <div>
-            <div className="hr-sidebar-user-name">{user.name}</div>
-            <div className="hr-sidebar-user-role">{user.role === 'admin' ? '👑 Administrator' : user.role}</div>
-          </div>
+          {!sidebarCollapsed && (
+            <div className="hr-sidebar-user-meta">
+              <div className="hr-sidebar-user-name">{user.name}</div>
+              <div className="hr-sidebar-user-role">{user.role === 'admin' ? '👑 Administrator' : user.role}</div>
+            </div>
+          )}
         </div>
       </aside>
 
       <div className="hr-main">
         <header className="hr-topbar">
-          <div>
+          <div className="hr-topbar-left">
             <div className="hr-breadcrumb">HR Pro Suite / {pageLabel}</div>
             <div className="hr-page-title">{pageLabel}</div>
           </div>
           <div className="hr-topbar-right">
             {branches.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f5f3ff', padding: '4px 10px', borderRadius: 8, border: '1px solid #ddd6fe' }}>
+              <div className="hr-branch-pill">
                 <span style={{ fontSize: 14 }}>🏬</span>
                 <select
                   value={activeBranch}
                   onChange={(e) => handleBranchChange(e.target.value)}
-                  style={{ border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: '#6d28d9', outline: 'none', cursor: 'pointer' }}
+                  className="hr-branch-select"
                   title="กรองข้อมูลตามสาขา"
+                  aria-label="กรองข้อมูลตามสาขา"
                 >
                   <option value="all">ทุกสาขา (ภาพรวม)</option>
                   {branches.map((b) => (
@@ -259,7 +289,11 @@ export default function HrLayout({ children }) {
                 </select>
               </div>
             )}
-            <Link href="/me" className="hr-btn" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#ede9fe', color: '#6d28d9', borderColor: '#ddd6fe', fontWeight: 600 }} title="สลับไปยังหน้าบริการตนเองของพนักงาน">
+            <Link
+              href="/me"
+              className="hr-btn hr-emp-mode-btn"
+              title="สลับไปยังหน้าบริการตนเองของพนักงาน"
+            >
               <span>👤</span> โหมดพนักงาน
             </Link>
             <span className="hr-topbar-date">{today}</span>
