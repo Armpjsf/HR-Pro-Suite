@@ -226,6 +226,10 @@ export default function ResourceTable({ config }) {
     const value = form[f.key];
     const set = (v) => setForm((prev) => ({ ...prev, [f.key]: v }));
 
+    if (typeof f.render === 'function') {
+      return f.render({ value, set, form, setForm });
+    }
+
     if (f.type === 'select') {
       return (
         <select value={value} onChange={(e) => set(e.target.value)} required={f.required}>

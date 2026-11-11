@@ -887,10 +887,132 @@
 
 /* ===== Print ===== */
 @media print {
-  .hr-sidebar, .hr-topbar, .hr-toolbar, .hr-btn, .hr-emp-actions, .hr-toast, .hr-tabs, .hr-segmented-wrap { display: none !important; }
-  .hr-root { background: #fff; }
-  .hr-content { padding: 0; }
-  .hr-table-wrap, .hr-card, .hr-stat-card { box-shadow: none; border: 1px solid #ddd; }
+  /* ซ่อน Navigation, Action buttons, Toolbar, Toast, และแถบเมนูด้านล่างทั้งหมด */
+  .hr-sidebar,
+  .hr-topbar,
+  .hr-toolbar,
+  .hr-btn,
+  .hr-emp-actions,
+  .hr-toast,
+  .hr-tabs,
+  .hr-segmented-wrap,
+  .hr-mobile-nav,
+  .hr-mobile-more,
+  .hr-modal-close,
+  .hr-search-box,
+  .hr-search-clear,
+  .hr-topbar-actions,
+  .hr-emp-mode-btn,
+  .hr-large-title-icon {
+    display: none !important;
+  }
+
+  body, .hr-root, .hr-main {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: auto !important;
+  }
+
+  .hr-content {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .hr-large-title-wrap {
+    margin-bottom: 12px !important;
+  }
+
+  .hr-large-title, .hr-large-sub {
+    color: #000000 !important;
+  }
+
+  /* บังคับให้แสดงผลตารางคมชัด ดำ-ขาว เสมอ ไม่ว่าจะพิมพ์จากคอมหรือมือถือ */
+  .hr-table-wrap {
+    box-shadow: none !important;
+    border: 1px solid #333333 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  .hr-table-wrap .hr-table,
+  .hr-table-wrap.hr-responsive-cards .hr-table {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    color: #000000 !important;
+  }
+
+  .hr-table-wrap .hr-mobile-cards,
+  .hr-table-wrap.hr-responsive-cards .hr-mobile-cards {
+    display: none !important;
+  }
+
+  .hr-table th, .hr-table td {
+    color: #000000 !important;
+    border: 1px solid #cccccc !important;
+    padding: 7px 10px !important;
+    background: transparent !important;
+    font-size: 10.5pt !important;
+  }
+
+  .hr-table th {
+    background: #f2f2f7 !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .hr-table tr {
+    page-break-inside: avoid;
+  }
+
+  .hr-stat-row {
+    margin-bottom: 14px !important;
+    gap: 8px !important;
+  }
+
+  .hr-stat-card {
+    border: 1px solid #cccccc !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    padding: 8px 12px !important;
+  }
+
+  .hr-stat-value, .hr-stat-label {
+    color: #000000 !important;
+  }
+
+  /* เมื่อพิมพ์ขณะเปิด Modal สลิปเงินเดือน (SlipViewModal) ให้แสดงเฉพาะตัวสลิป */
+  .hr-modal-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .hr-modal {
+    position: static !important;
+    box-shadow: none !important;
+    border: 1px solid #000000 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 16px !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .hr-modal * {
+    color: #000000 !important;
+  }
+
+  .hr-modal-header {
+    border-bottom: 2px solid #000000 !important;
+    padding-bottom: 8px !important;
+  }
 }
 
 /* ===== Responsive (Tablet & Mobile) ===== */

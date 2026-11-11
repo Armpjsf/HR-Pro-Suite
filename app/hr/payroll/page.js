@@ -223,11 +223,23 @@ export default function PayrollPage() {
           ],
           fields: [
             { key: 'employee_id', label: 'พนักงาน', type: 'employee', required: true },
-            { key: 'period', label: 'งวด (เช่น 2026-10)', type: 'text', required: true },
+            {
+              key: 'period',
+              label: 'งวด (รูปแบบ YYYY-MM เช่น 2026-11)',
+              type: 'text',
+              required: true,
+              default: new Date().toISOString().slice(0, 7),
+            },
             { key: 'base_salary', label: 'เงินเดือนฐาน (บาท)', type: 'number', default: 0 },
             { key: 'ot_pay', label: 'ค่าล่วงเวลา OT (บาท)', type: 'number', default: 0 },
             { key: 'bonus', label: 'โบนัส (บาท)', type: 'number', default: 0 },
-            { key: 'tax', label: 'หักภาษี ณ ที่จ่าย (บาท)', type: 'number', default: 0 },
+            {
+              key: 'tax',
+              label: 'หักภาษี ณ ที่จ่าย (เลือก % หรือระบุยอดบาท)',
+              render: ({ value, set, form }) => (
+                <TaxWithholdingField value={value} set={set} form={form} />
+              ),
+            },
             { key: 'sso', label: 'หักประกันสังคม (บาท)', type: 'number', default: 0 },
             { key: 'deduction', label: 'หักอื่นๆ (บาท)', type: 'number', default: 0 },
             {
@@ -482,6 +494,112 @@ function SlipViewModal({ slip, onClose }) {
             เอกสารนี้สร้างจากระบบ HR Pro Suite — ถือเป็นเอกสารรับรองทางบัญชีและการจ่ายเงินเดือนของ {COMPANY.legalName}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TaxWithholdingField({ value, set, form }) {
+  const [activePct, setActivePct] = useState(null);
+  const [customPct, setCustomPct] = useState('');
+
+  // เงินได้รวม = ฐานเงินเดือน + OT + โบนัส
+  const grossIncome = (Number(form.base_salary) || 0) + (Number(form.ot_pay) || 0) + (Number(form.bonus) || 0);
+
+  const applyPercent = (pct) => {
+    setActivePct(pct);
+    setCustomPct('');
+    const amt = Math.round(grossIncome * (pct / 100) * 100) / 100;
+    set(amt);
+  };
+
+  const applyCustom = (val) => {
+    setCustomPct(val);
+    setActivePct('custom');
+    const p = parseFloat(val);
+    if (!isNaN(p) && p >= 0) {
+      const amt = Math.round(grossIncome * (p / 100) * 100) / 100;
+      set(amt);
+    }
+  };
+
+  return (
+    <div style={{ background: '#F8F9FE', padding: '12px', borderRadius: '12px', border: '1px solid rgba(60,60,67,0.1)' }}>
+      {/* Quick % buttons */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+        {[
+          { label: '0% ไม่หัก', pct: 0 },
+          { label: '1% ขนส่ง', pct: 1 },
+          { label: '3% จ้างทำของ/บริการ', pct: 3 },
+          { label: '5% ค่าเช่า', pct: 5 },
+        ].map((item) => (
+          <button
+            key={item.pct}
+            type="button"
+            className={`hr-tab${activePct === item.pct ? ' active' : ''}`}
+            style={{
+              padding: '5px 10px',
+              fontSize: 12,
+              borderRadius: 8,
+              cursor: 'pointer',
+              border: activePct === item.pct ? '1.5px solid #007AFF' : '1px solid rgba(60,60,67,0.15)',
+              background: activePct === item.pct ? '#007AFF' : '#FFFFFF',
+              color: activePct === item.pct ? '#FFFFFF' : 'var(--hr-text)',
+              fontWeight: 600,
+              transition: 'all 0.15s ease',
+            }}
+            onClick={() => applyPercent(item.pct)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Input row: Baht amount + Custom % */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <input
+            className="hr-input"
+            type="number"
+            step="any"
+            value={value ?? 0}
+            onChange={(e) => {
+              setActivePct(null);
+              set(e.target.value === '' ? '' : Number(e.target.value));
+            }}
+            placeholder="จำนวนเงินบาทที่หัก"
+            style={{ paddingRight: 40 }}
+          />
+          <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#8E8E93', pointerEvents: 'none' }}>
+            บาท
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 100 }}>
+          <span style={{ fontSize: 12, color: 'var(--hr-text-3)' }}>หรือ</span>
+          <input
+            className="hr-input"
+            type="number"
+            step="0.1"
+            placeholder="%"
+            value={customPct}
+            onChange={(e) => applyCustom(e.target.value)}
+            style={{ width: 62, textAlign: 'center', padding: '7px 4px' }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--hr-text)' }}>%</span>
+        </div>
+      </div>
+
+      {/* Realtime calculation summary */}
+      <div style={{ marginTop: 8, fontSize: 12, color: '#3C3C43', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+        <span>
+          เงินได้รวม (ฐาน + OT + โบนัส): <strong>{grossIncome.toLocaleString()} ฿</strong>
+        </span>
+        {grossIncome > 0 && Number(value) > 0 && (
+          <span style={{ color: '#007AFF', fontWeight: 600 }}>
+            หัก {((Number(value) / grossIncome) * 100).toFixed(1)}% = {Number(value).toLocaleString()} ฿
+          </span>
+        )}
       </div>
     </div>
   );
