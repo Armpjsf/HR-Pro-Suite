@@ -25,11 +25,24 @@ export default function PayrollPage() {
   const [batchPeriod, setBatchPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [batchLoading, setBatchLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [payrollStats, setPayrollStats] = useState({ totalNet: 0, totalTax: 0, totalSso: 0, count: 0, paidCount: 0 });
 
   function showToast(message, type = 'success') {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   }
+
+  const handleItemsChange = (items) => {
+    if (!items || !items.length) {
+      setPayrollStats({ totalNet: 0, totalTax: 0, totalSso: 0, count: 0, paidCount: 0 });
+      return;
+    }
+    const totalNet = items.reduce((acc, curr) => acc + (Number(curr.net) || 0), 0);
+    const totalTax = items.reduce((acc, curr) => acc + (Number(curr.tax) || 0), 0);
+    const totalSso = items.reduce((acc, curr) => acc + (Number(curr.sso) || 0), 0);
+    const paidCount = items.filter((x) => x.status === 'paid').length;
+    setPayrollStats({ totalNet, totalTax, totalSso, count: items.length, paidCount });
+  };
 
   async function handleGeneratePayroll(e) {
     e.preventDefault();
@@ -115,11 +128,44 @@ export default function PayrollPage() {
 
   return (
     <>
+      {/* iOS Widget Stats for Payroll */}
+      <div className="hr-stat-row" style={{ marginBottom: 16 }}>
+        <div className="hr-stat-card">
+          <div className="hr-stat-icon" style={{ '--sq': '#34C759' }}>💰</div>
+          <div>
+            <div className="hr-stat-value">{baht(payrollStats.totalNet)}</div>
+            <div className="hr-stat-label">ยอดเงินเดือนสุทธิรวม</div>
+          </div>
+        </div>
+        <div className="hr-stat-card">
+          <div className="hr-stat-icon" style={{ '--sq': '#007AFF' }}>📑</div>
+          <div>
+            <div className="hr-stat-value">{payrollStats.paidCount} / {payrollStats.count} <small style={{ fontSize: 13, fontWeight: 500, color: 'var(--hr-text-3)' }}>คน</small></div>
+            <div className="hr-stat-label">จ่ายเงินเดือนสำเร็จแล้ว</div>
+          </div>
+        </div>
+        <div className="hr-stat-card">
+          <div className="hr-stat-icon" style={{ '--sq': '#FF9500' }}>🏥</div>
+          <div>
+            <div className="hr-stat-value">{baht(payrollStats.totalSso)}</div>
+            <div className="hr-stat-label">เงินสมทบประกันสังคมรวม</div>
+          </div>
+        </div>
+        <div className="hr-stat-card">
+          <div className="hr-stat-icon" style={{ '--sq': '#5856D6' }}>🏛️</div>
+          <div>
+            <div className="hr-stat-value">{baht(payrollStats.totalTax)}</div>
+            <div className="hr-stat-label">ภาษีหัก ณ ที่จ่ายรวม</div>
+          </div>
+        </div>
+      </div>
+
       <ResourceTable
         config={{
           resource: 'payroll',
           exportName: 'payroll_slips',
           searchPlaceholder: 'ค้นหารหัส/ชื่อพนักงาน/งวด...',
+          onItemsChange: handleItemsChange,
           headerExtra: (
             <div className="hr-toolbar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 12 }}>
               <button className="hr-btn" onClick={() => setShowGenModal(true)}>

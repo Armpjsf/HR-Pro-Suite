@@ -346,8 +346,8 @@ export default function EmployeesPage() {
       {view === 'cards' ? (
         <div className="hr-emp-grid">
           {filtered.map((emp) => (
-            <div className="hr-emp-card" key={emp.employeeId}>
-              <div className="hr-emp-head">
+            <div className="hr-emp-card" key={emp.employeeId} style={{ display: 'flex', flexDirection: 'column' }}>
+              <div className="hr-emp-head" style={{ marginBottom: 14 }}>
                 {emp.photoUrl ? (
                   <img src={photoSrc(emp.photoUrl)} alt={emp.name}
                     className="hr-emp-avatar" style={{ objectFit: 'cover' }} />
@@ -356,28 +356,38 @@ export default function EmployeesPage() {
                     {(emp.name || '?')[0]}
                   </div>
                 )}
-                <div>
-                  <div className="hr-emp-name">
-                    {emp.name}
-                    {emp.status && emp.status !== 'active' && (
-                      <span className="hr-badge hr-badge-red" style={{ marginLeft: 6 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="hr-emp-name" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                    <span>{emp.name}</span>
+                    {emp.status && emp.status !== 'active' ? (
+                      <span className="hr-badge hr-badge-red">
                         {STATUS_LABELS[emp.status] || emp.status}
+                      </span>
+                    ) : (
+                      <span className="hr-badge hr-badge-green" style={{ fontSize: 10 }}>
+                        ปกติ
                       </span>
                     )}
                   </div>
-                  <div className="hr-emp-id">{emp.employeeId} · {EMPLOYMENT_TYPE_LABELS[emp.employmentType] || 'รายเดือน'}</div>
+                  <div className="hr-emp-id" style={{ marginTop: 2 }}>{emp.employeeId} · {EMPLOYMENT_TYPE_LABELS[emp.employmentType] || 'รายเดือน'}</div>
                 </div>
               </div>
-              <div className="hr-emp-row"><span className="k">🏢 แผนก</span><span className="v">{emp.department || '-'}</span></div>
-              <div className="hr-emp-row"><span className="k">🏬 สาขา</span><span className="v">{emp.branchId ? branchName(emp.branchId) : '-'}</span></div>
-              <div className="hr-emp-row"><span className="k">💼 ตำแหน่ง</span><span className="v">{emp.position || '-'}</span></div>
-              <div className="hr-emp-row"><span className="k">📅 เริ่มงาน</span><span className="v">{emp.startDate || '-'}</span></div>
-              <div className="hr-emp-row">
-                <span className="k">🏖️ สิทธิ์ลาคงเหลือ</span>
-                <span className="v">{leaveSummary(emp)}</span>
+
+              <div style={{ background: '#F8F9FE', borderRadius: 14, padding: '6px 12px', border: '1px solid rgba(60,60,67,0.06)', flex: 1 }}>
+                <div className="hr-emp-row"><span className="k">🏢 แผนก</span><span className="v">{emp.department || '-'}</span></div>
+                <div className="hr-emp-row"><span className="k">🏬 สาขา</span><span className="v">{emp.branchId ? branchName(emp.branchId) : '-'}</span></div>
+                <div className="hr-emp-row"><span className="k">💼 ตำแหน่ง</span><span className="v">{emp.position || '-'}</span></div>
+                <div className="hr-emp-row"><span className="k">📅 เริ่มงาน</span><span className="v">{emp.startDate || '-'}</span></div>
+                <div className="hr-emp-row" style={{ borderBottom: 'none' }}>
+                  <span className="k">🏖️ สิทธิ์ลา</span>
+                  <span className="v" style={{ fontSize: 12 }}>{leaveSummary(emp)}</span>
+                </div>
               </div>
-              <div className="hr-emp-actions">
-                <button className="hr-btn" style={{ flex: 1 }} onClick={() => openEdit(emp)}>✏️ แก้ไข</button>
+
+              <div className="hr-emp-actions" style={{ marginTop: 14 }}>
+                <button className="hr-btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => openEdit(emp)}>
+                  <span>✏️</span> แก้ไขข้อมูล
+                </button>
               </div>
             </div>
           ))}
@@ -416,181 +426,189 @@ export default function EmployeesPage() {
       )}
 
       {editing && (
-        <div className="hr-modal-overlay">
-          <div className="hr-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="hr-modal-header">
-              <div className="hr-modal-title">แก้ไขพนักงาน · {editing.employeeId}</div>
+        <div className="hr-modal-overlay" onClick={() => setEditing(null)}>
+          <div className="hr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
+            <div className="hr-modal-header" style={{ borderBottom: '1px solid var(--hr-border)', paddingBottom: 12 }}>
+              <div>
+                <div className="hr-modal-title">แก้ไขข้อมูลพนักงาน</div>
+                <div style={{ fontSize: 12, color: 'var(--hr-text-3)', marginTop: 2 }}>{editing.employeeId} · {editing.name}</div>
+              </div>
               <button className="hr-modal-close" onClick={() => setEditing(null)}>✕</button>
             </div>
             <form onSubmit={save}>
-              <div className="hr-field"><label>ชื่อ-สกุล</label><input className="hr-input" value={form.name} onChange={set('name')} required /></div>
-              <div className="hr-field"><label>ชื่อ (อังกฤษ)</label><input className="hr-input" value={form.nameEn} onChange={set('nameEn')} /></div>
-              <div className="hr-field"><label>อีเมล</label><input className="hr-input" value={form.email} onChange={set('email')} /></div>
-              <div className="hr-field">
-                <label>แผนก</label>
-                <select className="hr-input" value={form.department} onChange={set('department')}>
-                  <option value="">— ไม่ระบุ —</option>
-                  {departmentsList.map((d) => (
-                    <option key={d.code || d.name} value={d.name}>{d.name} {d.code ? `(${d.code})` : ''}</option>
-                  ))}
-                  {form.department && !departmentsList.some((d) => d.name === form.department) && (
-                    <option value={form.department}>{form.department} (เดิม)</option>
-                  )}
-                </select>
-              </div>
-              <div className="hr-field">
-                <label>สาขา</label>
-                <select className="hr-input" value={form.branchId} onChange={(e) => setForm((p) => ({ ...p, branchId: e.target.value }))}>
-                  <option value="">— ไม่ระบุ —</option>
-                  {branches.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
-                </select>
-              </div>
-              <div className="hr-field">
-                <label>หัวหน้างาน (ผู้อนุมัติลำดับแรก)</label>
-                <select className="hr-input" value={form.managerId} onChange={(e) => setForm((p) => ({ ...p, managerId: e.target.value }))}>
-                  <option value="">— ไม่ระบุ —</option>
-                  {employees.filter((x) => x.employeeId !== editing?.employeeId).map((x) => (
-                    <option key={x.employeeId} value={x.employeeId}>{x.employeeId} · {x.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="hr-field">
-                <label>ตำแหน่ง</label>
-                <select className="hr-input" value={form.position} onChange={set('position')}>
-                  <option value="">— ไม่ระบุ —</option>
-                  {positionsList.map((p) => (
-                    <option key={p.id || p.title} value={p.title}>{p.title} {p.level ? `(${p.level})` : ''}</option>
-                  ))}
-                  {form.position && !positionsList.some((p) => p.title === form.position) && (
-                    <option value={form.position}>{form.position} (เดิม)</option>
-                  )}
-                </select>
-              </div>
-              <div className="hr-field"><label>วันเริ่มงาน</label><input className="hr-input" type="date" value={form.startDate} onChange={set('startDate')} /></div>
-              <div className="hr-field">
-                <label>ประเภทการจ้าง</label>
-                <select className="hr-input" value={form.employmentType} onChange={set('employmentType')}>
-                  {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-              <div className="hr-field">
-                <label>สถานะพนักงาน</label>
-                <select value={form.status} onChange={set('status')}>
-                  {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-              {form.status !== 'active' && (
-                <div className="hr-field"><label>วันพ้นสภาพ/พักงาน</label><input className="hr-input" type="date" value={form.resignDate} onChange={set('resignDate')} /></div>
-              )}
-
-              <div className="hr-section-title" style={{ marginTop: 16 }}>รูปถ่ายพนักงาน</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
-                {editing.photoUrl && (
-                  <img src={photoSrc(editing.photoUrl)} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }} />
-                )}
-                <input type="file" accept="image/*" disabled={uploadingPhoto}
-                  onChange={(e) => uploadPhoto(e.target.files?.[0])} />
-                {uploadingPhoto && <span style={{ fontSize: 13 }}>⏳ กำลังอัปโหลด...</span>}
-              </div>
-
-              <div className="hr-section-title" style={{ marginTop: 16 }}>ข้อมูลติดต่อ</div>
-              <div className="hr-field"><label>เบอร์โทรศัพท์</label><input className="hr-input" value={form.phone} onChange={set('phone')} /></div>
-              <div className="hr-field"><label>ที่อยู่</label><textarea className="hr-input" rows={2} value={form.address} onChange={set('address')} /></div>
-              <div className="hr-field"><label>ผู้ติดต่อฉุกเฉิน — ชื่อ</label><input className="hr-input" value={form.emergencyName} onChange={set('emergencyName')} /></div>
-              <div className="hr-field"><label>ผู้ติดต่อฉุกเฉิน — เบอร์โทร</label><input className="hr-input" value={form.emergencyPhone} onChange={set('emergencyPhone')} /></div>
-              <div className="hr-field"><label>ผู้ติดต่อฉุกเฉิน — ความสัมพันธ์</label><input className="hr-input" value={form.emergencyRelation} onChange={set('emergencyRelation')} placeholder="เช่น บิดา มารดา คู่สมรส" /></div>
-
-              <div className="hr-section-title" style={{ marginTop: 16 }}>ข้อมูลสำหรับสลิป/ภาษี/โอนเงิน</div>
-              <div className="hr-field"><label>เงินเดือนฐาน (บาท/เดือน)</label><input className="hr-input" type="number" step="any" value={form.salary} onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value === '' ? 0 : Number(e.target.value) }))} /></div>
-              <div className="hr-field"><label>เลขบัตรประชาชน (13 หลัก)</label><input className="hr-input" value={form.nationalId} onChange={set('nationalId')} maxLength={13} pattern="\d{13}" title="ตัวเลข 13 หลัก" /></div>
-              <div className="hr-field"><label>เลขผู้เสียภาษี</label><input className="hr-input" value={form.taxId} onChange={set('taxId')} /></div>
-              <div className="hr-field"><label>ธนาคาร</label><input className="hr-input" value={form.bankName} onChange={set('bankName')} /></div>
-              <div className="hr-field"><label>เลขบัญชี</label><input className="hr-input" value={form.bankAccount} onChange={set('bankAccount')} /></div>
-
-              <div className="hr-section-title" style={{ marginTop: 16 }}>วันสำคัญ (ใช้แจ้งเตือนอัตโนมัติ)</div>
-              <div className="hr-field"><label>วันเกิด</label><input className="hr-input" type="date" value={form.birthDate} onChange={set('birthDate')} /></div>
-              <div className="hr-field"><label>ครบกำหนดทดลองงาน</label><input className="hr-input" type="date" value={form.probationEnd} onChange={set('probationEnd')} /></div>
-              <div className="hr-field"><label>วันหมดสัญญาจ้าง</label><input className="hr-input" type="date" value={form.contractEnd} onChange={set('contractEnd')} /></div>
-              <div className="hr-field"><label>วันหมดอายุใบขับขี่</label><input className="hr-input" type="date" value={form.licenseExpiry} onChange={set('licenseExpiry')} /></div>
-
-              <div className="hr-section-title" style={{ marginTop: 16 }}>สิทธิ์วันลารายพนักงาน ({leaveYear})</div>
-              <div className="hr-table-wrap" style={{ marginTop: 8 }}>
-                <table className="hr-table">
-                  <thead>
-                    <tr>
-                      <th>ใช้กับพนักงาน</th>
-                      <th>ประเภทการลา</th>
-                      <th>สิทธิ์ทั้งหมด</th>
-                      <th>ใช้ไป</th>
-                      <th>คงเหลือ</th>
-                      <th>หมายเหตุ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(form.leaveBalances || []).map((row, index) => {
-                      const type = leaveTypeMap.get(row.leave_type);
-                      const total = Number(row.total_days) || 0;
-                      const used = Number(row.used_days) || 0;
-                      return (
-                        <tr key={row.leave_type}>
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={!!row.enabled}
-                              onChange={(e) => updateLeaveBalance(index, 'enabled', e.target.checked)}
-                            />
-                          </td>
-                          <td>{type?.name || row.leave_type}</td>
-                          <td>
-                            <input className="hr-input" type="number" step="any" value={row.total_days}
-                              disabled={!row.enabled}
-                              onChange={(e) => updateLeaveBalance(index, 'total_days', e.target.value === '' ? 0 : Number(e.target.value))} />
-                          </td>
-                          <td>
-                            <input className="hr-input" type="number" step="any" value={row.used_days}
-                              disabled={!row.enabled}
-                              onChange={(e) => updateLeaveBalance(index, 'used_days', e.target.value === '' ? 0 : Number(e.target.value))} />
-                          </td>
-                          <td>{total - used}</td>
-                          <td>
-                            <input className="hr-input" value={row.note || ''} disabled={!row.enabled}
-                              onChange={(e) => updateLeaveBalance(index, 'note', e.target.value)} />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {leaveTypes.length === 0 && (
-                  <div className="hr-empty">ตั้งค่าประเภทการลาก่อนที่เมนู “ตั้งค่าประเภทการลา”</div>
-                )}
-              </div>
-
-              {history.length > 0 && (
-                <>
-                  <div className="hr-section-title" style={{ marginTop: 16 }}>ประวัติการเปลี่ยนแปลง</div>
-                  <div className="hr-table-wrap" style={{ marginTop: 8, maxHeight: 180, overflowY: 'auto' }}>
-                    <table className="hr-table">
-                      <thead><tr><th>วันที่</th><th>รายการ</th><th>จาก</th><th>เป็น</th><th>โดย</th></tr></thead>
-                      <tbody>
-                        {history.map((h) => (
-                          <tr key={h.id}>
-                            <td>{(h.created_at || '').slice(0, 10)}</td>
-                            <td>{HISTORY_LABELS[h.change_type] || h.change_type}</td>
-                            <td>{h.old_value || '-'}</td>
-                            <td>{h.new_value || '-'}</td>
-                            <td>{h.changed_by || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              {/* Card Section 1: ข้อมูลส่วนตัว & การทำงาน */}
+              <div style={{ background: '#F8F9FE', borderRadius: 16, padding: '14px 16px', margin: '14px 0', border: '1px solid rgba(60,60,67,0.08)' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--hr-text)' }}>
+                  <span>👤</span> ข้อมูลทั่วไปและตำแหน่งงาน
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                  <div className="hr-field"><label>ชื่อ-สกุล (ไทย) *</label><input className="hr-input" value={form.name} onChange={set('name')} required /></div>
+                  <div className="hr-field"><label>ชื่อ (อังกฤษ)</label><input className="hr-input" value={form.nameEn} onChange={set('nameEn')} /></div>
+                  <div className="hr-field"><label>อีเมล</label><input className="hr-input" value={form.email} onChange={set('email')} /></div>
+                  <div className="hr-field">
+                    <label>แผนก</label>
+                    <select className="hr-input" value={form.department} onChange={set('department')}>
+                      <option value="">— ไม่ระบุ —</option>
+                      {departmentsList.map((d) => (
+                        <option key={d.code || d.name} value={d.name}>{d.name} {d.code ? `(${d.code})` : ''}</option>
+                      ))}
+                      {form.department && !departmentsList.some((d) => d.name === form.department) && (
+                        <option value={form.department}>{form.department} (เดิม)</option>
+                      )}
+                    </select>
                   </div>
-                </>
-              )}
+                  <div className="hr-field">
+                    <label>สาขา</label>
+                    <select className="hr-input" value={form.branchId} onChange={(e) => setForm((p) => ({ ...p, branchId: e.target.value }))}>
+                      <option value="">— ไม่ระบุ —</option>
+                      {branches.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>ตำแหน่ง</label>
+                    <select className="hr-input" value={form.position} onChange={set('position')}>
+                      <option value="">— ไม่ระบุ —</option>
+                      {positionsList.map((p) => (
+                        <option key={p.id || p.title} value={p.title}>{p.title} {p.level ? `(${p.level})` : ''}</option>
+                      ))}
+                      {form.position && !positionsList.some((p) => p.title === form.position) && (
+                        <option value={form.position}>{form.position} (เดิม)</option>
+                      )}
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>หัวหน้างาน</label>
+                    <select className="hr-input" value={form.managerId} onChange={(e) => setForm((p) => ({ ...p, managerId: e.target.value }))}>
+                      <option value="">— ไม่ระบุ —</option>
+                      {employees.filter((x) => x.employeeId !== editing?.employeeId).map((x) => (
+                        <option key={x.employeeId} value={x.employeeId}>{x.employeeId} · {x.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="hr-field"><label>วันเริ่มงาน</label><input className="hr-input" type="date" value={form.startDate} onChange={set('startDate')} /></div>
+                  <div className="hr-field">
+                    <label>ประเภทการจ้าง</label>
+                    <select className="hr-input" value={form.employmentType} onChange={set('employmentType')}>
+                      {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>สถานะพนักงาน</label>
+                    <select className="hr-input" value={form.status} onChange={set('status')}>
+                      {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {form.status !== 'active' && (
+                  <div className="hr-field" style={{ marginTop: 10 }}>
+                    <label>วันพ้นสภาพ/พักงาน</label>
+                    <input className="hr-input" type="date" value={form.resignDate} onChange={set('resignDate')} />
+                  </div>
+                )}
 
-              <div className="hr-modal-actions">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(60,60,67,0.08)' }}>
+                  {editing.photoUrl && (
+                    <img src={photoSrc(editing.photoUrl)} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: 'cover' }} />
+                  )}
+                  <div>
+                    <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--hr-text-2)', display: 'block', marginBottom: 4 }}>อัปโหลดรูปถ่ายพนักงาน</label>
+                    <input type="file" accept="image/*" disabled={uploadingPhoto} onChange={(e) => uploadPhoto(e.target.files?.[0])} style={{ fontSize: 12 }} />
+                    {uploadingPhoto && <span style={{ fontSize: 12, marginLeft: 8 }}>⏳ กำลังอัปโหลด...</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Section 2: การติดต่อ & การเงิน */}
+              <div style={{ background: '#F8F9FE', borderRadius: 16, padding: '14px 16px', margin: '14px 0', border: '1px solid rgba(60,60,67,0.08)' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--hr-text)' }}>
+                  <span>💳</span> ข้อมูลติดต่อและการเงิน
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                  <div className="hr-field"><label>เบอร์โทรศัพท์</label><input className="hr-input" value={form.phone} onChange={set('phone')} /></div>
+                  <div className="hr-field"><label>เงินเดือนฐาน (บาท)</label><input className="hr-input" type="number" step="any" value={form.salary} onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value === '' ? 0 : Number(e.target.value) }))} /></div>
+                  <div className="hr-field"><label>เลขบัตรประชาชน (13 หลัก)</label><input className="hr-input" value={form.nationalId} onChange={set('nationalId')} maxLength={13} /></div>
+                  <div className="hr-field"><label>เลขผู้เสียภาษี</label><input className="hr-input" value={form.taxId} onChange={set('taxId')} /></div>
+                  <div className="hr-field"><label>ธนาคาร</label><input className="hr-input" value={form.bankName} onChange={set('bankName')} /></div>
+                  <div className="hr-field"><label>เลขที่บัญชี</label><input className="hr-input" value={form.bankAccount} onChange={set('bankAccount')} /></div>
+                </div>
+                <div className="hr-field" style={{ marginTop: 10 }}><label>ที่อยู่</label><textarea className="hr-input" rows={2} value={form.address} onChange={set('address')} /></div>
+              </div>
+
+              {/* Card Section 3: วันสำคัญ */}
+              <div style={{ background: '#F8F9FE', borderRadius: 16, padding: '14px 16px', margin: '14px 0', border: '1px solid rgba(60,60,67,0.08)' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--hr-text)' }}>
+                  <span>🔔</span> วันสำคัญ (แจ้งเตือนอัตโนมัติ)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <div className="hr-field"><label>วันเกิด</label><input className="hr-input" type="date" value={form.birthDate} onChange={set('birthDate')} /></div>
+                  <div className="hr-field"><label>ครบกำหนดทดลองงาน</label><input className="hr-input" type="date" value={form.probationEnd} onChange={set('probationEnd')} /></div>
+                  <div className="hr-field"><label>วันหมดสัญญาจ้าง</label><input className="hr-input" type="date" value={form.contractEnd} onChange={set('contractEnd')} /></div>
+                  <div className="hr-field"><label>วันหมดอายุใบขับขี่</label><input className="hr-input" type="date" value={form.licenseExpiry} onChange={set('licenseExpiry')} /></div>
+                </div>
+              </div>
+
+              {/* Card Section 4: สิทธิ์วันลา */}
+              <div style={{ background: '#F8F9FE', borderRadius: 16, padding: '14px 16px', margin: '14px 0', border: '1px solid rgba(60,60,67,0.08)' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--hr-text)' }}>
+                  <span>🏖️</span> สิทธิ์วันลารายพนักงาน ({leaveYear})
+                </div>
+                <div className="hr-table-wrap" style={{ border: '1px solid var(--hr-border)' }}>
+                  <table className="hr-table">
+                    <thead>
+                      <tr>
+                        <th>ใช้สิทธิ์</th>
+                        <th>ประเภท</th>
+                        <th>สิทธิ์เต็ม</th>
+                        <th>ใช้ไป</th>
+                        <th>คงเหลือ</th>
+                        <th>หมายเหตุ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(form.leaveBalances || []).map((row, index) => {
+                        const type = leaveTypeMap.get(row.leave_type);
+                        const total = Number(row.total_days) || 0;
+                        const used = Number(row.used_days) || 0;
+                        return (
+                          <tr key={row.leave_type}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={!!row.enabled}
+                                onChange={(e) => updateLeaveBalance(index, 'enabled', e.target.checked)}
+                                style={{ width: 16, height: 16, accentColor: '#007AFF' }}
+                              />
+                            </td>
+                            <td><strong>{type?.name || row.leave_type}</strong></td>
+                            <td>
+                              <input className="hr-input" type="number" step="any" value={row.total_days}
+                                disabled={!row.enabled}
+                                style={{ width: 75, padding: '6px 8px' }}
+                                onChange={(e) => updateLeaveBalance(index, 'total_days', e.target.value === '' ? 0 : Number(e.target.value))} />
+                            </td>
+                            <td>
+                              <input className="hr-input" type="number" step="any" value={row.used_days}
+                                disabled={!row.enabled}
+                                style={{ width: 75, padding: '6px 8px' }}
+                                onChange={(e) => updateLeaveBalance(index, 'used_days', e.target.value === '' ? 0 : Number(e.target.value))} />
+                            </td>
+                            <td><strong style={{ color: 'var(--hr-accent)' }}>{total - used}</strong></td>
+                            <td>
+                              <input className="hr-input" value={row.note || ''} disabled={!row.enabled}
+                                style={{ padding: '6px 8px' }}
+                                onChange={(e) => updateLeaveBalance(index, 'note', e.target.value)} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="hr-modal-actions" style={{ marginTop: 18 }}>
                 <button type="button" className="hr-btn" onClick={() => setEditing(null)}>ยกเลิก</button>
-                <button type="submit" className="hr-btn hr-btn-primary" disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+                <button type="submit" className="hr-btn hr-btn-primary" disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}</button>
               </div>
             </form>
           </div>
@@ -599,86 +617,95 @@ export default function EmployeesPage() {
 
 
       {isAdding && (
-        <div className="hr-modal-overlay">
-          <div className="hr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 650 }}>
-            <div className="hr-modal-header">
-              <div className="hr-modal-title">✨ เพิ่มพนักงานใหม่ (จบในขั้นตอนเดียว)</div>
+        <div className="hr-modal-overlay" onClick={() => setIsAdding(false)}>
+          <div className="hr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
+            <div className="hr-modal-header" style={{ borderBottom: '1px solid var(--hr-border)', paddingBottom: 12 }}>
+              <div>
+                <div className="hr-modal-title">✨ เพิ่มพนักงานใหม่</div>
+                <div style={{ fontSize: 12, color: 'var(--hr-text-3)', marginTop: 2 }}>สร้างข้อมูลและบัญชีผู้ใช้งานอัตโนมัติ</div>
+              </div>
               <button className="hr-modal-close" onClick={() => setIsAdding(false)}>✕</button>
             </div>
             <form onSubmit={saveNewEmployee}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div className="hr-field">
-                  <label>ชื่อ-นามสกุล (ไทย) *</label>
-                  <input className="hr-input" value={addForm.name} onChange={(e) => setAddForm(p => ({ ...p, name: e.target.value }))} required placeholder="เช่น สมชาย ใจดี" />
+              {/* Card Section 1: ข้อมูลส่วนตัว & การทำงาน */}
+              <div style={{ background: '#F8F9FE', borderRadius: 16, padding: '14px 16px', margin: '14px 0', border: '1px solid rgba(60,60,67,0.08)' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--hr-text)' }}>
+                  <span>👤</span> ข้อมูลทั่วไปและตำแหน่งงาน
                 </div>
-                <div className="hr-field">
-                  <label>ชื่อ (อังกฤษ)</label>
-                  <input className="hr-input" value={addForm.nameEn} onChange={(e) => setAddForm(p => ({ ...p, nameEn: e.target.value }))} placeholder="เช่น Somchai Jaidee" />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div className="hr-field">
-                  <label>รหัสพนักงาน (เว้นว่าง = Auto)</label>
-                  <input className="hr-input" value={addForm.employeeId} onChange={(e) => setAddForm(p => ({ ...p, employeeId: e.target.value }))} placeholder="เช่น EMP007" />
-                </div>
-                <div className="hr-field">
-                  <label>สาขา *</label>
-                  <select className="hr-input" value={addForm.branchId} onChange={(e) => setAddForm(p => ({ ...p, branchId: e.target.value }))} required>
-                    <option value="">— เลือกสาขา —</option>
-                    {branches.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div className="hr-field">
-                  <label>แผนก</label>
-                  <select className="hr-input" value={addForm.department} onChange={(e) => setAddForm(p => ({ ...p, department: e.target.value }))}>
-                    <option value="">— เลือกแผนก —</option>
-                    {departmentsList.map((d) => <option key={d.code || d.name} value={d.name}>{d.name}</option>)}
-                  </select>
-                </div>
-                <div className="hr-field">
-                  <label>ตำแหน่ง</label>
-                  <select className="hr-input" value={addForm.position} onChange={(e) => setAddForm(p => ({ ...p, position: e.target.value }))}>
-                    <option value="">— เลือกตำแหน่ง —</option>
-                    {positionsList.map((p) => <option key={p.id || p.title} value={p.title}>{p.title}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                <div className="hr-field">
-                  <label>ประเภทการจ้าง</label>
-                  <select className="hr-input" value={addForm.employmentType} onChange={(e) => setAddForm(p => ({ ...p, employmentType: e.target.value }))}>
-                    {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
-                </div>
-                <div className="hr-field">
-                  <label>วันเริ่มงาน</label>
-                  <input className="hr-input" type="date" value={addForm.startDate} onChange={(e) => setAddForm(p => ({ ...p, startDate: e.target.value }))} />
-                </div>
-                <div className="hr-field">
-                  <label>เงินเดือนฐาน (บาท)</label>
-                  <input className="hr-input" type="number" value={addForm.salary} onChange={(e) => setAddForm(p => ({ ...p, salary: Number(e.target.value) }))} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                  <div className="hr-field">
+                    <label>ชื่อ-นามสกุล (ไทย) *</label>
+                    <input className="hr-input" value={addForm.name} onChange={(e) => setAddForm(p => ({ ...p, name: e.target.value }))} required placeholder="เช่น สมชาย ใจดี" />
+                  </div>
+                  <div className="hr-field">
+                    <label>ชื่อ (อังกฤษ)</label>
+                    <input className="hr-input" value={addForm.nameEn} onChange={(e) => setAddForm(p => ({ ...p, nameEn: e.target.value }))} placeholder="เช่น Somchai Jaidee" />
+                  </div>
+                  <div className="hr-field">
+                    <label>รหัสพนักงาน (เว้นว่าง = Auto)</label>
+                    <input className="hr-input" value={addForm.employeeId} onChange={(e) => setAddForm(p => ({ ...p, employeeId: e.target.value }))} placeholder="เช่น EMP007" />
+                  </div>
+                  <div className="hr-field">
+                    <label>สาขา *</label>
+                    <select className="hr-input" value={addForm.branchId} onChange={(e) => setAddForm(p => ({ ...p, branchId: e.target.value }))} required>
+                      <option value="">— เลือกสาขา —</option>
+                      {branches.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>แผนก</label>
+                    <select className="hr-input" value={addForm.department} onChange={(e) => setAddForm(p => ({ ...p, department: e.target.value }))}>
+                      <option value="">— เลือกแผนก —</option>
+                      {departmentsList.map((d) => <option key={d.code || d.name} value={d.name}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>ตำแหน่ง</label>
+                    <select className="hr-input" value={addForm.position} onChange={(e) => setAddForm(p => ({ ...p, position: e.target.value }))}>
+                      <option value="">— เลือกตำแหน่ง —</option>
+                      {positionsList.map((p) => <option key={p.id || p.title} value={p.title}>{p.title}</option>)}
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>ประเภทการจ้าง</label>
+                    <select className="hr-input" value={addForm.employmentType} onChange={(e) => setAddForm(p => ({ ...p, employmentType: e.target.value }))}>
+                      {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>วันเริ่มงาน</label>
+                    <input className="hr-input" type="date" value={addForm.startDate} onChange={(e) => setAddForm(p => ({ ...p, startDate: e.target.value }))} />
+                  </div>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div className="hr-field">
-                  <label>เบอร์โทรศัพท์</label>
-                  <input className="hr-input" value={addForm.phone} onChange={(e) => setAddForm(p => ({ ...p, phone: e.target.value }))} placeholder="08xxxxxxxx" />
+              {/* Card Section 2: การเงิน & ติดต่อ */}
+              <div style={{ background: '#F8F9FE', borderRadius: 16, padding: '14px 16px', margin: '14px 0', border: '1px solid rgba(60,60,67,0.08)' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--hr-text)' }}>
+                  <span>💳</span> ข้อมูลการเงินและติดต่อ
                 </div>
-                <div className="hr-field">
-                  <label>เลขบัตรประชาชน (13 หลัก)</label>
-                  <input className="hr-input" value={addForm.nationalId} maxLength={13} onChange={(e) => setAddForm(p => ({ ...p, nationalId: e.target.value }))} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                  <div className="hr-field">
+                    <label>เงินเดือนฐาน (บาท)</label>
+                    <input className="hr-input" type="number" value={addForm.salary} onChange={(e) => setAddForm(p => ({ ...p, salary: Number(e.target.value) }))} />
+                  </div>
+                  <div className="hr-field">
+                    <label>เบอร์โทรศัพท์</label>
+                    <input className="hr-input" value={addForm.phone} onChange={(e) => setAddForm(p => ({ ...p, phone: e.target.value }))} placeholder="08xxxxxxxx" />
+                  </div>
+                  <div className="hr-field">
+                    <label>เลขบัตรประชาชน (13 หลัก)</label>
+                    <input className="hr-input" value={addForm.nationalId} maxLength={13} onChange={(e) => setAddForm(p => ({ ...p, nationalId: e.target.value }))} />
+                  </div>
                 </div>
               </div>
 
-              <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, marginTop: 8, border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 8 }}>🔐 บัญชีเข้าสู่ระบบ (PWA / Mobile)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              {/* Card Section 3: บัญชีผู้ใช้งานระบบ */}
+              <div style={{ background: 'rgba(0,122,255,0.06)', borderRadius: 16, padding: '14px 16px', margin: '14px 0', border: '1px solid rgba(0,122,255,0.18)' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--hr-accent)' }}>
+                  <span>🔐</span> บัญชีเข้าสู่ระบบ (Self-Service Mobile & PWA)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
                   <div className="hr-field">
                     <label>บทบาท (Role)</label>
                     <select className="hr-input" value={addForm.role} onChange={(e) => setAddForm(p => ({ ...p, role: e.target.value }))}>
@@ -700,7 +727,7 @@ export default function EmployeesPage() {
                 </div>
               </div>
 
-              <div className="hr-modal-actions" style={{ marginTop: 14 }}>
+              <div className="hr-modal-actions" style={{ marginTop: 18 }}>
                 <button type="button" className="hr-btn" onClick={() => setIsAdding(false)}>ยกเลิก</button>
                 <button type="submit" className="hr-btn hr-btn-primary" disabled={saving}>
                   {saving ? 'กำลังบันทึก...' : '✅ บันทึกพนักงานใหม่'}
