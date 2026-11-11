@@ -45,7 +45,7 @@ export async function POST(request) {
     { data: expenseRows },
     { data: ssoRows },
   ] = await Promise.all([
-    supabase.from('employee_records').select('employee_id, salary, employment_type').gt('salary', 0),
+    supabase.from('employee_records').select('employee_id, salary, employment_type, pay_cycle').gt('salary', 0),
     supabase.from('users').select('employee_id, status'),
     supabase.from('payroll_slips').select('id, employee_id, status, bonus').eq('period', period),
     supabase.from('tax_allowances').select('employee_id, data').eq('year', yearBE),
@@ -142,17 +142,14 @@ export async function POST(request) {
     const isDaily = rec.employment_type === 'daily';
     const workDays = workDaysMap.get(rec.employee_id) || 0;
 
-    // หากเป็นพนักงานรายวัน: ถ้าตั้ง salary <= 3000 ถือเป็นค่าแรงต่อวัน (คูณวันทำงานจริง, หากยังไม่มีบันทึกเวลาให้ใช้ 26 วันตั้งต้น)
+    // หากเป็นพนักงานรายวัน (Daily): จ่ายเฉพาะวันที่เช็คอินเข้างานจริง (workDays) เท่านั้น
+    // หากไม่มีการเช็คอินเข้างาน หรือเป็นวันลาหยุด/ขาดงาน จะไม่จ่ายค่าจ้างวันนั้น (baseSalary = 0)
     let baseSalary = rawSalary;
     let dailyRate = rawSalary / 30;
     if (isDaily) {
-      if (rawSalary <= 3000) {
-        dailyRate = rawSalary;
-        baseSalary = rawSalary * (workDays > 0 ? workDays : 26);
-      } else {
-        dailyRate = rawSalary / 30;
-        baseSalary = workDays > 0 ? Math.round(dailyRate * workDays) : rawSalary;
-      }
+      dailyRate = rawSalary <= 3000 ? rawSalary : Math.round(rawSalary / 30);
+      // คิดค่าจ้างตามจำนวนวันที่เข้างานจริงเท่านั้น
+      baseSalary = Math.round(dailyRate * workDays);
     }
 
     const unpaidDays = (unpaidLeaveDaysMap.get(rec.employee_id) || 0) + (absentDaysMap.get(rec.employee_id) || 0);

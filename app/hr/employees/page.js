@@ -25,7 +25,7 @@ const EMPTY_FORM = {
   name: '', nameEn: '', email: '', department: '', branchId: '', managerId: '', position: '', startDate: '',
   salary: 0, nationalId: '', bankName: '', bankAccount: '', taxId: '',
   phone: '', address: '', emergencyName: '', emergencyPhone: '', emergencyRelation: '',
-  employmentType: 'monthly', status: 'active', resignDate: '',
+  employmentType: 'monthly', payCycle: 'monthly', status: 'active', resignDate: '',
   birthDate: '', probationEnd: '', contractEnd: '', licenseExpiry: '',
   leaveAnnualTotal: 0, leaveAnnualUsed: 0,
   leaveSickTotal: 0, leaveSickUsed: 0,
@@ -35,6 +35,12 @@ const EMPTY_FORM = {
 
 const EMPLOYMENT_TYPE_LABELS = {
   monthly: 'รายเดือน', daily: 'รายวัน', contract: 'สัญญาจ้าง', parttime: 'พาร์ทไทม์',
+};
+const PAY_CYCLE_LABELS = {
+  monthly: 'รายเดือน (จ่ายสิ้นเดือน)',
+  end_month: 'รวบจ่ายสิ้นเดือน (ตามวันมาทำงานจริง)',
+  biweekly: 'รวบจ่ายทุก 15 วัน (งวด 1-15 และ 16-สิ้นเดือน)',
+  daily: 'จ่ายวันต่อวัน (โอน/จ่ายสดทันทีหลังเลิกงาน)',
 };
 const STATUS_LABELS = {
   active: 'ทำงานอยู่', resigned: 'ลาออก/พ้นสภาพ', suspended: 'พักงาน',
@@ -66,7 +72,7 @@ export default function EmployeesPage() {
     role: 'employee', department: '', branchId: '', position: '',
     startDate: new Date().toISOString().slice(0, 10), salary: 0,
     phone: '', nationalId: '', bankName: '', bankAccount: '',
-    employmentType: 'monthly',
+    employmentType: 'monthly', payCycle: 'monthly',
   });
 
   const showToast = useCallback((message, type = 'success') => {
@@ -163,7 +169,7 @@ export default function EmployeesPage() {
       salary: emp.salary ?? 0, nationalId: emp.nationalId || '', bankName: emp.bankName || '', bankAccount: emp.bankAccount || '', taxId: emp.taxId || '',
       phone: emp.phone || '', address: emp.address || '',
       emergencyName: emp.emergencyName || '', emergencyPhone: emp.emergencyPhone || '', emergencyRelation: emp.emergencyRelation || '',
-      employmentType: emp.employmentType || 'monthly', status: emp.status || 'active', resignDate: emp.resignDate || '',
+      employmentType: emp.employmentType || 'monthly', payCycle: emp.payCycle || (emp.employmentType === 'daily' ? 'end_month' : 'monthly'), status: emp.status || 'active', resignDate: emp.resignDate || '',
       birthDate: emp.birthDate || '', probationEnd: emp.probationEnd || '', contractEnd: emp.contractEnd || '', licenseExpiry: emp.licenseExpiry || '',
       leaveAnnualTotal: emp.leaveAnnualTotal, leaveAnnualUsed: emp.leaveAnnualUsed,
       leaveSickTotal: emp.leaveSickTotal, leaveSickUsed: emp.leaveSickUsed,
@@ -369,7 +375,14 @@ export default function EmployeesPage() {
                       </span>
                     )}
                   </div>
-                  <div className="hr-emp-id" style={{ marginTop: 2 }}>{emp.employeeId} · {EMPLOYMENT_TYPE_LABELS[emp.employmentType] || 'รายเดือน'}</div>
+                  <div className="hr-emp-id" style={{ marginTop: 2 }}>
+                    {emp.employeeId} · {EMPLOYMENT_TYPE_LABELS[emp.employmentType] || 'รายเดือน'}
+                    {emp.employmentType === 'daily' && emp.payCycle && (
+                      <span style={{ color: 'var(--hr-accent)', marginLeft: 4, fontWeight: 600 }}>
+                        ({emp.payCycle === 'biweekly' ? 'ทุก 15 วัน' : emp.payCycle === 'daily' ? 'จ่ายวันต่อวัน' : 'สิ้นเดือน'})
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -488,8 +501,29 @@ export default function EmployeesPage() {
                   <div className="hr-field"><label>วันเริ่มงาน</label><input className="hr-input" type="date" value={form.startDate} onChange={set('startDate')} /></div>
                   <div className="hr-field">
                     <label>ประเภทการจ้าง</label>
-                    <select className="hr-input" value={form.employmentType} onChange={set('employmentType')}>
+                    <select className="hr-input" value={form.employmentType} onChange={(e) => {
+                      const val = e.target.value;
+                      setForm((p) => ({
+                        ...p,
+                        employmentType: val,
+                        payCycle: val === 'daily' ? (p.payCycle === 'monthly' ? 'end_month' : p.payCycle) : 'monthly',
+                      }));
+                    }}>
                       {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>รอบการจ่ายเงิน {form.employmentType === 'daily' && <span style={{ color: 'var(--hr-accent)', fontWeight: 700 }}>*</span>}</label>
+                    <select className="hr-input" value={form.payCycle} onChange={set('payCycle')}>
+                      {form.employmentType === 'daily' ? (
+                        <>
+                          <option value="end_month">รวบจ่ายทุกสิ้นเดือน (ตามวันมาทำงานจริง)</option>
+                          <option value="biweekly">รวบจ่ายทุก 15 วัน (งวด 1-15 และ 16-สิ้นเดือน)</option>
+                          <option value="daily">โอนจ่ายวันต่อวัน (จ่ายทันทีหลังเช็คเอาต์)</option>
+                        </>
+                      ) : (
+                        <option value="monthly">รายเดือน (จ่ายทุกสิ้นเดือน)</option>
+                      )}
                     </select>
                   </div>
                   <div className="hr-field">
@@ -525,7 +559,15 @@ export default function EmployeesPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
                   <div className="hr-field"><label>เบอร์โทรศัพท์</label><input className="hr-input" value={form.phone} onChange={set('phone')} /></div>
-                  <div className="hr-field"><label>เงินเดือนฐาน (บาท)</label><input className="hr-input" type="number" step="any" value={form.salary} onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value === '' ? 0 : Number(e.target.value) }))} /></div>
+                  <div className="hr-field">
+                    <label>{form.employmentType === 'daily' ? 'ค่าจ้างรายวัน (บาท/วัน) *' : 'เงินเดือนฐาน (บาท/เดือน) *'}</label>
+                    <input className="hr-input" type="number" step="any" value={form.salary} onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value === '' ? 0 : Number(e.target.value) }))} />
+                    {form.employmentType === 'daily' && (
+                      <span style={{ fontSize: 11, color: 'var(--hr-text-3)', display: 'block', marginTop: 3 }}>
+                        ⚠️ จ่ายเฉพาะวันที่เช็คอินเข้างานจริง (ขาดงาน/ไม่เช็คอิน/ลาหยุด ไม่จ่าย)
+                      </span>
+                    )}
+                  </div>
                   <div className="hr-field"><label>เลขบัตรประชาชน (13 หลัก)</label><input className="hr-input" value={form.nationalId} onChange={set('nationalId')} maxLength={13} /></div>
                   <div className="hr-field"><label>เลขผู้เสียภาษี</label><input className="hr-input" value={form.taxId} onChange={set('taxId')} /></div>
                   <div className="hr-field"><label>ธนาคาร</label><input className="hr-input" value={form.bankName} onChange={set('bankName')} /></div>
@@ -668,8 +710,29 @@ export default function EmployeesPage() {
                   </div>
                   <div className="hr-field">
                     <label>ประเภทการจ้าง</label>
-                    <select className="hr-input" value={addForm.employmentType} onChange={(e) => setAddForm(p => ({ ...p, employmentType: e.target.value }))}>
+                    <select className="hr-input" value={addForm.employmentType} onChange={(e) => {
+                      const val = e.target.value;
+                      setAddForm(p => ({
+                        ...p,
+                        employmentType: val,
+                        payCycle: val === 'daily' ? 'end_month' : 'monthly',
+                      }));
+                    }}>
                       {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div className="hr-field">
+                    <label>รอบการจ่ายเงิน {addForm.employmentType === 'daily' && <span style={{ color: 'var(--hr-accent)', fontWeight: 700 }}>*</span>}</label>
+                    <select className="hr-input" value={addForm.payCycle} onChange={(e) => setAddForm(p => ({ ...p, payCycle: e.target.value }))}>
+                      {addForm.employmentType === 'daily' ? (
+                        <>
+                          <option value="end_month">รวบจ่ายทุกสิ้นเดือน (ตามวันมาทำงานจริง)</option>
+                          <option value="biweekly">รวบจ่ายทุก 15 วัน (งวด 1-15 และ 16-สิ้นเดือน)</option>
+                          <option value="daily">โอนจ่ายวันต่อวัน (จ่ายทันทีหลังเช็คเอาต์)</option>
+                        </>
+                      ) : (
+                        <option value="monthly">รายเดือน (จ่ายทุกสิ้นเดือน)</option>
+                      )}
                     </select>
                   </div>
                   <div className="hr-field">
@@ -686,8 +749,13 @@ export default function EmployeesPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
                   <div className="hr-field">
-                    <label>เงินเดือนฐาน (บาท)</label>
+                    <label>{addForm.employmentType === 'daily' ? 'ค่าจ้างรายวัน (บาท/วัน) *' : 'เงินเดือนฐาน (บาท/เดือน) *'}</label>
                     <input className="hr-input" type="number" value={addForm.salary} onChange={(e) => setAddForm(p => ({ ...p, salary: Number(e.target.value) }))} />
+                    {addForm.employmentType === 'daily' && (
+                      <span style={{ fontSize: 11, color: 'var(--hr-text-3)', display: 'block', marginTop: 3 }}>
+                        ⚠️ จ่ายเฉพาะวันที่เช็คอินเข้างานจริง (ขาดงาน/ไม่เช็คอิน/ลาหยุด ไม่จ่าย)
+                      </span>
+                    )}
                   </div>
                   <div className="hr-field">
                     <label>เบอร์โทรศัพท์</label>

@@ -118,6 +118,7 @@ export async function PUT(request, { params }) {
     emergency_phone: body.emergencyPhone || null,
     emergency_relation: body.emergencyRelation || null,
     employment_type: body.employmentType || 'monthly',
+    pay_cycle: body.payCycle || (body.employmentType === 'daily' ? 'end_month' : 'monthly'),
     birth_date: body.birthDate || null,
     probation_end: body.probationEnd || null,
     contract_end: body.contractEnd || null,

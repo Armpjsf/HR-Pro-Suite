@@ -68,6 +68,7 @@ export async function GET(request) {
       emergencyPhone: rec.emergency_phone || '',
       emergencyRelation: rec.emergency_relation || '',
       employmentType: rec.employment_type || 'monthly',
+      payCycle: rec.pay_cycle || (rec.employment_type === 'daily' ? 'end_month' : 'monthly'),
       photoUrl: rec.photo_url || '',
       startDate: rec.start_date || '',
       salary: Number(rec.salary) || 0,
@@ -116,7 +117,7 @@ export async function POST(request) {
       department, branchId, managerId, position, startDate,
       salary = 0, nationalId, bankName, bankAccount, taxId, phone,
       address, emergencyName, emergencyPhone, emergencyRelation,
-      employmentType = 'monthly', employeeId: customEmpId,
+      employmentType = 'monthly', payCycle, employeeId: customEmpId,
       leaveAnnualTotal = 6, leaveSickTotal = 30, leavePersonalTotal = 3,
     } = body;
 
@@ -184,6 +185,7 @@ export async function POST(request) {
       emergency_phone: emergencyPhone || '',
       emergency_relation: emergencyRelation || '',
       employment_type: employmentType || 'monthly',
+      pay_cycle: payCycle || (employmentType === 'daily' ? 'end_month' : 'monthly'),
       leave_annual_total: Number(leaveAnnualTotal) || 6,
       leave_sick_total: Number(leaveSickTotal) || 30,
       leave_personal_total: Number(leavePersonalTotal) || 3,
