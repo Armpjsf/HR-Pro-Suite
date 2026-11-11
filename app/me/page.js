@@ -1326,13 +1326,18 @@ function WorkplaceSection({ back, showToast }) {
 
 /* ─── Calendar Sub-section ─── */
 function CalendarSection({ back }) {
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const currentMonthStr = todayStr.slice(0, 7);
+  const [month, setMonth] = useState(currentMonthStr);
+  const [selectedDate, setSelectedDate] = useState(todayStr);
   const [data, setData] = useState(null);
   const [touchStartX, setTouchStartX] = useState(null);
 
   useEffect(() => {
     fetch(`/api/me/calendar?month=${month}`, { headers: authHeaders() })
-      .then((r) => r.json()).then(setData).catch(() => {});
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => {});
   }, [month]);
 
   const [y, m] = month.split('-').map(Number);
@@ -1345,18 +1350,43 @@ function CalendarSection({ back }) {
   const leaveMap = {};
   const attendMap = {};
   const holidayMap = {};
+  const leaveTypeNameMap = {};
+
   if (data) {
-    (data.shifts || []).forEach((s) => { shiftMap[s.shift_date] = s; });
-    (data.leaves || []).forEach((l) => { for (let d = new Date(l.start_date); d <= new Date(l.end_date); d.setDate(d.getDate() + 1)) leaveMap[d.toISOString().slice(0, 10)] = l; });
-    (data.attendance || []).forEach((a) => { attendMap[a.work_date] = a; });
-    (data.holidays || []).forEach((h) => { holidayMap[h.holiday_date] = h; });
+    (data.leaveTypes || []).forEach((t) => {
+      leaveTypeNameMap[t.code] = t.name;
+    });
+    (data.shifts || []).forEach((s) => {
+      shiftMap[s.shift_date] = s;
+    });
+    (data.attendance || []).forEach((a) => {
+      attendMap[a.work_date] = a;
+    });
+    (data.holidays || []).forEach((h) => {
+      holidayMap[h.holiday_date] = h;
+    });
+    (data.leaves || []).forEach((l) => {
+      if (!l.start_date || !l.end_date) return;
+      const start = new Date(l.start_date + 'T00:00:00');
+      const end = new Date(l.end_date + 'T00:00:00');
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        leaveMap[ds] = l;
+      }
+    });
   }
 
   const changeMonth = (delta) => {
     const d = new Date(y, m - 1 + delta, 1);
     const targetY = d.getFullYear();
     const targetM = String(d.getMonth() + 1).padStart(2, '0');
-    setMonth(`${targetY}-${targetM}`);
+    const newMonth = `${targetY}-${targetM}`;
+    setMonth(newMonth);
+    if (newMonth === currentMonthStr) {
+      setSelectedDate(todayStr);
+    } else {
+      setSelectedDate(`${newMonth}-01`);
+    }
   };
 
   const handleTouchStart = (e) => {
@@ -1367,17 +1397,44 @@ function CalendarSection({ back }) {
     if (touchStartX === null) return;
     const diff = e.changedTouches[0].clientX - touchStartX;
     if (Math.abs(diff) > 45) {
-      if (diff > 0) changeMonth(-1); // swipe ขวา = เดือนก่อนหน้า
-      else changeMonth(1);          // swipe ซ้าย = เดือนถัดไป
+      if (diff > 0) changeMonth(-1);
+      else changeMonth(1);
     }
     setTouchStartX(null);
   };
 
-  const currentMonthStr = new Date().toISOString().slice(0, 7);
+  // Selected date details
+  const selHoliday = holidayMap[selectedDate];
+  const selLeave = leaveMap[selectedDate];
+  const selAttend = attendMap[selectedDate];
+  const selShift = shiftMap[selectedDate];
+  const selDateObj = selectedDate ? new Date(selectedDate + 'T00:00:00') : new Date();
+  const selDow = selDateObj.getDay();
+  const selIsWeeklyOff = !workDays.has(selDow);
+  const isSelectedToday = selectedDate === todayStr;
+  const isSelectedFuture = selectedDate > todayStr;
+  const isSelectedPast = selectedDate < todayStr;
+
+  const thaiDateFormatted = selDateObj.toLocaleDateString('th-TH', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const getLeaveName = (type) => leaveTypeNameMap[type] || LEAVE_LABELS[type] || type || 'ลา';
 
   return (
     <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
+      <button
+        className="me-badge me-badge-gray"
+        style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }}
+        onClick={back}
+      >
+        ← กลับ
+      </button>
+
+      {/* ─── Calendar Grid Card ─── */}
       <div
         className="me-card"
         onTouchStart={handleTouchStart}
@@ -1411,7 +1468,10 @@ function CalendarSection({ back }) {
             {month !== currentMonthStr && (
               <button
                 type="button"
-                onClick={() => setMonth(currentMonthStr)}
+                onClick={() => {
+                  setMonth(currentMonthStr);
+                  setSelectedDate(todayStr);
+                }}
                 style={{
                   border: 'none',
                   background: '#ede9fe',
@@ -1447,34 +1507,367 @@ function CalendarSection({ back }) {
             ▶
           </button>
         </div>
+
+        {/* Days of Week Header */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center', fontSize: 12 }}>
-          {DOWS.map((d, i) => <div key={d} style={{ fontWeight: 600, color: !workDays.has(i) ? '#dc2626' : '#9aa1b5', padding: 4 }}>{d}</div>)}
-          {Array.from({ length: firstDow }, (_, i) => <div key={`e${i}`} />)}
+          {DOWS.map((d, i) => (
+            <div key={d} style={{ fontWeight: 600, color: !workDays.has(i) ? '#dc2626' : '#9aa1b5', padding: 4 }}>
+              {d}
+            </div>
+          ))}
+
+          {/* Empty cells before month starts */}
+          {Array.from({ length: firstDow }, (_, i) => (
+            <div key={`e${i}`} />
+          ))}
+
+          {/* Day Cells */}
           {Array.from({ length: daysInMonth }, (_, i) => {
             const day = i + 1;
             const dateStr = `${month}-${String(day).padStart(2, '0')}`;
-            const isToday = dateStr === new Date().toISOString().slice(0, 10);
+            const isToday = dateStr === todayStr;
+            const isSelected = dateStr === selectedDate;
             const shift = shiftMap[dateStr];
             const leave = leaveMap[dateStr];
             const attend = attendMap[dateStr];
             const holiday = holidayMap[dateStr];
             const dow = new Date(y, m - 1, day).getDay();
             const weeklyOff = !workDays.has(dow);
+
             return (
-              <div key={day} style={{
-                padding: '6px 2px', borderRadius: 10, minHeight: 52,
-                border: isToday ? '2px solid #6d5ef5' : '1px solid #f1f2f8',
-                background: holiday ? '#fee2e2' : leave ? '#fef3c7' : attend ? '#f0fdf4' : '#fff',
-              }}>
-                <div style={{ fontWeight: 600, color: holiday || weeklyOff ? '#dc2626' : undefined, fontSize: 13 }}>{day}</div>
-                {holiday && <div style={{ fontSize: 8.5, color: '#dc2626', lineHeight: 1.1 }} title={holiday.name}>🎌{holiday.name.length > 6 ? holiday.name.slice(0, 6) + '…' : holiday.name}</div>}
-                {attend && <div style={{ fontSize: 9, color: '#16a34a' }}>✅{attend.clock_in?.slice(0, 5)}</div>}
-                {leave && <div style={{ fontSize: 9, color: '#b45309' }}>🏖️{LEAVE_LABELS[leave.leave_type]?.[0] || 'ลา'}</div>}
-                {shift && <div style={{ fontSize: 9, color: '#6d28d9' }}>{shift.shift_type === 'morning' ? '🌅เช้า' : shift.shift_type === 'afternoon' ? '🌇บ่าย' : shift.shift_type === 'night' ? '🌙ดึก' : '⬜หยุด'}</div>}
-              </div>
+              <button
+                key={day}
+                type="button"
+                onClick={() => setSelectedDate(dateStr)}
+                style={{
+                  padding: '5px 2px 4px',
+                  borderRadius: 12,
+                  minHeight: 56,
+                  border: isSelected
+                    ? '2.5px solid #007AFF'
+                    : isToday
+                    ? '2px solid #5856D6'
+                    : '1px solid #F1F2F8',
+                  background: isSelected
+                    ? '#EFF6FF'
+                    : holiday
+                    ? '#FEE2E2'
+                    : leave
+                    ? '#FEF3C7'
+                    : attend
+                    ? '#F0FDF4'
+                    : '#FFFFFF',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  boxShadow: isSelected ? '0 3px 10px rgba(0, 122, 255, 0.22)' : 'none',
+                  transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                  transition: 'all 0.15s cubic-bezier(0.32, 0.72, 0, 1)',
+                  position: 'relative',
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: isSelected || isToday ? 800 : 600,
+                    color: isSelected ? '#007AFF' : holiday || weeklyOff ? '#DC2626' : '#1F2937',
+                    fontSize: 13,
+                    width: 24,
+                    height: 24,
+                    lineHeight: '24px',
+                    borderRadius: '50%',
+                    background: isSelected ? '#007AFF' : 'transparent',
+                    color: isSelected ? '#FFFFFF' : holiday || weeklyOff ? '#DC2626' : '#1F2937',
+                  }}
+                >
+                  {day}
+                </div>
+
+                {/* Dot Indicators */}
+                <div style={{ display: 'flex', gap: 2, marginTop: 2, alignItems: 'center', justifyContent: 'center' }}>
+                  {holiday && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#EF4444' }} />}
+                  {attend && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10B981' }} />}
+                  {leave && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B' }} />}
+                  {shift && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#8B5CF6' }} />}
+                </div>
+
+                {/* Micro Label */}
+                {holiday ? (
+                  <div style={{ fontSize: 8.5, color: '#DC2626', lineHeight: 1.1, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                    🎌{holiday.name.length > 4 ? holiday.name.slice(0, 4) + '…' : holiday.name}
+                  </div>
+                ) : attend ? (
+                  <div style={{ fontSize: 8.5, color: '#16A34A', fontWeight: 600, marginTop: 2 }}>
+                    ✅{attend.clock_in?.slice(0, 5)}
+                  </div>
+                ) : leave ? (
+                  <div style={{ fontSize: 8.5, color: '#B45309', fontWeight: 600, marginTop: 2 }}>
+                    🏖️{getLeaveName(leave.leave_type).slice(0, 3)}
+                  </div>
+                ) : shift ? (
+                  <div style={{ fontSize: 8.5, color: '#6D28D9', marginTop: 2 }}>
+                    {shift.shift_type === 'morning' ? '🌅เช้า' : shift.shift_type === 'afternoon' ? '🌇บ่าย' : '🌙ดึก'}
+                  </div>
+                ) : null}
+              </button>
             );
           })}
         </div>
+
+        {/* Legend */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            gap: 12,
+            marginTop: 14,
+            paddingTop: 10,
+            borderTop: '1px solid #F1F2F8',
+            fontSize: 11,
+            color: '#6B7280',
+          }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981' }} /> เช็คอินแล้ว
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#EF4444' }} /> วันหยุด
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#F59E0B' }} /> วันลา
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#8B5CF6' }} /> ตารางกะ
+          </span>
+        </div>
+      </div>
+
+      {/* ─── Selected Date Detail Card ─── */}
+      <div className="me-card" style={{ marginTop: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, gap: 8 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#1C1C1E', letterSpacing: '-0.02em' }}>
+              {thaiDateFormatted}
+            </div>
+            <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>
+              {selectedDate} · {isSelectedToday ? '📌 วันนี้' : isSelectedFuture ? '🔮 วันข้างหน้า' : '📜 วันที่ผ่านมา'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {isSelectedToday && <span className="me-badge me-badge-purple">วันนี้</span>}
+            {selHoliday ? (
+              <span className="me-badge me-badge-red">วันหยุดนักขัตฤกษ์</span>
+            ) : selIsWeeklyOff ? (
+              <span className="me-badge me-badge-gray">วันหยุดสัปดาห์</span>
+            ) : (
+              <span className="me-badge me-badge-blue">วันทำงาน</span>
+            )}
+          </div>
+        </div>
+
+        {/* 1. Holiday Section */}
+        {selHoliday && (
+          <div
+            style={{
+              background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+              border: '1px solid #FECACA',
+              borderRadius: 14,
+              padding: '12px 14px',
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: '#DC2626', fontSize: 14 }}>
+              <span>🎌</span>
+              <span>วันหยุด: {selHoliday.name}</span>
+            </div>
+            {selHoliday.note && (
+              <div style={{ fontSize: 12.5, color: '#991B1B', marginTop: 4 }}>
+                หมายเหตุ: {selHoliday.note}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!selHoliday && selIsWeeklyOff && (
+          <div
+            style={{
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: 14,
+              padding: '10px 14px',
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, color: '#475569', fontSize: 13 }}>
+              <span>🛌</span>
+              <span>วันหยุดประจำสัปดาห์ (Weekly Off)</span>
+            </div>
+          </div>
+        )}
+
+        {/* 2. Attendance (Clock in / Clock out) Section */}
+        <div
+          style={{
+            background: selAttend ? 'linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%)' : '#F9FAFB',
+            border: selAttend ? '1px solid #BBF7D0' : '1px solid #E5E7EB',
+            borderRadius: 14,
+            padding: '12px 14px',
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 13.5, color: selAttend ? '#166534' : '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>⏱️</span>
+              <span>บันทึกการลงเวลาทำงาน</span>
+            </div>
+            {selAttend && (
+              <span className={`me-badge ${selAttend.status === 'late' ? 'me-badge-yellow' : 'me-badge-green'}`}>
+                {selAttend.status === 'late' ? 'มาสาย' : 'ตรงเวลา'}
+              </span>
+            )}
+          </div>
+
+          {selAttend ? (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+                <div style={{ background: '#FFFFFF', padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(22, 163, 74, 0.2)' }}>
+                  <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>เช็คอิน (เข้างาน)</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#15803D', marginTop: 2 }}>
+                    {selAttend.clock_in ? selAttend.clock_in.slice(0, 8) : '-'} น.
+                  </div>
+                </div>
+                <div style={{ background: '#FFFFFF', padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(22, 163, 74, 0.2)' }}>
+                  <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>เช็คเอาท์ (ออกงาน)</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: selAttend.clock_out ? '#15803D' : '#9CA3AF', marginTop: 2 }}>
+                    {selAttend.clock_out ? `${selAttend.clock_out.slice(0, 8)} น.` : 'ยังไม่ลงเวลา'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, fontSize: 12, color: '#374151' }}>
+                <span>📍 รูปแบบ: <strong>{selAttend.check_type === 'office' ? '🏢 ออฟฟิศ' : selAttend.check_type === 'wfh' ? '🏠 WFH' : '📍 นอกสถานที่'}</strong></span>
+                {selAttend.location_name && <span>· สาขา: <strong>{selAttend.location_name}</strong></span>}
+              </div>
+
+              {selAttend.note && (
+                <div style={{ fontSize: 12, color: '#4B5563', marginTop: 6, fontStyle: 'italic' }}>
+                  หมายเหตุ: {selAttend.note}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12.5, color: '#6B7280', padding: '4px 0' }}>
+              {isSelectedToday ? (
+                <span style={{ color: '#D97706', fontWeight: 600 }}>⏳ วันนี้ยังไม่มีการบันทึกเวลาเข้างาน</span>
+              ) : isSelectedPast && !selHoliday && !selIsWeeklyOff && !selLeave ? (
+                <span style={{ color: '#DC2626' }}>⚠️ ไม่มีประวัติลงเวลาเข้างาน (ขาดงาน หรือไม่ได้ลงเวลา)</span>
+              ) : isSelectedFuture ? (
+                <span>📅 ยังไม่ถึงกำหนดวันทำงาน</span>
+              ) : (
+                <span>ไม่มีบันทึกการลงเวลาทำงานในวันนี้</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 3. Leave Section */}
+        {selLeave ? (
+          <div
+            style={{
+              background: 'linear-gradient(135deg, #FEFCE8 0%, #FEF9C3 100%)',
+              border: '1px solid #FEF08A',
+              borderRadius: 14,
+              padding: '12px 14px',
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#854D0E', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>🏖️</span>
+                <span>การลา: {getLeaveName(selLeave.leave_type)}</span>
+              </div>
+              <span className={`me-badge ${selLeave.status === 'approved' ? 'me-badge-green' : selLeave.status === 'rejected' ? 'me-badge-red' : 'me-badge-yellow'}`}>
+                {selLeave.status === 'approved' ? 'อนุมัติแล้ว' : selLeave.status === 'rejected' ? 'ไม่อนุมัติ' : 'รออนุมัติ'}
+              </span>
+            </div>
+
+            <div style={{ fontSize: 12.5, color: '#713F12', lineHeight: 1.6 }}>
+              <div>
+                <strong>ช่วงวันลา:</strong> {selLeave.start_date} ถึง {selLeave.end_date} ({selLeave.days} วัน)
+              </div>
+              <div>
+                <strong>สถานะเวลา:</strong> {isSelectedFuture ? '🔮 ลาล่วงหน้า' : isSelectedToday ? '📌 ลาวันนี้' : '📜 ประวัติการลาที่ผ่านมา'}
+              </div>
+              {selLeave.reason && (
+                <div>
+                  <strong>เหตุผลการลา:</strong> {selLeave.reason}
+                </div>
+              )}
+              {selLeave.created_at && (
+                <div style={{ fontSize: 11, color: '#A16207', marginTop: 4 }}>
+                  ยื่นคำขอเมื่อ: {new Date(selLeave.created_at).toLocaleDateString('th-TH')}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {/* 4. Shift Section */}
+        {selShift ? (
+          <div
+            style={{
+              background: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%)',
+              border: '1px solid #E9D5FF',
+              borderRadius: 14,
+              padding: '12px 14px',
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5, color: '#6B21A8', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>⏰</span>
+                <span>ตารางกะ: {selShift.shift_type === 'morning' ? '🌅 กะเช้า' : selShift.shift_type === 'afternoon' ? '🌇 กะบ่าย' : selShift.shift_type === 'night' ? '🌙 กะดึก' : '⬜ กะหยุด'}</span>
+              </div>
+              {selShift.start_time && (
+                <span className="me-badge me-badge-purple">
+                  {selShift.start_time.slice(0, 5)} - {selShift.end_time?.slice(0, 5)} น.
+                </span>
+              )}
+            </div>
+            {selShift.note && (
+              <div style={{ fontSize: 12, color: '#581C87', marginTop: 4 }}>
+                หมายเหตุ: {selShift.note}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* 5. Clean Empty State (When regular workday with no special events) */}
+        {!selHoliday && !selIsWeeklyOff && !selAttend && !selLeave && !selShift && (
+          <div
+            style={{
+              background: '#F9FAFB',
+              border: '1px dashed #D1D5DB',
+              borderRadius: 14,
+              padding: '14px',
+              textAlign: 'center',
+              color: '#6B7280',
+              fontSize: 13,
+            }}
+          >
+            {isSelectedFuture ? (
+              <div>📅 วันทำงานปกติในอนาคต (ยังไม่มีตารางกะหรือการลาล่วงหน้า)</div>
+            ) : isSelectedToday ? (
+              <div>📌 วันนี้เป็นวันทำงานปกติ — รอการลงเวลาเข้างาน</div>
+            ) : (
+              <div>📋 วันทำงานปกติ — ไม่มีบันทึกเวลาหรือประวัติการลาในวันนี้</div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

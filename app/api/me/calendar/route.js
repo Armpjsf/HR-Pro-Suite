@@ -35,7 +35,7 @@ export async function GET(request) {
     ? holidayQuery.or(`branch_id.is.null,branch_id.eq.${branchId}`)
     : holidayQuery.is('branch_id', null);
 
-  const [shifts, leaves, attendance, holidays, workSettings] = await Promise.all([
+  const [shifts, leaves, attendance, holidays, workSettings, leaveTypes] = await Promise.all([
     supabase
       .from('shifts')
       .select('*')
@@ -48,8 +48,8 @@ export async function GET(request) {
       .select('*')
       .eq('employee_id', user.employeeId)
       .in('status', ['approved', 'pending'])
-      .gte('start_date', startDate)
-      .lte('end_date', endDate)
+      .lte('start_date', endDate)
+      .gte('end_date', startDate)
       .order('start_date'),
     supabase
       .from('time_records')
@@ -60,6 +60,7 @@ export async function GET(request) {
       .order('work_date'),
     holidayQuery,
     getWorkSettingsForEmployee(user.employeeId),
+    supabase.from('leave_types').select('*').order('code'),
   ]);
 
   return NextResponse.json({
@@ -69,5 +70,6 @@ export async function GET(request) {
     attendance: attendance.data || [],
     holidays: holidays.data || [],
     workSettings,
+    leaveTypes: leaveTypes?.data || [],
   });
 }
