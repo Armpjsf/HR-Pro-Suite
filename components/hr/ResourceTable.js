@@ -264,16 +264,40 @@ export default function ResourceTable({ config }) {
       );
     }
     if (f.type === 'position') {
+      const isKnown = positions.some((p) => p.title === value);
+      const isCustomMode = value !== undefined && value !== null && value !== '' && !isKnown;
       return (
-        <select value={value || ''} onChange={(e) => set(e.target.value)} required={f.required}>
-          <option value="">— เลือกตำแหน่ง —</option>
-          {positions.map((p) => (
-            <option key={p.id || p.title} value={p.title}>{p.title} {p.level ? `(${p.level})` : ''}</option>
-          ))}
-          {value && !positions.some((p) => p.title === value) && (
-            <option value={value}>{value} (เดิม)</option>
+        <div>
+          <select
+            value={isCustomMode ? '__custom__' : (value || '')}
+            onChange={(e) => {
+              if (e.target.value === '__custom__') {
+                set(value && !isKnown ? value : ' ');
+              } else {
+                set(e.target.value);
+              }
+            }}
+            required={f.required && !isCustomMode}
+          >
+            <option value="">— เลือกตำแหน่ง —</option>
+            {positions.map((p) => (
+              <option key={p.id || p.title} value={p.title}>{p.title} {p.level ? `(${p.level})` : ''}</option>
+            ))}
+            <option value="__custom__">✏️ ระบุตำแหน่งอื่น (พิมพ์ชื่อเอง)...</option>
+          </select>
+          {(isCustomMode || value === ' ') && (
+            <input
+              type="text"
+              className="hr-input"
+              style={{ marginTop: 6 }}
+              placeholder="พิมพ์ชื่อตำแหน่งงานที่ต้องการ..."
+              value={value === ' ' ? '' : (value || '')}
+              onChange={(e) => set(e.target.value)}
+              required={f.required}
+              autoFocus
+            />
           )}
-        </select>
+        </div>
       );
     }
     if (f.type === 'branch') {
