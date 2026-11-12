@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 
 export default function LocationsPage() {
   const [items, setItems] = useState([]);
@@ -100,7 +101,13 @@ export default function LocationsPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('ลบจุดปักหมุดนี้?')) return;
+    const ok = await confirmDialog({
+      title: 'ยืนยันการลบจุดปักหมุด?',
+      message: 'คุณต้องการลบจุดปักหมุด GPS นี้ใช่หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้',
+      confirmLabel: 'ลบจุดปักหมุด',
+      destructive: true,
+    });
+    if (!ok) return;
     await fetch(`/api/hr/locations?id=${id}`, { method: 'DELETE', headers: authHeaders() });
     showToast('ลบเรียบร้อย');
     load();

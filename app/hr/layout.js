@@ -7,103 +7,92 @@ import { HR_MENUS } from '@/lib/hr-menus';
 import { authHeaders } from '@/components/hr/exportUtils';
 import NotificationBell from '@/components/NotificationBell';
 import SubNavTabs from '@/components/hr/SubNavTabs';
+import { AppIcon } from '@/components/ui/Icons';
 import './hr.css';
 
 const SUB_NAV_GROUPS = {
   '/hr/departments': [
-    { href: '/hr/departments', icon: '🏢', label: 'แผนก' },
-    { href: '/hr/positions', icon: '💼', label: 'ตำแหน่งงาน' },
+    { href: '/hr/departments', icon: <AppIcon name="departments" size={16} />, label: 'แผนก' },
+    { href: '/hr/positions', icon: <AppIcon name="positions" size={16} />, label: 'ตำแหน่งงาน' },
   ],
   '/hr/positions': [
-    { href: '/hr/departments', icon: '🏢', label: 'แผนก' },
-    { href: '/hr/positions', icon: '💼', label: 'ตำแหน่งงาน' },
+    { href: '/hr/departments', icon: <AppIcon name="departments" size={16} />, label: 'แผนก' },
+    { href: '/hr/positions', icon: <AppIcon name="positions" size={16} />, label: 'ตำแหน่งงาน' },
   ],
   '/hr/branches': [
-    { href: '/hr/branches', icon: '🏬', label: 'ตั้งค่าสาขา' },
-    { href: '/hr/locations', icon: '📍', label: 'จุดปักหมุด GPS' },
+    { href: '/hr/branches', icon: <AppIcon name="branches" size={16} />, label: 'ตั้งค่าสาขา' },
+    { href: '/hr/locations', icon: <AppIcon name="locations" size={16} />, label: 'จุดปักหมุด GPS' },
   ],
   '/hr/locations': [
-    { href: '/hr/branches', icon: '🏬', label: 'ตั้งค่าสาขา' },
-    { href: '/hr/locations', icon: '📍', label: 'จุดปักหมุด GPS' },
+    { href: '/hr/branches', icon: <AppIcon name="branches" size={16} />, label: 'ตั้งค่าสาขา' },
+    { href: '/hr/locations', icon: <AppIcon name="locations" size={16} />, label: 'จุดปักหมุด GPS' },
   ],
   '/hr/shifts': [
-    { href: '/hr/shifts', icon: '📅', label: 'จัดกะรายวัน' },
-    { href: '/hr/shift-patterns', icon: '🔄', label: 'รูปแบบกะ' },
-    { href: '/hr/settings', icon: '⚙️', label: 'เวลาทำงาน' },
+    { href: '/hr/shifts', icon: <AppIcon name="shifts" size={16} />, label: 'จัดกะรายวัน' },
+    { href: '/hr/shift-patterns', icon: <AppIcon name="shift-patterns" size={16} />, label: 'รูปแบบกะ' },
+    { href: '/hr/settings', icon: <AppIcon name="settings" size={16} />, label: 'เวลาทำงาน' },
   ],
   '/hr/shift-patterns': [
-    { href: '/hr/shifts', icon: '📅', label: 'จัดกะรายวัน' },
-    { href: '/hr/shift-patterns', icon: '🔄', label: 'รูปแบบกะ' },
-    { href: '/hr/settings', icon: '⚙️', label: 'เวลาทำงาน' },
+    { href: '/hr/shifts', icon: <AppIcon name="shifts" size={16} />, label: 'จัดกะรายวัน' },
+    { href: '/hr/shift-patterns', icon: <AppIcon name="shift-patterns" size={16} />, label: 'รูปแบบกะ' },
+    { href: '/hr/settings', icon: <AppIcon name="settings" size={16} />, label: 'เวลาทำงาน' },
   ],
   '/hr/settings': [
-    { href: '/hr/shifts', icon: '📅', label: 'จัดกะรายวัน' },
-    { href: '/hr/shift-patterns', icon: '🔄', label: 'รูปแบบกะ' },
-    { href: '/hr/settings', icon: '⚙️', label: 'เวลาทำงาน' },
+    { href: '/hr/shifts', icon: <AppIcon name="shifts" size={16} />, label: 'จัดกะรายวัน' },
+    { href: '/hr/shift-patterns', icon: <AppIcon name="shift-patterns" size={16} />, label: 'รูปแบบกะ' },
+    { href: '/hr/settings', icon: <AppIcon name="settings" size={16} />, label: 'เวลาทำงาน' },
   ],
   '/hr/leave': [
-    { href: '/hr/leave', icon: '🏖️', label: 'การลา' },
-    { href: '/hr/leave-types', icon: '🗒️', label: 'ประเภทการลา' },
+    { href: '/hr/leave', icon: <AppIcon name="leave" size={16} />, label: 'การลา' },
+    { href: '/hr/leave-types', icon: <AppIcon name="leave-types" size={16} />, label: 'ประเภทการลา' },
   ],
   '/hr/leave-types': [
-    { href: '/hr/leave', icon: '🏖️', label: 'การลา' },
-    { href: '/hr/leave-types', icon: '🗒️', label: 'ประเภทการลา' },
+    { href: '/hr/leave', icon: <AppIcon name="leave" size={16} />, label: 'การลา' },
+    { href: '/hr/leave-types', icon: <AppIcon name="leave-types" size={16} />, label: 'ประเภทการลา' },
   ],
   '/hr/document-requests': [
-    { href: '/hr/document-requests', icon: '📄', label: 'คำขอเอกสารรับรอง' },
-    { href: '/hr/document-assets', icon: '🔏', label: 'ลายเซ็นและตราประทับ' },
+    { href: '/hr/document-requests', icon: <AppIcon name="document-requests" size={16} />, label: 'คำขอเอกสารรับรอง' },
+    { href: '/hr/document-assets', icon: <AppIcon name="document-assets" size={16} />, label: 'ลายเซ็นและตราประทับ' },
   ],
   '/hr/document-assets': [
-    { href: '/hr/document-requests', icon: '📄', label: 'คำขอเอกสารรับรอง' },
-    { href: '/hr/document-assets', icon: '🔏', label: 'ลายเซ็นและตราประทับ' },
+    { href: '/hr/document-requests', icon: <AppIcon name="document-requests" size={16} />, label: 'คำขอเอกสารรับรอง' },
+    { href: '/hr/document-assets', icon: <AppIcon name="document-assets" size={16} />, label: 'ลายเซ็นและตราประทับ' },
   ],
   '/hr/recruitment': [
-    { href: '/hr/recruitment', icon: '📣', label: 'ตำแหน่งที่เปิดรับ' },
-    { href: '/hr/applicants', icon: '🧑‍💼', label: 'ผู้สมัครงาน' },
-    { href: '/hr/interviews', icon: '🎙️', label: 'AI สัมภาษณ์งาน' },
+    { href: '/hr/recruitment', icon: <AppIcon name="recruitment" size={16} />, label: 'ตำแหน่งที่เปิดรับ' },
+    { href: '/hr/applicants', icon: <AppIcon name="applicants" size={16} />, label: 'ผู้สมัครงาน' },
+    { href: '/hr/interviews', icon: <AppIcon name="interviews" size={16} />, label: 'AI สัมภาษณ์งาน' },
   ],
   '/hr/applicants': [
-    { href: '/hr/recruitment', icon: '📣', label: 'ตำแหน่งที่เปิดรับ' },
-    { href: '/hr/applicants', icon: '🧑‍💼', label: 'ผู้สมัครงาน' },
-    { href: '/hr/interviews', icon: '🎙️', label: 'AI สัมภาษณ์งาน' },
+    { href: '/hr/recruitment', icon: <AppIcon name="recruitment" size={16} />, label: 'ตำแหน่งที่เปิดรับ' },
+    { href: '/hr/applicants', icon: <AppIcon name="applicants" size={16} />, label: 'ผู้สมัครงาน' },
+    { href: '/hr/interviews', icon: <AppIcon name="interviews" size={16} />, label: 'AI สัมภาษณ์งาน' },
   ],
   '/hr/interviews': [
-    { href: '/hr/recruitment', icon: '📣', label: 'ตำแหน่งที่เปิดรับ' },
-    { href: '/hr/applicants', icon: '🧑‍💼', label: 'ผู้สมัครงาน' },
-    { href: '/hr/interviews', icon: '🎙️', label: 'AI สัมภาษณ์งาน' },
+    { href: '/hr/recruitment', icon: <AppIcon name="recruitment" size={16} />, label: 'ตำแหน่งที่เปิดรับ' },
+    { href: '/hr/applicants', icon: <AppIcon name="applicants" size={16} />, label: 'ผู้สมัครงาน' },
+    { href: '/hr/interviews', icon: <AppIcon name="interviews" size={16} />, label: 'AI สัมภาษณ์งาน' },
   ],
   '/hr/evaluation': [
-    { href: '/hr/evaluation', icon: '🎯', label: 'ประเมินผลงาน' },
-    { href: '/hr/okr', icon: '📈', label: 'เป้าหมาย OKRs' },
+    { href: '/hr/evaluation', icon: <AppIcon name="evaluation" size={16} />, label: 'ประเมินผลงาน' },
+    { href: '/hr/okr', icon: <AppIcon name="okr" size={16} />, label: 'เป้าหมาย OKRs' },
   ],
   '/hr/okr': [
-    { href: '/hr/evaluation', icon: '🎯', label: 'ประเมินผลงาน' },
-    { href: '/hr/okr', icon: '📈', label: 'เป้าหมาย OKRs' },
+    { href: '/hr/evaluation', icon: <AppIcon name="evaluation" size={16} />, label: 'ประเมินผลงาน' },
+    { href: '/hr/okr', icon: <AppIcon name="okr" size={16} />, label: 'เป้าหมาย OKRs' },
   ],
   '/hr/training': [
-    { href: '/hr/training', icon: '🎓', label: 'หลักสูตรอบรม' },
-    { href: '/hr/trips', icon: '✈️', label: 'ทริปและกิจกรรม' },
+    { href: '/hr/training', icon: <AppIcon name="training" size={16} />, label: 'หลักสูตรอบรม' },
+    { href: '/hr/trips', icon: <AppIcon name="trips" size={16} />, label: 'ทริปและกิจกรรม' },
   ],
   '/hr/trips': [
-    { href: '/hr/training', icon: '🎓', label: 'หลักสูตรอบรม' },
-    { href: '/hr/trips', icon: '✈️', label: 'ทริปและกิจกรรม' },
+    { href: '/hr/training', icon: <AppIcon name="training" size={16} />, label: 'หลักสูตรอบรม' },
+    { href: '/hr/trips', icon: <AppIcon name="trips" size={16} />, label: 'ทริปและกิจกรรม' },
   ],
 };
 
 const MENUS = HR_MENUS;
 
-// สีไอคอนทรง Squircle แยกตามหมวด (แบบ iOS Settings)
-const GROUP_COLORS = {
-  'ภาพรวม': '#007AFF',
-  'โครงสร้างองค์กร': '#5856D6',
-  'เวลาและการลา': '#FF9500',
-  'เงินและสวัสดิการ': '#34C759',
-  'เอกสารและประกาศ': '#FF2D55',
-  'งานสนับสนุน': '#00C7BE',
-  'พัฒนาองค์กร': '#AF52DE',
-  'ผู้ดูแลระบบ': '#8E8E93',
-};
-const groupColor = (name) => GROUP_COLORS[name] || '#007AFF';
 const MOBILE_PRIMARY_KEYS = ['dashboard', 'employees', 'leave', 'time', 'chat'];
 
 function groupMenus(menus) {
@@ -161,7 +150,15 @@ export default function HrLayout({ children }) {
   useEffect(() => {
     const storedUser = localStorage.getItem('hr-user');
     if (!storedUser) { router.push('/'); return; }
-    const parsed = JSON.parse(storedUser);
+    let parsed;
+    try {
+      parsed = JSON.parse(storedUser);
+    } catch {
+      localStorage.removeItem('hr-user');
+      localStorage.removeItem('hr-token');
+      router.push('/');
+      return;
+    }
     setUser(parsed);
 
     fetch('/api/hr/access', { headers: authHeaders() })
@@ -217,6 +214,8 @@ export default function HrLayout({ children }) {
     weekday: 'long', day: 'numeric', month: 'short',
   });
 
+  const activeBranchObj = branches.find((b) => String(b.id) === String(activeBranch));
+
   function logout() {
     localStorage.removeItem('hr-token');
     localStorage.removeItem('hr-user');
@@ -244,7 +243,7 @@ export default function HrLayout({ children }) {
             title={sidebarCollapsed ? 'ขยายแถบเมนูด้านข้าง' : 'ย่อแถบเมนูเป็นไอคอน (เพิ่มพื้นที่ตาราง)'}
             aria-label={sidebarCollapsed ? 'ขยายแถบเมนูด้านข้าง' : 'ย่อแถบเมนูเป็นไอคอน'}
           >
-            {sidebarCollapsed ? '»' : '«'}
+            <AppIcon name={sidebarCollapsed ? 'chevron-right' : 'chevron-left'} size={16} />
           </button>
         </div>
 
@@ -259,7 +258,9 @@ export default function HrLayout({ children }) {
                   title={sidebarCollapsed ? `${m.label} (${group.name})` : undefined}
                   className={`hr-nav-item${pathname === m.href ? ' active' : ''}`}
                 >
-                  <span className="hr-nav-icon" style={{ '--sq': groupColor(group.name) }}>{m.icon}</span>
+                  <span className="hr-nav-icon icon" title={m.label}>
+                    <AppIcon name={m.icon || m.key} size={16} />
+                  </span>
                   {!sidebarCollapsed && <span className="hr-nav-label">{m.label}</span>}
                 </Link>
               ))}
@@ -272,7 +273,16 @@ export default function HrLayout({ children }) {
           {!sidebarCollapsed && (
             <div className="hr-sidebar-user-meta">
               <div className="hr-sidebar-user-name">{user.name}</div>
-              <div className="hr-sidebar-user-role">{user.role === 'admin' ? '👑 Administrator' : user.role}</div>
+              <div className="hr-sidebar-user-role" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {user.role === 'admin' ? (
+                  <>
+                    <AppIcon name="shield" size={12} />
+                    <span>Administrator</span>
+                  </>
+                ) : (
+                  user.role
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -288,10 +298,46 @@ export default function HrLayout({ children }) {
               <strong>{pageLabel}</strong>
             </div>
           </div>
-          <div className="hr-topbar-right">
+          <div className="hr-topbar-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {activeBranch !== 'all' && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '4px 10px',
+                  borderRadius: 8,
+                  background: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
+                  color: '#1D4ED8',
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                <AppIcon name="branches" size={14} />
+                <span>สาขา: {activeBranchObj ? `${activeBranchObj.code} - ${activeBranchObj.name}` : activeBranch}</span>
+                <button
+                  type="button"
+                  onClick={() => handleBranchChange('all')}
+                  style={{
+                    border: 'none',
+                    background: '#DBEAFE',
+                    color: '#1E40AF',
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                  title="รีเซ็ตเพื่อแสดงข้อมูลทุกสาขา"
+                >
+                  แสดงทุกสาขา ✕
+                </button>
+              </div>
+            )}
             {branches.length > 0 && (
               <div className="hr-branch-pill">
-                <span style={{ fontSize: 14 }}>🏬</span>
+                <AppIcon name="branches" size={14} style={{ color: '#64748B' }} />
                 <select
                   value={activeBranch}
                   onChange={(e) => handleBranchChange(e.target.value)}
@@ -311,42 +357,55 @@ export default function HrLayout({ children }) {
               className="hr-btn hr-emp-mode-btn"
               title="สลับไปยังหน้าบริการตนเองของพนักงาน"
             >
-              <span>👤</span> โหมดพนักงาน
+              <AppIcon name="user" size={15} /> โหมดพนักงาน
             </Link>
             <NotificationBell />
-            <Link href="/hr/chat" className="hr-btn hr-btn-icon" title="แชท AI">💬</Link>
-            <button className="hr-btn hr-btn-icon" title="ออกจากระบบ" onClick={logout}>⏻</button>
+            <Link href="/hr/chat" className="hr-btn hr-btn-icon" title="แชท AI">
+              <AppIcon name="chat" size={16} />
+            </Link>
+            <button className="hr-btn hr-btn-icon" title="ออกจากระบบ" onClick={logout}>
+              <AppIcon name="logout" size={16} />
+            </button>
           </div>
         </header>
         <main className="hr-content">
-          {pathname !== '/hr/chat' && <div className="hr-large-title-wrap">
-            {current && (
-              <span className="hr-large-title-icon" style={{ background: groupColor(current.group) }}>{current.icon}</span>
-            )}
-            <div>
-              <h1 className="hr-large-title">{pageLabel}</h1>
-              <div className="hr-large-sub">{current?.group ? `${current.group} · ` : ''}{today}</div>
+          {pathname !== '/hr/chat' && (
+            <div className="hr-large-title-wrap">
+              {current && (
+                <span className="hr-large-title-icon" style={{ background: '#0284C7', color: '#FFFFFF' }}>
+                  <AppIcon name={current.icon || current.key} size={24} />
+                </span>
+              )}
+              <div>
+                <h1 className="hr-large-title">{pageLabel}</h1>
+                <div className="hr-large-sub">{current?.group ? `${current.group} · ` : ''}{today}</div>
+              </div>
             </div>
-          </div>}
+          )}
           {SUB_NAV_GROUPS[pathname] && <SubNavTabs items={SUB_NAV_GROUPS[pathname]} />}
           {children}
         </main>
         <nav className="hr-mobile-nav">
           {mobilePrimary.map((m) => (
             <Link key={m.key} href={m.href} className={`hr-mobile-nav-item${pathname === m.href ? ' active' : ''}`}>
-              <span>{m.icon}</span>
+              <AppIcon name={m.icon || m.key} size={20} />
               <small>{m.label}</small>
             </Link>
           ))}
           {mobileMore.length > 0 && (
             <details className="hr-mobile-more">
-              <summary>☰<small>เมนู</small></summary>
+              <summary>
+                <AppIcon name="filter" size={16} />
+                <small>เมนู</small>
+              </summary>
               <div className="hr-mobile-menu-sheet">
                 {groupMenus(mobileMore).map((group) => (
                   <div className="hr-mobile-menu-group" key={group.name}>
                     <div className="hr-mobile-menu-heading">{group.name}</div>
                     {group.items.map((m) => (
-                      <Link key={m.key} href={m.href} className={pathname === m.href ? 'active' : ''}>{m.icon} {m.label}</Link>
+                      <Link key={m.key} href={m.href} className={pathname === m.href ? 'active' : ''}>
+                        <AppIcon name={m.icon || m.key} size={15} /> {m.label}
+                      </Link>
                     ))}
                   </div>
                 ))}

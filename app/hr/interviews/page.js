@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { confirmDialog, alertDialog } from '@/components/ui/ConfirmDialog';
 
 const DEFAULT_CONSENT =
   'สวัสดีค่ะ สายนี้เป็นการสัมภาษณ์งานเบื้องต้นด้วยระบบผู้ช่วย AI และมีการบันทึกเสียงเพื่อใช้ประกอบการพิจารณาคัดเลือกเท่านั้น หากคุณยินยอมให้ดำเนินการต่อ กรุณาพูดว่า “ยินยอม” ค่ะ';
@@ -63,7 +64,13 @@ export default function InterviewsPage() {
   }
 
   async function remove(s) {
-    if (!confirm(`ลบชุดคำถาม "${s.name}"?`)) return;
+    const ok = await confirmDialog({
+      title: 'ยืนยันการลบชุดคำถาม?',
+      message: `คุณต้องการลบชุดคำถาม "${s.name}" หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้`,
+      confirmLabel: 'ลบชุดคำถาม',
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/hr/interviews/question-sets/${s.id}`, {
       method: 'DELETE',
       headers: authHeaders(),
@@ -139,7 +146,11 @@ function SetEditor({ value, positions = [], onChange, onSave, onClose }) {
   async function handleGenerateAI() {
     const targetPos = (value.position || value.name || '').trim();
     if (!targetPos) {
-      alert('กรุณาเลือกตำแหน่ง หรือพิมพ์ชื่อตำแหน่งในช่องชื่อชุดก่อนกดให้ AI ออกแบบคำถามครับ');
+      await alertDialog({
+        title: 'ข้อมูลไม่ครบถ้วน',
+        message: 'กรุณาเลือกตำแหน่ง หรือพิมพ์ชื่อตำแหน่งในช่องชื่อชุดก่อนกดให้ AI ออกแบบคำถามครับ',
+        type: 'warning',
+      });
       return;
     }
     setGenerating(true);

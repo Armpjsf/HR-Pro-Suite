@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import { alertDialog } from '@/components/ui/ConfirmDialog';
 
 export default function CandidateInterviewPage() {
   const { id } = useParams();
@@ -119,11 +120,15 @@ export default function CandidateInterviewPage() {
   };
 
   // ฟังก์ชันเริ่มฟังเสียงผู้สมัคร (Speech Recognition)
-  const startListening = () => {
+  const startListening = async () => {
     stopSpeaking();
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
-      alert('เบราว์เซอร์นี้ไม่รองรับการฟังเสียงอัตโนมัติ คุณสามารถพิมพ์ข้อความคำตอบลงในช่องด้านล่างได้ทันทีครับ');
+      await alertDialog({
+        title: 'ไม่รองรับการฟังเสียงอัตโนมัติ',
+        message: 'เบราว์เซอร์นี้ไม่รองรับการฟังเสียงอัตโนมัติ คุณสามารถพิมพ์ข้อความคำตอบลงในช่องด้านล่างได้ทันทีครับ',
+        type: 'info',
+      });
       return;
     }
 
@@ -157,11 +162,15 @@ export default function CandidateInterviewPage() {
         setManualText(full);
       };
 
-      recognition.onerror = (e) => {
+      recognition.onerror = async (e) => {
         console.warn('Speech recognition error:', e.error);
         if (e.error === 'not-allowed') {
           setMicPermission('denied');
-          alert('กรุณาอนุญาตการเข้าถึงไมโครโฟน หรือพิมพ์คำตอบในช่องข้อความได้เลยครับ');
+          await alertDialog({
+            title: 'การเข้าถึงไมโครโฟน',
+            message: 'กรุณาอนุญาตการเข้าถึงไมโครโฟน หรือพิมพ์คำตอบในช่องข้อความได้เลยครับ',
+            type: 'warning',
+          });
         }
         setIsListening(false);
       };
@@ -214,7 +223,7 @@ export default function CandidateInterviewPage() {
         speakText(introMsg);
       }, 500);
     } catch (e) {
-      alert(e.message);
+      await alertDialog({ title: 'ข้อผิดพลาด', message: e.message, type: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -227,7 +236,11 @@ export default function CandidateInterviewPage() {
 
     const answer = (manualText || transcript).trim();
     if (!answer) {
-      alert('กรุณาพูดตอบหรือพิมพ์ข้อความคำตอบก่อนกดส่งครับ');
+      await alertDialog({
+        title: 'กรุณาระบุคำตอบ',
+        message: 'กรุณาพูดตอบหรือพิมพ์ข้อความคำตอบก่อนกดส่งครับ',
+        type: 'warning',
+      });
       return;
     }
 
@@ -278,7 +291,11 @@ export default function CandidateInterviewPage() {
         await fetch(`/api/interview/${id}/complete`, { method: 'POST' });
       }
     } catch (e) {
-      alert('เกิดข้อผิดพลาดในการบันทึกคำตอบ: ' + e.message);
+      await alertDialog({
+        title: 'บันทึกคำตอบล้มเหลว',
+        message: 'เกิดข้อผิดพลาดในการบันทึกคำตอบ: ' + e.message,
+        type: 'error',
+      });
     } finally {
       setSubmitting(false);
     }

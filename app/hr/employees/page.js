@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { exportExcel, printPDF, authHeaders } from '@/components/hr/exportUtils';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 
 const AVATAR_COLORS = ['#6d5ef5', '#0ea5e9', '#10b981', '#f97316', '#ec4899', '#8b5cf6', '#14b8a6'];
 
@@ -182,7 +183,12 @@ export default function EmployeesPage() {
   }
 
   async function grantLeave() {
-    if (!confirm(`แจกสิทธิ์ลาประจำปี ${leaveYear} ให้พนักงานที่ยังไม่มียอด (ตาม "สิทธิ์ต่อปี" ของประเภทลา)?`)) return;
+    const ok = await confirmDialog({
+      title: `ยืนยันแจกสิทธิ์ลาประจำปี ${leaveYear}?`,
+      message: `แจกสิทธิ์ลาประจำปี ${leaveYear} ให้พนักงานที่ยังไม่มียอด (ตาม "สิทธิ์ต่อปี" ของประเภทลา)?`,
+      confirmLabel: 'ยืนยันแจกสิทธิ์',
+    });
+    if (!ok) return;
     setGranting(true);
     try {
       const res = await fetch('/api/hr/leave/grant', {

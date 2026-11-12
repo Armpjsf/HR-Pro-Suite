@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import ResourceTable from '@/components/hr/ResourceTable';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 
 const baht = (v) => Number(v || 0).toLocaleString('th-TH') + ' ฿';
 const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -93,10 +94,12 @@ export default function PayrollPage() {
   }
 
   async function confirmIndividualPay(row, reload, showToast) {
-    if (!confirm(`ยืนยันจ่ายเงินเดือนงวด ${row.period} ของพนักงาน ${row.employee_id}?
-ยอดสุทธิ: ${baht(row.net)}
-
-ระบบจะออกสลิปเงินเดือนทางการและส่งแจ้งเตือนให้พนักงานทันที`)) return;
+    const ok = await confirmDialog({
+      title: `ยืนยันจ่ายเงินเดือนงวด ${row.period}?`,
+      message: `พนักงาน: ${row.employee_id}\nยอดสุทธิ: ${baht(row.net)}\n\nระบบจะออกสลิปเงินเดือนทางการและส่งแจ้งเตือนให้พนักงานทันที`,
+      confirmLabel: 'ยืนยันการจ่าย',
+    });
+    if (!ok) return;
     try {
       const res = await fetch('/api/hr/payroll/confirm-pay', {
         method: 'POST',
@@ -116,7 +119,12 @@ export default function PayrollPage() {
   }
 
   async function notifyLine(row, reload, showToast) {
-    if (!confirm(`ส่งสลิปงวด ${row.period} ของ ${row.employee_id} ทาง LINE?`)) return;
+    const ok = await confirmDialog({
+      title: 'ส่งสลิปเงินเดือนทาง LINE?',
+      message: `ต้องการส่งสลิปงวด ${row.period} ของ ${row.employee_id} ให้พนักงานทาง LINE ใช่หรือไม่?`,
+      confirmLabel: 'ส่งสลิป',
+    });
+    if (!ok) return;
     const res = await fetch(`/api/hr/payroll/${row.id}/notify`, {
       method: 'POST',
       headers: authHeaders(true),

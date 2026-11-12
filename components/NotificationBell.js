@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import AppIcon from '@/components/ui/Icons';
 
 function authHeaders(json = false) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
@@ -89,10 +90,49 @@ export default function NotificationBell({ compact = false }) {
     } catch {}
   }, []);
 
+  // Polling with Page Visibility API: pause when tab/app hidden, immediate refresh on visible
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
-    const id = setInterval(load, 30000);
-    return () => clearInterval(id);
+
+    let intervalId = null;
+
+    function startPolling() {
+      if (!intervalId) {
+        intervalId = setInterval(load, 30000);
+      }
+    }
+
+    function stopPolling() {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        load();
+        startPolling();
+      }
+    }
+
+    if (typeof document !== 'undefined' && !document.hidden) {
+      startPolling();
+    }
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      stopPolling();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
   }, [load]);
 
   async function enablePush() {
@@ -102,7 +142,7 @@ export default function NotificationBell({ compact = false }) {
       if (Capacitor.isNativePlatform()) {
         setPushState('requesting');
         const { LocalNotifications } = await import('@capacitor/local-notifications');
-        
+
         // สร้าง Notification Channel สำหรับ Android 8+
         await LocalNotifications.createChannel({
           id: 'hr_suite_alerts',
@@ -120,7 +160,7 @@ export default function NotificationBell({ compact = false }) {
             notifications: [
               {
                 id: Math.floor(Math.random() * 100000),
-                title: '🔔 เปิดการแจ้งเตือนสำเร็จ',
+                title: 'เปิดการแจ้งเตือนสำเร็จ',
                 body: 'ระบบ HR Pro Suite จะแจ้งเตือนเมื่อมีคำขอหรือข่าวสารใหม่ทันทีค่ะ',
                 channelId: 'hr_suite_alerts',
               },
@@ -157,10 +197,12 @@ export default function NotificationBell({ compact = false }) {
       const registration = await navigator.serviceWorker.register('/sw.js');
       const ready = await navigator.serviceWorker.ready;
       const existing = await ready.pushManager.getSubscription();
-      const subscription = existing || await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      const subscription =
+        existing ||
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        }));
       await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: authHeaders(true),
@@ -195,10 +237,17 @@ export default function NotificationBell({ compact = false }) {
 
   return (
     <div className="notify-wrap">
-      <button className={buttonClass} onClick={() => setOpen((v) => !v)} title="แจ้งเตือน">
-        🔔
+      <button
+        className={buttonClass}
+        onClick={() => setOpen((v) => !v)}
+        title="แจ้งเตือน"
+        aria-label="แจ้งเตือน"
+        style={{ minWidth: 44, minHeight: 44 }}
+      >
+        <AppIcon name="bell" size={18} />
         {unread > 0 && <span className="notify-count">{unread > 9 ? '9+' : unread}</span>}
       </button>
+
       {open && (
         <>
           <div
@@ -208,52 +257,91 @@ export default function NotificationBell({ compact = false }) {
               position: 'fixed',
               inset: 0,
               zIndex: 499,
-              background: 'rgba(0, 0, 0, 0.25)',
-              backdropFilter: 'blur(1px)',
+              background: 'rgba(15, 23, 42, 0.35)',
+              backdropFilter: 'blur(2px)',
+              WebkitBackdropFilter: 'blur(2px)',
             }}
           />
           <div className="notify-panel" style={{ zIndex: 500 }}>
             <div className="notify-head">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <strong>แจ้งเตือน</strong>
+                <strong style={{ color: '#0F2942', fontSize: '14px' }}>แจ้งเตือน</strong>
                 {unread > 0 && (
-                  <span style={{ background: '#fee2e2', color: '#dc2626', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999 }}>
+                  <span
+                    style={{
+                      background: '#fee2e2',
+                      color: '#dc2626',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                    }}
+                  >
                     {unread}
                   </span>
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {unread > 0 && <button onClick={() => markRead()}>อ่านทั้งหมด</button>}
+                {unread > 0 && (
+                  <button type="button" onClick={() => markRead()}>
+                    อ่านทั้งหมด
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   style={{
                     border: 'none',
-                    background: '#f1f2f8',
-                    color: '#6b7280',
-                    width: 28,
-                    height: 28,
+                    background: '#f1f5f9',
+                    color: '#64748b',
+                    width: 32,
+                    height: 32,
                     borderRadius: '50%',
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    fontSize: 14,
-                    fontWeight: 'bold',
                   }}
                   title="ปิด"
                   aria-label="ปิดแจ้งเตือน"
                 >
-                  ✕
+                  <AppIcon name="x" size={16} />
                 </button>
               </div>
             </div>
-            <button className="notify-enable" onClick={enablePush}>
-              {pushState === 'enabled' ? '✅ เปิดการแจ้งเตือนแล้ว' : pushState === 'requesting' ? '⏳ กำลังขอสิทธิ์...' : '🔔 เปิดแจ้งเตือนบนเครื่องนี้'}
+
+            <button type="button" className="notify-enable" onClick={enablePush}>
+              {pushState === 'enabled' ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                  <AppIcon name="check-circle" size={16} style={{ color: '#16A34A' }} />
+                  <span>เปิดการแจ้งเตือนแล้ว</span>
+                </span>
+              ) : pushState === 'requesting' ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                  <AppIcon name="loader" size={16} className="spinner" />
+                  <span>กำลังขอสิทธิ์...</span>
+                </span>
+              ) : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                  <AppIcon name="bell" size={16} />
+                  <span>เปิดแจ้งเตือนบนเครื่องนี้</span>
+                </span>
+              )}
             </button>
-            {pushState === 'not-configured' && <div className="notify-hint">ยังไม่ได้ตั้งค่า VAPID keys บน server</div>}
-            {pushState === 'denied' && <div className="notify-hint">⚠️ อุปกรณ์/เบราว์เซอร์ยังไม่อนุญาตแจ้งเตือน (กรุณาเปิดในตั้งค่าระบบ)</div>}
-            {pushState === 'unsupported' && <div className="notify-hint">ระบบแจ้งเตือนแบบ In-App พร้อมทำงานปกติ</div>}
+
+            {pushState === 'not-configured' && (
+              <div className="notify-hint">ยังไม่ได้ตั้งค่า VAPID keys บน server</div>
+            )}
+            {pushState === 'denied' && (
+              <div className="notify-hint" style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <AppIcon name="alert-triangle" size={16} style={{ flexShrink: 0, marginTop: 2, color: '#D97706' }} />
+                <span>อุปกรณ์/เบราว์เซอร์ยังไม่อนุญาตแจ้งเตือน (กรุณาเปิดในตั้งค่าระบบ)</span>
+              </div>
+            )}
+            {pushState === 'unsupported' && (
+              <div className="notify-hint">ระบบแจ้งเตือนแบบ In-App พร้อมทำงานปกติ</div>
+            )}
+
             <div className="notify-list">
               {items.length === 0 && <div className="notify-empty">ยังไม่มีแจ้งเตือน</div>}
               {items.map((item) => (

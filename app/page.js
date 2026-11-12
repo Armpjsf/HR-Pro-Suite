@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import AppIcon from '@/components/ui/Icons';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -12,22 +13,13 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    setMounted(true);
-    const token = getCookie('hr-token');
-    if (token) {
-      redirectByAccess().catch(() => router.push('/me'));
-    }
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
-  }, [router]);
-
   function getCookie(name) {
     if (typeof document === 'undefined') return null;
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
     return match ? match[2] : null;
   }
 
-  async function redirectByAccess() {
+  const redirectByAccess = useCallback(async () => {
     const token = localStorage.getItem('hr-token') || getCookie('hr-token');
     const storedUser = localStorage.getItem('hr-user');
     const u = storedUser ? JSON.parse(storedUser) : null;
@@ -45,7 +37,19 @@ export default function LoginPage() {
       }
     }
     router.push('/me');
-  }
+  }, [router]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+    const token = getCookie('hr-token');
+    if (token) {
+      redirectByAccess().catch(() => router.push('/me'));
+    }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, [router, redirectByAccess]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -58,12 +62,16 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || 'เข้าสู่ระบบไม่สำเร็จ'); setLoading(false); return; }
+      if (!res.ok) {
+        setError(data.error || 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบข้อมูล');
+        setLoading(false);
+        return;
+      }
       localStorage.setItem('hr-user', JSON.stringify(data.user));
       localStorage.setItem('hr-token', data.token);
       await redirectByAccess();
     } catch {
-      setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+      setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง');
       setLoading(false);
     }
   }
@@ -71,45 +79,69 @@ export default function LoginPage() {
   if (!mounted) return null;
 
   return (
-    <div className="lg-root">
-      {/* 3D Soft Gradient Spheres (Apple Glass Reference Style) */}
-      <div className="lg-sphere lg-sphere-lg" aria-hidden="true" />
-      <div className="lg-sphere lg-sphere-md" aria-hidden="true" />
-      <div className="lg-sphere lg-sphere-sm" aria-hidden="true" />
-
-      <div className="lg-card">
-        <div className="lg-brand">
-          <div className="lg-logo">
-            <img src="/brand/hr-pro-logo.svg" alt="HR Pro Suite" />
+    <div className="login-root">
+      <div className="login-card">
+        {/* Enterprise Brand Header */}
+        <div className="login-brand">
+          <div className="login-logo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/hr-pro-logo.svg"
+              alt="ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                if (e.currentTarget.nextElementSibling) {
+                  e.currentTarget.nextElementSibling.style.display = 'flex';
+                }
+              }}
+            />
+            <div className="login-logo-fallback" style={{ display: 'none' }}>
+              <AppIcon name="truck" size={26} style={{ color: '#0284C7' }} />
+            </div>
           </div>
-          <div>
-            <div className="lg-title">HR Pro Suite</div>
-            <div className="lg-sub">บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต</div>
+          <div className="login-brand-text">
+            <div className="login-company">บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด</div>
+            <div className="login-system">ระบบบริหารทรัพยากรบุคคลและปฏิบัติการขนส่ง</div>
           </div>
         </div>
 
-        <h1 className="lg-welcome">Welcome back</h1>
-        <p className="lg-welcome-sub">เข้าสู่ระบบเพื่อเริ่มใช้งานระบบบริหารทรัพยากรบุคคล</p>
+        <div className="login-header">
+          <h1 className="login-heading">เข้าสู่ระบบงานบุคคล</h1>
+          <p className="login-subheading">กรุณากรอกชื่อผู้ใช้งานและรหัสผ่านเพื่อเข้าใช้งานระบบ</p>
+        </div>
 
-        <form onSubmit={handleSubmit}>
-          {error && <div className="lg-error" role="alert">⚠️ {error}</div>}
+        <form onSubmit={handleSubmit} className="login-form">
+          {error && (
+            <div className="login-error-banner" role="alert">
+              <AppIcon name="alert-triangle" size={18} style={{ color: '#DC2626' }} />
+              <span>{error}</span>
+            </div>
+          )}
 
-          <div className="lg-field">
-            <label htmlFor="username">ชื่อผู้ใช้ (Username)</label>
-            <input
-              id="username"
-              type="text"
-              placeholder="กรอกชื่อผู้ใช้งาน"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              required
-            />
+          <div className="form-group">
+            <label htmlFor="username">ชื่อผู้ใช้งาน (Username)</label>
+            <div className="input-with-icon">
+              <span className="input-icon" aria-hidden="true">
+                <AppIcon name="user" size={18} />
+              </span>
+              <input
+                id="username"
+                type="text"
+                placeholder="กรอกชื่อผู้ใช้งาน"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                required
+              />
+            </div>
           </div>
 
-          <div className="lg-field">
+          <div className="form-group">
             <label htmlFor="password">รหัสผ่าน (Password)</label>
-            <div className="lg-pass-wrap">
+            <div className="input-with-icon password-wrap">
+              <span className="input-icon" aria-hidden="true">
+                <AppIcon name="shield" size={18} />
+              </span>
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
@@ -121,198 +153,326 @@ export default function LoginPage() {
               />
               <button
                 type="button"
-                className="lg-pass-toggle"
+                className="password-toggle-btn"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                 title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
               >
-                {showPassword ? '🙈' : '👁️'}
+                <AppIcon name={showPassword ? 'eye-off' : 'eye'} size={18} />
               </button>
             </div>
           </div>
 
-          <button type="submit" className="lg-btn" disabled={loading}>
-            {loading ? '⏳ กำลังเข้าสู่ระบบ...' : 'Sign in · เข้าสู่ระบบ'}
+          <button type="submit" className="login-submit-btn" disabled={loading}>
+            {loading ? (
+              <>
+                <span className="login-spinner" aria-hidden="true">
+                  <AppIcon name="loader" size={18} />
+                </span>
+                <span>กำลังเข้าสู่ระบบ...</span>
+              </>
+            ) : (
+              <span>เข้าสู่ระบบ</span>
+            )}
           </button>
         </form>
+
+        <div className="login-card-footer">
+          <AppIcon name="shield" size={14} style={{ color: '#64748B' }} />
+          <span>ระบบรักษาความปลอดภัยมาตรฐานองค์กร · DD Service & Transport</span>
+        </div>
       </div>
 
       <style jsx>{`
-        .lg-root {
+        .login-root {
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 20px;
-          position: relative;
-          overflow: hidden;
-          background: linear-gradient(135deg, #E8EEFF 0%, #EFF3FF 48%, #E4F1FF 100%);
-          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Noto Sans Thai', sans-serif;
+          padding: 24px 16px;
+          background: linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 50%, #F8FAFC 100%);
+          font-family: var(--font-sans), var(--font-thai), sans-serif;
           -webkit-font-smoothing: antialiased;
         }
 
-        /* 3D Blue/Indigo Orbs */
-        .lg-sphere {
-          position: fixed;
-          border-radius: 50%;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .lg-sphere-lg {
-          bottom: -90px;
-          left: calc(50% - 360px);
-          width: 340px;
-          height: 340px;
-          background: radial-gradient(circle at 30% 28%, #8EC5FF 0%, #2E6FF2 58%, #1D4ED8 100%);
-          box-shadow: 0 28px 60px rgba(37, 99, 235, 0.35);
-        }
-        .lg-sphere-md {
-          top: calc(50% - 270px);
-          right: calc(50% - 290px);
-          width: 190px;
-          height: 190px;
-          background: radial-gradient(circle at 30% 28%, #A5B4FC 0%, #5856D6 62%, #3730A3 100%);
-          box-shadow: 0 20px 44px rgba(88, 86, 214, 0.32);
-        }
-        .lg-sphere-sm {
-          top: 16%;
-          left: 18%;
-          width: 68px;
-          height: 68px;
-          background: radial-gradient(circle at 32% 30%, #93C5FD 0%, #2563EB 72%, #1E40AF 100%);
-          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
-        }
-
-        .lg-card {
+        .login-card {
           position: relative;
-          z-index: 1;
           width: 100%;
-          max-width: 410px;
-          background: rgba(255, 255, 255, 0.72);
-          backdrop-filter: saturate(190%) blur(28px);
-          -webkit-backdrop-filter: saturate(190%) blur(28px);
-          border: 1px solid rgba(255, 255, 255, 0.85);
-          border-radius: 28px;
-          box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14), inset 0 1px 1px rgba(255, 255, 255, 0.9);
-          padding: 36px 32px;
+          max-width: 430px;
+          background: #FFFFFF;
+          border: 1px solid #CBD5E1;
+          border-radius: 20px;
+          box-shadow: 0 20px 48px rgba(15, 41, 66, 0.10), 0 4px 14px rgba(15, 23, 42, 0.04);
+          padding: 36px 32px 30px;
+          animation: cardSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
-        .lg-brand {
+        @keyframes cardSlideUp {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .login-brand {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 14px;
           margin-bottom: 24px;
+          padding-bottom: 18px;
+          border-bottom: 1px solid #F1F5F9;
         }
-        .lg-logo {
-          width: 44px;
-          height: 44px;
+
+        .login-logo {
+          width: 46px;
+          height: 46px;
           border-radius: 12px;
-          background: #fff;
+          background: #F8FAFC;
+          border: 1px solid #E2E8F0;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          box-shadow: 0 6px 16px rgba(0, 122, 255, 0.18);
-        }
-        .lg-logo img { width: 100%; height: 100%; display: block; }
-        .lg-title {
-          font-weight: 800;
-          font-size: 17px;
-          color: #1C1C1E;
-          letter-spacing: -0.02em;
-        }
-        .lg-sub { font-size: 11.5px; color: #6C6C70; }
-
-        .lg-welcome {
-          font-size: 24px;
-          font-weight: 800;
-          color: #1C1C1E;
-          letter-spacing: -0.02em;
-          text-align: center;
-          margin: 0 0 4px;
-        }
-        .lg-welcome-sub {
-          font-size: 13px;
-          color: #6C6C70;
-          text-align: center;
-          margin: 0 0 24px;
+          flex-shrink: 0;
         }
 
-        .lg-field { margin-bottom: 15px; }
-        .lg-field label {
-          display: block;
-          font-size: 12.5px;
-          font-weight: 600;
-          color: #3C3C43;
-          margin-bottom: 6px;
-        }
-        .lg-field input {
+        .login-logo img {
           width: 100%;
-          padding: 12px 14px;
-          border: 1px solid rgba(255, 255, 255, 0.9);
-          border-radius: 13px;
-          background: rgba(255, 255, 255, 0.72);
-          font-size: 14px;
-          font-family: inherit;
-          color: #1C1C1E;
-          box-sizing: border-box;
-          transition: all 0.15s;
-          box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
-        }
-        .lg-field input:focus {
-          outline: none;
-          border-color: #007AFF;
-          background: #FFFFFF;
-          box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.18);
+          height: 100%;
+          object-fit: contain;
+          display: block;
         }
 
-        .lg-pass-wrap {
+        .login-logo-fallback {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #E0F2FE;
+        }
+
+        .login-brand-text {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .login-company {
+          font-weight: 700;
+          font-size: 14px;
+          color: #0F2942;
+          line-height: 1.3;
+          letter-spacing: -0.01em;
+        }
+
+        .login-system {
+          font-size: 12px;
+          color: #475569;
+          margin-top: 2px;
+          line-height: 1.35;
+        }
+
+        .login-header {
+          text-align: left;
+          margin-bottom: 22px;
+        }
+
+        .login-heading {
+          font-size: 22px;
+          font-weight: 800;
+          color: #0F2942;
+          letter-spacing: -0.02em;
+          margin: 0 0 6px;
+        }
+
+        .login-subheading {
+          font-size: 13.5px;
+          color: #475569;
+          margin: 0;
+          line-height: 1.5;
+        }
+
+        .login-form {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .login-error-banner {
+          background: #FEE2E2;
+          border: 1px solid #FCA5A5;
+          color: #991B1B;
+          padding: 11px 14px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          line-height: 1.4;
+          animation: bannerFade 0.2s ease-out;
+        }
+
+        @keyframes bannerFade {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .form-group label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #334155;
+          letter-spacing: 0.01em;
+        }
+
+        .input-with-icon {
           position: relative;
           display: flex;
           align-items: center;
         }
-        .lg-pass-wrap input {
-          padding-right: 42px;
-        }
-        .lg-pass-toggle {
+
+        .input-icon {
           position: absolute;
-          right: 10px;
+          left: 14px;
+          color: #64748B;
+          pointer-events: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .input-with-icon input {
+          width: 100%;
+          min-height: 46px;
+          padding: 11px 14px 11px 42px;
+          border: 1px solid #CBD5E1;
+          border-radius: 12px;
+          background: #FFFFFF;
+          font-size: 14px;
+          font-family: inherit;
+          color: #0F172A;
+          box-sizing: border-box;
+          transition: all 0.15s ease;
+        }
+
+        .input-with-icon input::placeholder {
+          color: #94A3B8;
+        }
+
+        .input-with-icon input:focus {
+          outline: none;
+          border-color: #0284C7;
+          background: #FFFFFF;
+          box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.22);
+        }
+
+        .password-wrap input {
+          padding-right: 46px;
+        }
+
+        .password-toggle-btn {
+          position: absolute;
+          right: 2px;
+          min-width: 44px;
+          min-height: 44px;
           border: none;
           background: transparent;
-          font-size: 16px;
+          color: #64748B;
           cursor: pointer;
-          opacity: 0.65;
-          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          border-radius: 10px;
+          transition: color 0.15s ease;
         }
-        .lg-pass-toggle:hover { opacity: 1; }
 
-        .lg-btn {
+        .password-toggle-btn:hover {
+          color: #0F2942;
+        }
+
+        .password-toggle-btn:focus-visible {
+          outline: 2px solid #0284C7;
+          outline-offset: -2px;
+        }
+
+        .login-submit-btn {
           width: 100%;
-          margin-top: 10px;
-          padding: 13.5px;
+          min-height: 48px;
+          margin-top: 8px;
+          padding: 12px 20px;
           border: none;
-          border-radius: 13px;
-          background: linear-gradient(135deg, #4F46E5 0%, #007AFF 100%);
+          border-radius: 12px;
+          background: linear-gradient(135deg, #0F2942 0%, #0284C7 100%);
           color: #FFFFFF;
           font-size: 15px;
           font-weight: 700;
           font-family: inherit;
           cursor: pointer;
-          box-shadow: 0 8px 20px rgba(0, 122, 255, 0.32);
-          transition: transform 0.12s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.15s;
+          box-shadow: 0 6px 18px rgba(2, 132, 199, 0.28);
+          transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
         }
-        .lg-btn:active:not(:disabled) { transform: scale(0.98); }
-        .lg-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .lg-error {
-          background: rgba(255, 59, 48, 0.12);
-          color: #C81E1E;
-          border: 1px solid rgba(255, 59, 48, 0.25);
-          padding: 10px 14px;
-          border-radius: 12px;
-          font-size: 13px;
-          font-weight: 600;
-          margin-bottom: 14px;
+        .login-submit-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #0A1B2E 0%, #0369A1 100%);
+          box-shadow: 0 8px 22px rgba(2, 132, 199, 0.35);
+          transform: translateY(-1px);
+        }
+
+        .login-submit-btn:active:not(:disabled) {
+          transform: translateY(0);
+        }
+
+        .login-submit-btn:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        .login-spinner {
+          display: inline-flex;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .login-card-footer {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          margin-top: 24px;
+          padding-top: 18px;
+          border-top: 1px solid #F1F5F9;
+          font-size: 11.5px;
+          color: #64748B;
+          text-align: center;
+        }
+
+        @media (max-width: 480px) {
+          .login-card {
+            padding: 28px 20px 24px;
+            border-radius: 16px;
+          }
+          .login-heading {
+            font-size: 20px;
+          }
         }
       `}</style>
     </div>

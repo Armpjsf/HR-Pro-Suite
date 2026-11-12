@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ResourceTable from '@/components/hr/ResourceTable';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { alertDialog } from '@/components/ui/ConfirmDialog';
 
 const STATUS = [
   { value: 'applied', label: 'สมัครแล้ว' },
@@ -253,7 +254,7 @@ function InterviewModal({ applicant, questionSets, onClose }) {
   async function handleGenerateForApplicant() {
     const pos = (applicant.position_applied || '').trim();
     if (!pos) {
-      alert('ผู้สมัครยังไม่มีการระบุตำแหน่งงาน');
+      await alertDialog({ title: 'ข้อมูลไม่ครบถ้วน', message: 'ผู้สมัครยังไม่มีการระบุตำแหน่งงาน', type: 'warning' });
       return;
     }
     setGenerating(true);

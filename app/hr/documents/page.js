@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 
 const CATEGORIES = [
   { id: 'policies', name: '📋 ระเบียบบริษัท', color: 'purple' },
@@ -65,14 +66,25 @@ export default function HrDocumentsPage() {
   }
 
   async function remove(id) {
-    if (!confirm('ต้องการลบเอกสารนี้?')) return;
+    const ok = await confirmDialog({
+      title: 'ยืนยันการลบเอกสาร?',
+      message: 'คุณต้องการลบเอกสารนี้ใช่หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้',
+      confirmLabel: 'ลบเอกสาร',
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/documents/${id}`, { method: 'DELETE', headers: authHeaders() });
     if (res.ok) { setDocuments((p) => p.filter((d) => d.id !== id)); showToast('ลบเอกสารแล้ว'); }
     else showToast('ลบไม่สำเร็จ', 'error');
   }
 
   async function reindex() {
-    if (!confirm('สร้างดัชนี AI (RAG) ใหม่ทั้งหมด?\n\nใช้หลังเปลี่ยน LLM provider หรือเมื่อ AI ค้นเอกสารไม่เจอ — อาจใช้เวลาหลายนาทีตามจำนวนเอกสาร')) return;
+    const ok = await confirmDialog({
+      title: 'สร้างดัชนี AI (RAG) ใหม่ทั้งหมด?',
+      message: 'ใช้หลังเปลี่ยน LLM provider หรือเมื่อ AI ค้นเอกสารไม่เจอ — ระบบจะสแกนและจัดทำดัชนีใหม่ทั้งหมด ซึ่งอาจใช้เวลาหลายนาที ต้องการดำเนินการต่อหรือไม่?',
+      confirmLabel: 'เริ่มสร้างดัชนีใหม่',
+    });
+    if (!ok) return;
     setReindexing(true);
     try {
       const res = await fetch('/api/documents/reindex', { method: 'POST', headers: authHeaders() });

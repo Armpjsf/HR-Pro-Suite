@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { exportExcel, printPDF, authHeaders } from './exportUtils';
+import { AppIcon } from '@/components/ui/Icons';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 
 const WEEKDAY_OPTIONS = [
   { value: '1', label: 'จันทร์' },
@@ -22,6 +24,7 @@ function formatWeekdays(value) {
 
 /**
  * ตาราง CRUD อเนกประสงค์สำหรับทุกหน้า /hr — Apple iOS / iPadOS Design System
+ * พร้อมระบบ Multi-Select Bulk Actions & SVG Icons
  */
 export default function ResourceTable({ config }) {
   const {
@@ -41,12 +44,12 @@ export default function ResourceTable({ config }) {
   const [statusTab, setStatusTab] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [confirmDeleteRow, setConfirmDeleteRow] = useState(null);
-  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [employees, setEmployees] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
   const searchTimer = useRef(null);
 
   const showToast = useCallback((message, type = 'success') => {
@@ -60,7 +63,10 @@ export default function ResourceTable({ config }) {
       const url = `/api/hr/${resource}${q ? `?q=${encodeURIComponent(q)}` : ''}`;
       const res = await fetch(url, { headers: authHeaders() });
       const data = await res.json();
-      if (res.ok) setItems(data.items || []);
+      if (res.ok) {
+        setItems(data.items || []);
+        setSelectedIds(new Set());
+      }
       else showToast(data.error || 'โหลดข้อมูลไม่สำเร็จ', 'error');
     } catch {
       showToast('เชื่อมต่อไม่สำเร็จ', 'error');
@@ -68,6 +74,7 @@ export default function ResourceTable({ config }) {
     setLoading(false);
   }, [resource, showToast]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
 
   // ติดตาม active branch สำหรับกรองข้อมูลทุกตาราง
@@ -172,17 +179,22 @@ export default function ResourceTable({ config }) {
     setSaving(false);
   }
 
-  async function executeRemove() {
-    if (!confirmDeleteRow) return;
-    setDeleting(true);
+  async function handleDeleteRow(row) {
+    const ok = await confirmDialog({
+      title: 'ยืนยันการลบรายการ?',
+      message: 'คุณต้องการลบข้อมูลนี้ใช่หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้',
+      confirmLabel: 'ลบรายการ',
+      destructive: true,
+    });
+    if (!ok) return;
+
     try {
-      const res = await fetch(`/api/hr/${resource}/${confirmDeleteRow.id}`, {
+      const res = await fetch(`/api/hr/${resource}/${row.id}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
       if (res.ok) {
         showToast('ลบรายการเรียบร้อยแล้ว');
-        setConfirmDeleteRow(null);
         load(search);
       } else {
         const d = await res.json().catch(() => ({}));
@@ -191,7 +203,6 @@ export default function ResourceTable({ config }) {
     } catch {
       showToast('เกิดข้อผิดพลาดในการลบ', 'error');
     }
-    setDeleting(false);
   }
 
   function renderCell(col, row) {
@@ -201,8 +212,8 @@ export default function ResourceTable({ config }) {
       if (emp) {
         return (
           <span title={`${emp.name} (${emp.department || '-'})`}>
-            <strong style={{ color: '#000' }}>{value}</strong>{' '}
-            <span style={{ color: '#3C3C43', fontSize: 13 }}>· {emp.name}</span>
+            <strong style={{ color: '#0F172A' }}>{value}</strong>{' '}
+            <span style={{ color: '#475569', fontSize: 13 }}>· {emp.name}</span>
           </span>
         );
       }
@@ -283,7 +294,7 @@ export default function ResourceTable({ config }) {
             {positions.map((p) => (
               <option key={p.id || p.title} value={p.title}>{p.title} {p.level ? `(${p.level})` : ''}</option>
             ))}
-            <option value="__custom__">✏️ ระบุตำแหน่งอื่น (พิมพ์ชื่อเอง)...</option>
+            <option value="__custom__">ระบุตำแหน่งอื่น (พิมพ์ชื่อเอง)...</option>
           </select>
           {(isCustomMode || value === ' ') && (
             <input
@@ -319,7 +330,7 @@ export default function ResourceTable({ config }) {
           type="checkbox"
           checked={!!value}
           onChange={(e) => set(e.target.checked)}
-          style={{ width: 20, height: 20, accentColor: '#007AFF', cursor: 'pointer' }}
+          style={{ width: 20, height: 20, accentColor: '#0284C7', cursor: 'pointer' }}
         />
       );
     }
@@ -364,8 +375,9 @@ export default function ResourceTable({ config }) {
   const hasRowActions = canEdit || canDelete || renderActions;
   const empMap = new Map((employees || []).map((e) => [e.employeeId, e]));
   const statusCol = statusFilter ? columns.find((c) => c.key === 'status' && c.badge) : null;
+  const canSelect = Boolean(statusCol || canDelete);
 
-  // กรองตามสาขา + rowFilter ภายนอก (ยังไม่กรองสถานะ/ค้นหา) — ใช้นับจำนวนใน segmented
+  // กรองตามสาขา + rowFilter ภายนอก
   const scopedItems = items.filter((row) => {
     if (activeBranch !== 'all') {
       if (row.branch_id !== undefined && row.branch_id !== null && row.branch_id !== '') {
@@ -396,9 +408,12 @@ export default function ResourceTable({ config }) {
     return false;
   });
 
-  // แจ้งรายการทั้งหมด (หลังกรองสาขา) ให้หน้าแม่ใช้ทำสรุป — ใช้ ref กัน loop
+  // แจ้งรายการทั้งหมด (หลังกรองสาขา) ให้หน้าแม่ใช้ทำสรุป
   const onItemsRef = useRef(onItemsChange);
-  onItemsRef.current = onItemsChange;
+  useEffect(() => {
+    onItemsRef.current = onItemsChange;
+  }, [onItemsChange]);
+
   useEffect(() => {
     if (onItemsRef.current) onItemsRef.current(items, { loading, activeBranch, empMap });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -411,10 +426,132 @@ export default function ResourceTable({ config }) {
   const statusOptions = statusCol
     ? Object.keys({ ...(statusCol.badgeLabels || statusCol.badge), ...statusCounts })
     : [];
-  const thStyle = (c) => (c.align ? { textAlign: c.align } : undefined);
+
+  // Multi-select helpers
+  const allSelected = filteredItems.length > 0 && filteredItems.every((row) => selectedIds.has(row.id));
+  const someSelected = filteredItems.some((row) => selectedIds.has(row.id));
+
+  function toggleAll() {
+    if (allSelected) {
+      const next = new Set(selectedIds);
+      filteredItems.forEach((r) => next.delete(r.id));
+      setSelectedIds(next);
+    } else {
+      const next = new Set(selectedIds);
+      filteredItems.forEach((r) => next.add(r.id));
+      setSelectedIds(next);
+    }
+  }
+
+  function toggleRow(id) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  }
+
+  async function handleBulkStatus(newStatus) {
+    const statusThai = newStatus === 'approved' ? 'อนุมัติ' : newStatus === 'rejected' ? 'ไม่อนุมัติ' : newStatus;
+    const ok = await confirmDialog({
+      title: `ยืนยัน${statusThai}รายการที่เลือก?`,
+      message: `คุณกำลังจะปรับสถานะ ${selectedIds.size} รายการ เป็น "${statusThai}" ต้องการดำเนินการต่อหรือไม่?`,
+      confirmLabel: `ยืนยัน${statusThai}`,
+    });
+    if (!ok) return;
+
+    setBulkProcessing(true);
+    let successCount = 0;
+    try {
+      for (const id of selectedIds) {
+        const res = await fetch(`/api/hr/${resource}/${id}`, {
+          method: 'PUT',
+          headers: authHeaders(true),
+          body: JSON.stringify({ status: newStatus }),
+        });
+        if (res.ok) successCount++;
+      }
+      showToast(`${statusThai}สำเร็จ ${successCount} รายการ`);
+      setSelectedIds(new Set());
+      load(search);
+    } catch {
+      showToast(`เกิดข้อผิดพลาดในการ${statusThai}`, 'error');
+    }
+    setBulkProcessing(false);
+  }
+
+  async function handleBulkDelete() {
+    const ok = await confirmDialog({
+      title: 'ยืนยันลบรายการที่เลือก?',
+      message: `คุณต้องการลบข้อมูล ${selectedIds.size} รายการนี้ใช่หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้`,
+      confirmLabel: 'ลบรายการที่เลือก',
+      destructive: true,
+    });
+    if (!ok) return;
+
+    setBulkProcessing(true);
+    let successCount = 0;
+    try {
+      for (const id of selectedIds) {
+        const res = await fetch(`/api/hr/${resource}/${id}`, {
+          method: 'DELETE',
+          headers: authHeaders(),
+        });
+        if (res.ok) successCount++;
+      }
+      showToast(`ลบรายการสำเร็จ ${successCount} รายการ`);
+      setSelectedIds(new Set());
+      load(search);
+    } catch {
+      showToast('เกิดข้อผิดพลาดในการลบรายการ', 'error');
+    }
+    setBulkProcessing(false);
+  }
 
   return (
     <div>
+      {/* Branch filtering subtle alert banner */}
+      {activeBranch !== 'all' && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '8px 14px',
+            marginBottom: 12,
+            borderRadius: 10,
+            background: '#EFF6FF',
+            border: '1px solid #BFDBFE',
+            color: '#1D4ED8',
+            fontSize: 13,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AppIcon name="branches" size={16} />
+            <span>กำลังแสดงข้อมูลเฉพาะสาขาที่เลือก (ข้อมูลอาจไม่ครบถ้วนทั้งองค์กร)</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.setItem('hr-active-branch', 'all');
+              window.dispatchEvent(new CustomEvent('hr-branch-change', { detail: 'all' }));
+            }}
+            style={{
+              border: 'none',
+              background: '#DBEAFE',
+              color: '#1E40AF',
+              padding: '3px 10px',
+              borderRadius: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            แสดงทุกสาขา ✕
+          </button>
+        </div>
+      )}
+
       {headerExtra}
 
       {statusCol && statusOptions.length > 0 && (
@@ -423,7 +560,7 @@ export default function ResourceTable({ config }) {
             <button
               type="button"
               className={`hr-segmented-item${statusTab === 'all' ? ' active' : ''}`}
-              onClick={() => setStatusTab('all')}
+              onClick={() => { setStatusTab('all'); setSelectedIds(new Set()); }}
             >
               ทั้งหมด ({scopedItems.length})
             </button>
@@ -432,7 +569,7 @@ export default function ResourceTable({ config }) {
                 key={opt}
                 type="button"
                 className={`hr-segmented-item${statusTab === opt ? ' active' : ''}`}
-                onClick={() => setStatusTab(opt)}
+                onClick={() => { setStatusTab(opt); setSelectedIds(new Set()); }}
               >
                 {statusCol.badgeLabels?.[opt] || opt} ({statusCounts[opt] || 0})
               </button>
@@ -441,9 +578,85 @@ export default function ResourceTable({ config }) {
         </div>
       )}
 
+      {/* Bulk Action Bar */}
+      {canSelect && selectedIds.size > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '10px 16px',
+            marginBottom: 12,
+            borderRadius: 12,
+            background: '#0F2942',
+            color: '#FFFFFF',
+            boxShadow: '0 4px 16px rgba(15, 41, 66, 0.25)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600 }}>
+            <span style={{ background: '#0284C7', color: '#FFF', padding: '2px 8px', borderRadius: 999, fontSize: 12 }}>
+              {selectedIds.size}
+            </span>
+            <span>เลือกแล้ว {selectedIds.size} รายการ</span>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#94A3B8',
+                cursor: 'pointer',
+                fontSize: 12,
+                textDecoration: 'underline',
+              }}
+            >
+              ยกเลิกการเลือก
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {statusOptions.includes('approved') && (
+              <button
+                type="button"
+                className="hr-btn"
+                style={{ background: '#10B981', color: '#FFF', borderColor: 'transparent', fontSize: 12, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                onClick={() => handleBulkStatus('approved')}
+                disabled={bulkProcessing}
+              >
+                <AppIcon name="check" size={14} /> อนุมัติที่เลือกทั้งหมด ({selectedIds.size})
+              </button>
+            )}
+            {statusOptions.includes('rejected') && (
+              <button
+                type="button"
+                className="hr-btn"
+                style={{ background: '#EF4444', color: '#FFF', borderColor: 'transparent', fontSize: 12, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                onClick={() => handleBulkStatus('rejected')}
+                disabled={bulkProcessing}
+              >
+                <AppIcon name="x" size={14} /> ไม่อนุมัติที่เลือก ({selectedIds.size})
+              </button>
+            )}
+            {canDelete && (
+              <button
+                type="button"
+                className="hr-btn hr-btn-danger"
+                style={{ fontSize: 12, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                onClick={handleBulkDelete}
+                disabled={bulkProcessing}
+              >
+                <AppIcon name="trash" size={14} /> ลบที่เลือก ({selectedIds.size})
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="hr-toolbar">
         <div className="hr-search-box">
-          <span className="hr-search-icon" aria-hidden="true">🔍</span>
+          <span className="hr-search-icon" aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <AppIcon name="search" size={15} />
+          </span>
           <input
             className="hr-search"
             placeholder={searchPlaceholder}
@@ -463,14 +676,14 @@ export default function ResourceTable({ config }) {
         </div>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <button className="hr-btn" onClick={() => exportExcel(filteredItems, columns, exportName)}>
-            <span>📊</span> ส่งออก Excel
+            <AppIcon name="download" size={14} /> ส่งออก Excel
           </button>
           <button className="hr-btn" onClick={printPDF}>
-            <span>🖨️</span> พิมพ์ PDF
+            <AppIcon name="printer" size={14} /> พิมพ์ PDF
           </button>
           {fields && fields.length > 0 && (
             <button className="hr-btn hr-btn-primary" onClick={openAdd}>
-              <span>＋</span> เพิ่มรายการ
+              <AppIcon name="plus" size={14} /> เพิ่มรายการ
             </button>
           )}
         </div>
@@ -480,6 +693,18 @@ export default function ResourceTable({ config }) {
         <table className="hr-table">
           <thead>
             <tr>
+              {canSelect && (
+                <th style={{ width: 40, textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                    onChange={toggleAll}
+                    style={{ width: 16, height: 16, accentColor: '#0284C7', cursor: 'pointer' }}
+                    aria-label="เลือกทั้งหมด"
+                  />
+                </th>
+              )}
               {columns.map((c) => <th key={c.key}>{c.label}</th>)}
               {hasRowActions && <th style={{ textAlign: 'right' }}>จัดการ</th>}
             </tr>
@@ -487,6 +712,11 @@ export default function ResourceTable({ config }) {
           <tbody>
             {loading && Array.from({ length: 5 }).map((_, idx) => (
               <tr key={`sk-${idx}`}>
+                {canSelect && (
+                  <td style={{ textAlign: 'center' }}>
+                    <div className="ios-skeleton" style={{ height: 16, width: 16, margin: '0 auto' }} />
+                  </td>
+                )}
                 {columns.map((c) => (
                   <td key={c.key}>
                     <div className="ios-skeleton" style={{ height: 16, width: '75%' }} />
@@ -501,16 +731,31 @@ export default function ResourceTable({ config }) {
             ))}
 
             {!loading && filteredItems.map((row) => (
-              <tr key={row.id}>
+              <tr key={row.id} className={selectedIds.has(row.id) ? 'hr-row-selected' : ''}>
+                {canSelect && (
+                  <td style={{ textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(row.id)}
+                      onChange={() => toggleRow(row.id)}
+                      style={{ width: 16, height: 16, accentColor: '#0284C7', cursor: 'pointer' }}
+                      aria-label={`เลือกแถว ${row.id}`}
+                    />
+                  </td>
+                )}
                 {columns.map((c) => <td key={c.key}>{renderCell(c, row)}</td>)}
                 {hasRowActions && (
                   <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                     {renderActions && renderActions(row, () => load(search), showToast)}
                     {canEdit && (
-                      <button className="hr-btn hr-btn-icon" title="แก้ไข" onClick={() => openEdit(row)} style={{ marginLeft: 6 }}>✏️</button>
+                      <button className="hr-btn hr-btn-icon" title="แก้ไข" onClick={() => openEdit(row)} style={{ marginLeft: 6 }}>
+                        <AppIcon name="edit" size={14} />
+                      </button>
                     )}
                     {canDelete && (
-                      <button className="hr-btn hr-btn-icon hr-btn-danger" title="ลบ" onClick={() => setConfirmDeleteRow(row)} style={{ marginLeft: 6 }}>🗑️</button>
+                      <button className="hr-btn hr-btn-icon hr-btn-danger" title="ลบ" onClick={() => handleDeleteRow(row)} style={{ marginLeft: 6 }}>
+                        <AppIcon name="trash" size={14} />
+                      </button>
                     )}
                   </td>
                 )}
@@ -521,15 +766,15 @@ export default function ResourceTable({ config }) {
 
         {!loading && filteredItems.length === 0 && (
           <div className="hr-empty">
-            <div style={{ fontSize: 34, marginBottom: 8, opacity: 0.7 }}>🗂️</div>
-            <div style={{ fontWeight: 600, color: '#1d2433', fontSize: 15, marginBottom: 4 }}>
+            <AppIcon name="folder" size={36} style={{ color: '#94A3B8', marginBottom: 8 }} />
+            <div style={{ fontWeight: 600, color: '#0F172A', fontSize: 15, marginBottom: 4 }}>
               {activeBranch !== 'all' && items.length > 0
                 ? 'ไม่พบข้อมูลในสาขาที่เลือก'
                 : search
                   ? `ไม่พบข้อมูลที่ตรงกับ "${search}"`
                   : 'ยังไม่มีรายการข้อมูล'}
             </div>
-            <div style={{ fontSize: 13, color: '#8E8E93' }}>
+            <div style={{ fontSize: 13, color: '#64748B' }}>
               {activeBranch !== 'all' && items.length > 0
                 ? `มีทั้งหมด ${items.length} รายการในสาขาอื่น — ลองสลับตัวกรองเป็น "ทุกสาขา" ที่แถบด้านบน`
                 : 'คลิกปุ่ม "+ เพิ่มรายการ" ด้านบนเพื่อสร้างข้อมูลใหม่'}
@@ -544,9 +789,19 @@ export default function ResourceTable({ config }) {
             return (
               <div className="hr-mobile-row-card" key={row.id}>
                 <div className="hr-mobile-row-head">
-                  <div>
-                    <div className="hr-mobile-row-title">{renderCell(titleCol, row)}</div>
-                    {subCol && <div className="hr-mobile-row-sub">{subCol.label}: {renderCell(subCol, row)}</div>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {canSelect && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(row.id)}
+                        onChange={() => toggleRow(row.id)}
+                        style={{ width: 18, height: 18, accentColor: '#0284C7' }}
+                      />
+                    )}
+                    <div>
+                      <div className="hr-mobile-row-title">{renderCell(titleCol, row)}</div>
+                      {subCol && <div className="hr-mobile-row-sub">{subCol.label}: {renderCell(subCol, row)}</div>}
+                    </div>
                   </div>
                   {columns.find((c) => c.key === 'status') && renderCell(columns.find((c) => c.key === 'status'), row)}
                 </div>
@@ -560,10 +815,14 @@ export default function ResourceTable({ config }) {
                   <div className="hr-mobile-row-actions">
                     {renderActions && renderActions(row, () => load(search), showToast)}
                     {canEdit && (
-                      <button className="hr-btn" title="แก้ไข" onClick={() => openEdit(row)}>✏️ แก้ไข</button>
+                      <button className="hr-btn" title="แก้ไข" onClick={() => openEdit(row)}>
+                        <AppIcon name="edit" size={13} /> แก้ไข
+                      </button>
                     )}
                     {canDelete && (
-                      <button className="hr-btn hr-btn-danger" title="ลบ" onClick={() => setConfirmDeleteRow(row)}>🗑️ ลบ</button>
+                      <button className="hr-btn hr-btn-danger" title="ลบ" onClick={() => handleDeleteRow(row)}>
+                        <AppIcon name="trash" size={13} /> ลบ
+                      </button>
                     )}
                   </div>
                 )}
@@ -595,38 +854,6 @@ export default function ResourceTable({ config }) {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Native iOS Alert Confirmation Dialog for Deletion */}
-      {confirmDeleteRow && (
-        <div className="hr-modal-overlay" onClick={() => !deleting && setConfirmDeleteRow(null)}>
-          <div className="hr-ios-alert" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true">
-            <div className="hr-ios-alert-body">
-              <div className="hr-ios-alert-title">ยืนยันการลบรายการ?</div>
-              <div className="hr-ios-alert-desc">
-                คุณต้องการลบข้อมูลนี้ใช่หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้
-              </div>
-            </div>
-            <div className="hr-ios-alert-actions">
-              <button
-                type="button"
-                className="hr-ios-alert-btn cancel"
-                disabled={deleting}
-                onClick={() => setConfirmDeleteRow(null)}
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                className="hr-ios-alert-btn destructive"
-                disabled={deleting}
-                onClick={executeRemove}
-              >
-                {deleting ? 'กำลังลบ...' : 'ลบรายการ'}
-              </button>
-            </div>
           </div>
         </div>
       )}

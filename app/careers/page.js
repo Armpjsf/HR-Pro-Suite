@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { alertDialog } from '@/components/ui/ConfirmDialog';
+import { AppIcon } from '@/components/ui/Icons';
 
 export default function CareersPage() {
   const [openings, setOpenings] = useState([]);
@@ -43,10 +45,10 @@ export default function CareersPage() {
       if (res.ok) {
         setSubmitted(true);
       } else {
-        alert('เกิดข้อผิดพลาดในการส่งใบสมัคร กรุณาลองใหม่อีกครั้ง');
+        await alertDialog({ title: 'ข้อผิดพลาด', message: 'เกิดข้อผิดพลาดในการส่งใบสมัคร กรุณาลองใหม่อีกครั้ง', type: 'error' });
       }
     } catch {
-      alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+      await alertDialog({ title: 'เชื่อมต่อล้มเหลว', message: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', type: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -56,8 +58,9 @@ export default function CareersPage() {
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: 'sans-serif', padding: '32px 16px' }}>
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ fontSize: 32, fontWeight: 800, color: '#1e1b4b', marginBottom: 8 }}>
-            🚚 ร่วมงานกับ ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต
+          <div style={{ fontSize: 32, fontWeight: 800, color: '#1e1b4b', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <AppIcon name="truck" size={32} style={{ color: '#0284C7' }} />
+            <span>ร่วมงานกับ ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต</span>
           </div>
           <div style={{ fontSize: 16, color: '#64748b' }}>
             บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด — เปิดรับสมัครบุคลากรมืออาชีพ

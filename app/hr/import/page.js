@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { AppIcon } from '@/components/ui/Icons';
 
 const TYPES = {
   employees: {
@@ -80,7 +81,7 @@ export default function ImportPage() {
   return (
     <div>
       <div className="hr-card" style={{ marginBottom: 16 }}>
-        <p style={{ margin: 0, fontSize: 13, color: '#5b6478' }}>
+        <p style={{ margin: 0, fontSize: 13, color: '#475569' }}>
           นำเข้าข้อมูลทีละหลายรายการจากไฟล์ Excel — เลือกประเภท → ดาวน์โหลดเทมเพลต → กรอกข้อมูล → อัปโหลด → ตรวจดู → นำเข้า
         </p>
       </div>
@@ -96,19 +97,39 @@ export default function ImportPage() {
 
       <div className="hr-card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="hr-btn" onClick={downloadTemplate}>📄 ดาวน์โหลดเทมเพลต {cfg.label}</button>
-          <button className="hr-btn" onClick={() => fileRef.current?.click()}>📤 เลือกไฟล์ Excel</button>
+          <button className="hr-btn" onClick={downloadTemplate} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <AppIcon name="download" size={14} /> ดาวน์โหลดเทมเพลต {cfg.label}
+          </button>
+          <button className="hr-btn" onClick={() => fileRef.current?.click()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <AppIcon name="file-text" size={14} /> เลือกไฟล์ Excel
+          </button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={onFile} />
-          {rows.length > 0 && <button className="hr-btn hr-btn-primary" disabled={busy} onClick={doImport}>{busy ? 'กำลังนำเข้า...' : `นำเข้า ${rows.length} รายการ`}</button>}
+          {rows.length > 0 && (
+            <button className="hr-btn hr-btn-primary" disabled={busy} onClick={doImport} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="plus" size={14} /> {busy ? 'กำลังนำเข้า...' : `นำเข้า ${rows.length} รายการ`}
+            </button>
+          )}
         </div>
-        <p style={{ fontSize: 12, color: '#9aa1b5', marginBottom: 0, marginTop: 10 }}>ℹ️ {cfg.note}</p>
+        <p style={{ fontSize: 12, color: '#64748B', marginBottom: 0, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <AppIcon name="alert-triangle" size={13} style={{ color: '#0284C7' }} /> {cfg.note}
+        </p>
       </div>
 
       {result && (
-        <div className="hr-card" style={{ marginBottom: 16, borderLeft: `4px solid ${result.errors.length ? '#f59e0b' : '#16a34a'}` }}>
-          <div style={{ fontWeight: 700 }}>ผลการนำเข้า: เพิ่มใหม่ {result.created} · อัปเดต {result.updated} · ผิดพลาด {result.errors.length}</div>
+        <div
+          className="hr-card"
+          style={{
+            marginBottom: 16,
+            border: `1px solid ${result.errors.length ? '#FED7AA' : '#BBF7D0'}`,
+            background: result.errors.length ? '#FFFBEB' : '#F0FDF4',
+          }}
+        >
+          <div style={{ fontWeight: 700, color: result.errors.length ? '#9A3412' : '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AppIcon name={result.errors.length ? 'alert-triangle' : 'check-circle'} size={18} />
+            <span>ผลการนำเข้า: เพิ่มใหม่ {result.created} · อัปเดต {result.updated} · ผิดพลาด {result.errors.length}</span>
+          </div>
           {result.errors.length > 0 && (
-            <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 13, color: '#b91c1c' }}>
+            <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 13, color: '#B91C1C' }}>
               {result.errors.slice(0, 20).map((e, i) => <li key={i}>{e}</li>)}
               {result.errors.length > 20 && <li>... อีก {result.errors.length - 20} รายการ</li>}
             </ul>

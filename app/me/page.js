@@ -1,27 +1,117 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { COMPANY } from '@/lib/company';
-import { deductionBreakdown as slipDeductionBreakdown } from '@/lib/payroll';
+import dynamic from 'next/dynamic';
 import NotificationBell from '@/components/NotificationBell';
+import { AppIcon } from '@/components/ui/Icons';
+import { authHeaders } from '@/components/me/SecondaryTabs';
 import './me.css';
+
+/* ─── Lazy Loaded Sub-Views for Fast Mobile First Load ─── */
+const DynamicChatTab = dynamic(() => import('@/components/me/ChatTab'), {
+  loading: () => <div className="me-card me-empty">กำลังโหลดระบบแชท...</div>,
+  ssr: false,
+});
+
+const DynamicPayslipTab = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.PayslipTab),
+  { loading: () => <div className="me-card me-empty">กำลังโหลดสลิปเงินเดือน...</div>, ssr: false }
+);
+
+const DynamicExpensesSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.ExpensesSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicOtSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.OtSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicRoomsSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.RoomsSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicWorkplaceSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.WorkplaceSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicCalendarSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.CalendarSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicAttendanceSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.AttendanceSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicEvaluationSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.EvaluationSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicTaxCertSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.TaxCertSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicAllowanceSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.AllowanceSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicTeamLeaveSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.TeamLeaveSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicDocumentRequestsSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.DocumentRequestsSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicAssetsSection = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.AssetsSection),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicBenefitsTab = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.BenefitsTab),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicOnboardingTab = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.OnboardingTab),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicShiftSwapTab = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.ShiftSwapTab),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicProfileTab = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.ProfileTab),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
+const DynamicAnnouncementsTab = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.AnnouncementsTab),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
 
 /* ─── Constants ─── */
 const LEAVE_LABELS = { annual: 'พักร้อน', sick: 'ลาป่วย', personal: 'ลากิจ' };
-const LEAVE_ICONS = { annual: '🏖️', sick: '🏥', personal: '📋' };
+const LEAVE_ICON_NAMES = { annual: 'leave', sick: 'heart-pulse', personal: 'file-text' };
+
 function leaveLabel(key, val, leaveTypes = []) {
   return val?.label || leaveTypes.find((t) => t.code === key)?.name || LEAVE_LABELS[key] || key;
 }
-const EXPENSE_CATS = [
-  { value: 'travel', label: '🚗 ค่าเดินทาง / ทางด่วน' },
-  { value: 'fuel', label: '⛽ ค่าน้ำมันเชื้อเพลิง' },
-  { value: 'meal', label: '🍱 ค่าอาหาร' },
-  { value: 'allowance', label: '💵 เบี้ยเลี้ยง' },
-  { value: 'accommodation', label: '🏨 ค่าที่พัก' },
-  { value: 'maintenance', label: '🔧 ค่าซ่อมบำรุงรถ' },
-  { value: 'other', label: '📦 อื่นๆ' },
-];
+
 const STATUS_BADGE = {
   pending: { cls: 'me-badge-yellow', label: 'รออนุมัติ' },
   approved: { cls: 'me-badge-green', label: 'อนุมัติ' },
@@ -30,66 +120,71 @@ const STATUS_BADGE = {
   draft: { cls: 'me-badge-gray', label: 'แบบร่าง' },
   submitted: { cls: 'me-badge-green', label: 'ส่งแล้ว' },
 };
-const CERTIFICATE_TYPES = {
-  salary_certificate: 'หนังสือรับรองเงินเดือน',
-  employment_certificate: 'หนังสือรับรองการทำงาน',
-};
 
-const THAI_DIGITS_TEXT = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
-const THAI_POSITIONS_TEXT = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
-
-function thaiNumberText(value) {
-  const number = Math.floor(Math.abs(Number(value) || 0));
-  if (number === 0) return 'ศูนย์';
-  if (number >= 1000000) {
-    const million = Math.floor(number / 1000000);
-    const rest = number % 1000000;
-    return `${thaiNumberText(million)}ล้าน${rest ? thaiNumberText(rest) : ''}`;
-  }
-  const parts = String(number).split('');
-  let text = '';
-  for (let i = 0; i < parts.length; i += 1) {
-    const digit = Number(parts[i]);
-    if (!digit) continue;
-    const pos = parts.length - i - 1;
-    if (pos === 1 && digit === 1) text += 'สิบ';
-    else if (pos === 1 && digit === 2) text += 'ยี่สิบ';
-    else if (pos === 0 && digit === 1 && parts.length > 1) text += 'เอ็ด';
-    else text += `${THAI_DIGITS_TEXT[digit]}${THAI_POSITIONS_TEXT[pos] || ''}`;
-  }
-  return text;
-}
-
-function thaiBahtText(value) {
-  const amount = Number(value) || 0;
-  const baht = Math.floor(amount);
-  const satang = Math.round((amount - baht) * 100);
-  return satang > 0
-    ? `${thaiNumberText(baht)}บาท${thaiNumberText(satang)}สตางค์`
-    : `${thaiNumberText(baht)}บาทถ้วน`;
-}
-
-function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
-
-function storedImage(file) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return `/api/assets/image?file=${encodeURIComponent(file)}&token=${encodeURIComponent(token || '')}`;
-}
-
-/* ═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   MAIN EMPLOYEE SELF-SERVICE SHELL
+   ═══════════════════════════════════════════════════════════════ */
 export default function EmployeePage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState('home');
+  const [subTab, setSubTab] = useState(null);
   const [data, setData] = useState(null);
   const [toast, setToast] = useState(null);
-
-  /* ─── Auth & Load initial data ─── */
   const [loadError, setLoadError] = useState(false);
 
+  /* ─── Android Hardware Back Button Synchronization (User Control & Freedom) ─── */
+  const navigateToTab = useCallback((nextTab) => {
+    setTab(nextTab);
+    setSubTab(null);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ tab: nextTab, subTab: null }, '', `#${nextTab}`);
+    }
+  }, []);
+
+  const navigateToSubTab = useCallback((nextSubTab) => {
+    setSubTab(nextSubTab);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ tab: 'more', subTab: nextSubTab }, '', `#more/${nextSubTab}`);
+    }
+  }, []);
+
+  const closeSubTab = useCallback(() => {
+    setSubTab(null);
+    if (typeof window !== 'undefined') {
+      if (window.history.state?.subTab) {
+        window.history.back();
+      } else {
+        window.history.pushState({ tab: 'more', subTab: null }, '', '#more');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = (e) => {
+      if (e.state) {
+        if (e.state.tab) setTab(e.state.tab);
+        setSubTab(e.state.subTab || null);
+      } else {
+        const hash = window.location.hash.replace('#', '');
+        if (hash.startsWith('more/')) {
+          setTab('more');
+          setSubTab(hash.replace('more/', ''));
+        } else if (hash) {
+          setTab(hash);
+          setSubTab(null);
+        } else {
+          setTab('home');
+          setSubTab(null);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  /* ─── Auth & Initial Data Load ─── */
   useEffect(() => {
     const stored = localStorage.getItem('hr-user');
     const token = localStorage.getItem('hr-token');
@@ -145,7 +240,6 @@ export default function EmployeePage() {
     } catch {}
   }, []);
 
-  // ดึงข้อมูลล่าสุดเสมอเมื่อสลับมาแท็บลางานหรือหน้าแรก
   useEffect(() => {
     if (tab === 'leave' || tab === 'home') {
       refreshMeData();
@@ -161,70 +255,147 @@ export default function EmployeePage() {
 
   const showToast = useCallback((msg, isError) => {
     setToast({ msg, isError });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3200);
   }, []);
 
   if (loadError) {
     return (
       <div className="me-root">
-        <div className="me-empty" style={{ padding: '40px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
-          <div style={{ fontWeight: 700, marginBottom: 8, color: '#1f2937' }}>เซสชันหมดอายุ หรือไม่สามารถโหลดข้อมูลได้</div>
-          <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>กรุณาเข้าสู่ระบบใหม่อีกครั้งเพื่อความปลอดภัยค่ะ</div>
-          <button className="me-btn" onClick={handleLogout} style={{ cursor: 'pointer', maxWidth: 200, margin: '0 auto' }}>เข้าสู่ระบบใหม่</button>
+        <div className="me-empty" style={{ padding: '48px 20px', textAlign: 'center' }}>
+          <div style={{ color: '#DC2626', marginBottom: 14 }}>
+            <AppIcon name="alert-triangle" size={44} />
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8, color: '#0F172A' }}>
+            เซสชันหมดอายุ หรือไม่สามารถโหลดข้อมูลได้
+          </div>
+          <div style={{ fontSize: 13, color: '#64748B', marginBottom: 24 }}>
+            กรุณาเข้าสู่ระบบใหม่อีกครั้งเพื่อความปลอดภัยของข้อมูล
+          </div>
+          <button className="me-btn" onClick={handleLogout} style={{ maxWidth: 220, margin: '0 auto' }}>
+            <AppIcon name="logout" size={16} /> เข้าสู่ระบบใหม่
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!user || !data) return <div className="me-root"><div className="me-empty">กำลังโหลด...</div></div>;
+  if (!user || !data) {
+    return (
+      <div className="me-root">
+        <div className="me-empty" style={{ paddingTop: 80 }}>
+          <div style={{ color: '#0284C7', marginBottom: 12 }}>
+            <AppIcon name="clock" size={36} />
+          </div>
+          <div style={{ fontWeight: 600 }}>กำลังโหลดข้อมูลพนักงาน...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="me-root">
-      {/* ── Header ── */}
-      <div className="me-header">
-        <div className="me-avatar">{data.profile.avatar || '👤'}</div>
-        <div>
-          <div className="me-name">สวัสดี คุณ{data.profile.name}</div>
-          <div className="me-sub">{data.profile.department} · {data.profile.position}</div>
+      {/* ── Operational Sticky Header ── */}
+      <header className="me-header">
+        <div className="me-avatar" aria-label="รูปโปรไฟล์">
+          {data.profile.avatar ? (
+            data.profile.avatar
+          ) : (
+            <AppIcon name="user" size={22} />
+          )}
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="me-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            คุณ{data.profile.name}
+          </div>
+          <div className="me-sub" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {data.profile.department} · {data.profile.position}
+          </div>
         </div>
         <div className="me-header-actions">
           <NotificationBell compact />
         </div>
-      </div>
+      </header>
 
-      {/* ── Tab content ── */}
-      <div className="me-content">
-        {tab === 'home' && <HomeTab data={data} setData={setData} showToast={showToast} onNavigateTab={setTab} />}
-        {tab === 'leave' && <LeaveTab data={data} setData={setData} showToast={showToast} refreshData={refreshMeData} />}
-        {tab === 'chat' && <ChatTab user={user} />}
-        {tab === 'payslip' && <PayslipTab data={data} />}
-        {tab === 'more' && <MoreTab user={user} router={router} showToast={showToast} data={data} />}
-      </div>
+      {/* ── Main Tab Content ── */}
+      <main className="me-content">
+        {tab === 'home' && (
+          <HomeTab
+            data={data}
+            setData={setData}
+            showToast={showToast}
+            onNavigateTab={navigateToTab}
+            onNavigateSubTab={(s) => {
+              setTab('more');
+              navigateToSubTab(s);
+            }}
+          />
+        )}
+        {tab === 'leave' && (
+          <LeaveTab
+            data={data}
+            setData={setData}
+            showToast={showToast}
+            refreshData={refreshMeData}
+          />
+        )}
+        {tab === 'chat' && <DynamicChatTab user={user} />}
+        {tab === 'payslip' && <DynamicPayslipTab data={data} />}
+        {tab === 'more' && (
+          <MoreTab
+            user={user}
+            data={data}
+            subTab={subTab}
+            onOpenSubTab={navigateToSubTab}
+            onCloseSubTab={closeSubTab}
+            showToast={showToast}
+            onLogout={handleLogout}
+          />
+        )}
+      </main>
 
-      {/* ── Bottom Tab Bar ── */}
-      <div className="me-tabbar">
+      {/* ── Bottom Floating Dock Tab Bar ── */}
+      <nav className="me-tabbar" aria-label="แถบเมนูหลัก">
         {[
-          { id: 'home', icon: '🏠', label: 'หน้าแรก' },
-          { id: 'leave', icon: '📅', label: 'ลางาน' },
-          { id: 'chat', icon: '💬', label: 'แชท' },
-          { id: 'payslip', icon: '💰', label: 'เงินเดือน' },
-          { id: 'more', icon: '≡', label: 'เพิ่มเติม' },
+          { id: 'home', icon: 'home', label: 'หน้าแรก' },
+          { id: 'leave', icon: 'calendar', label: 'ลางาน' },
+          { id: 'chat', icon: 'chat', label: 'แชท' },
+          { id: 'payslip', icon: 'payroll', label: 'เงินเดือน' },
+          { id: 'more', icon: 'more', label: 'เพิ่มเติม' },
         ].map((t) => (
-          <button key={t.id} className={`me-tab${tab === t.id ? ' active' : ''}`} onClick={() => setTab(t.id)}>
-            <span className="ico">{t.icon}</span>{t.label}
+          <button
+            key={t.id}
+            type="button"
+            className={`me-tab${tab === t.id ? ' active' : ''}`}
+            onClick={() => navigateToTab(t.id)}
+            aria-selected={tab === t.id}
+            role="tab"
+          >
+            <span className="ico">
+              <AppIcon name={t.icon} size={20} />
+            </span>
+            <span>{t.label}</span>
           </button>
         ))}
-      </div>
+      </nav>
 
-      {toast && <div className={`me-toast${toast.isError ? ' error' : ''}`}>{toast.msg}</div>}
+      {/* ── Toast Notifications ── */}
+      {toast && (
+        <div className={`me-toast${toast.isError ? ' error' : ''}`} role="alert">
+          <AppIcon name={toast.isError ? 'alert-triangle' : 'check-circle'} size={16} />
+          <span>{toast.msg}</span>
+        </div>
+      )}
     </div>
   );
 }
 
-/* ═══════════════════ HOME TAB ═══════════════════ */
-function HomeTab({ data, setData, showToast, onNavigateTab }) {
+/* ═══════════════════════════════════════════════════════════════
+   HOME TAB (Logistics Station Mode, GPS Status, Operations First)
+   ═══════════════════════════════════════════════════════════════ */
+function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) {
   const [clockLoading, setClockLoading] = useState(false);
+  const [gpsStage, setGpsStage] = useState('idle'); // 'idle' | 'locating' | 'submitting'
+  const [gpsMessage, setGpsMessage] = useState('');
   const [clockStatus, setClockStatus] = useState(data.todayClock);
   const [clockType, setClockType] = useState('office');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
@@ -237,15 +408,24 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
 
   const handleClock = async (action) => {
     setClockLoading(true);
+    setGpsStage('locating');
+    setGpsMessage('กำลังค้นหาพิกัดดาวเทียม GPS...');
     try {
       let lat = null, lng = null;
       if (clockType === 'office' || clockType === 'offsite') {
         const pos = await new Promise((resolve, reject) =>
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 })
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          })
         );
         lat = pos.coords.latitude;
         lng = pos.coords.longitude;
       }
+
+      setGpsStage('submitting');
+      setGpsMessage('กำลังบันทึกเวลาปฏิบัติงาน...');
 
       const res = await fetch('/api/me/clock', {
         method: 'POST',
@@ -253,133 +433,265 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
         body: JSON.stringify({ action, latitude: lat, longitude: lng, check_type: clockType }),
       });
       const d = await res.json();
-      if (!res.ok) { showToast(d.error || 'เกิดข้อผิดพลาด', true); return; }
+      if (!res.ok) {
+        showToast(d.error || 'เกิดข้อผิดพลาดในการลงเวลา', true);
+        return;
+      }
       setClockStatus(d.record);
       showToast(d.message);
     } catch (err) {
-      showToast(err.code === 1 ? 'กรุณาอนุญาตการเข้าถึง GPS' : 'เกิดข้อผิดพลาด', true);
+      showToast(
+        err.code === 1
+          ? 'กรุณาอนุญาตการเข้าถึงพิกัด GPS บนอุปกรณ์ของท่าน'
+          : 'ไม่สามารถระบุพิกัดดาวเทียม GPS ได้',
+        true
+      );
     } finally {
       setClockLoading(false);
+      setGpsStage('idle');
+      setGpsMessage('');
     }
   };
 
   const clockedIn = !!clockStatus?.clock_in;
   const clockedOut = !!clockStatus?.clock_out;
   const attendanceStats = data.attendanceStats || { late: 0, absent: 0 };
-  const dateLabel = nowTime.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const dateLabel = nowTime.toLocaleDateString('th-TH', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
   const timeLabel = nowTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 
   const todayStr = data.today || nowTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
   const todayShift = (data.shifts || []).find((s) => s.shift_date === todayStr);
   const ws = data.workSettings || { standard_in: '08:00', standard_out: '17:00' };
   const fmtHm = (t) => String(t || '').slice(0, 5);
-  let shiftLabel = '🕘 เวลาทำงานปกติ';
+
+  let shiftLabel = 'เวลาทำงานปกติ';
   let shiftTimeText = `${fmtHm(ws.standard_in || '08:00')} – ${fmtHm(ws.standard_out || '17:00')} น.`;
   if (todayShift) {
     if (todayShift.shift_type === 'off') {
-      shiftLabel = '🌴 ตารางกะวันนี้';
+      shiftLabel = 'ตารางกะวันนี้';
       shiftTimeText = 'วันหยุดตามกะงาน';
     } else if (todayShift.start_time && todayShift.end_time) {
-      shiftLabel = '🕘 เวลาทำงานตามกะวันนี้';
+      shiftLabel = 'เวลาทำงานตามกะวันนี้';
       shiftTimeText = `${fmtHm(todayShift.start_time)} – ${fmtHm(todayShift.end_time)} น.`;
     }
   }
 
   return (
     <>
-      {/* iOS Attendance Clock Widget */}
-      <div className="me-clock-widget">
+      {/* ── 1. Attendance GPS Clock Station Widget ── */}
+      <section className="me-clock-widget" aria-label="สถานีลงเวลาทำงาน GPS">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div className="me-clock-date-label">{dateLabel}</div>
-            <div className="me-clock-digital">{timeLabel} <span style={{ fontSize: 14, fontWeight: 600, color: '#8E8E93' }}>น.</span></div>
+            <div className="me-clock-digital">
+              {timeLabel} <span style={{ fontSize: 15, fontWeight: 600, color: '#64748B' }}>น.</span>
+            </div>
           </div>
           <span className={`me-badge ${clockedOut ? 'me-badge-blue' : clockedIn ? 'me-badge-green' : 'me-badge-gray'}`}>
-            {clockedOut ? '✓ เลิกงานแล้ว' : clockedIn ? '● กำลังปฏิบัติงาน' : 'ยังไม่ได้เข้างาน'}
+            <AppIcon name={clockedOut ? 'check-circle' : clockedIn ? 'check' : 'clock'} size={13} />
+            <span>{clockedOut ? 'เลิกงานแล้ว' : clockedIn ? 'กำลังปฏิบัติงาน' : 'ยังไม่ได้เข้างาน'}</span>
           </span>
         </div>
 
         <div className="me-clock-hours-bar">
-          <span>{shiftLabel}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <AppIcon name="clock" size={15} />
+            <span>{shiftLabel}</span>
+          </span>
           <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{shiftTimeText}</strong>
         </div>
 
+        {/* Work Location Mode Picker */}
         <div className="me-segmented-picker" role="radiogroup" aria-label="สถานที่ปฏิบัติงาน">
           {[
-            { id: 'office', label: '🏢 ออฟฟิศ' },
-            { id: 'offsite', label: '📍 นอกสถานที่' },
-            { id: 'wfh', label: '🏠 WFH' },
+            { id: 'office', icon: 'map-pin', label: 'สถานี / สาขา' },
+            { id: 'offsite', icon: 'truck', label: 'นอกสถานที่' },
+            { id: 'wfh', icon: 'home', label: 'WFH' },
           ].map((t) => (
             <button
               key={t.id}
               type="button"
+              role="radio"
+              aria-checked={clockType === t.id}
               className={`me-segmented-opt${clockType === t.id ? ' active' : ''}`}
               onClick={() => setClockType(t.id)}
             >
-              {t.label}
+              <AppIcon name={t.icon} size={15} />
+              <span>{t.label}</span>
             </button>
           ))}
         </div>
 
+        {/* 56px Tall Touch Targets with GPS Status Feedback */}
         <div className="me-clock-btn-row">
           <button
+            type="button"
             className="me-clock-btn in"
             disabled={clockLoading || clockedIn}
             onClick={() => handleClock('in')}
+            aria-label="บันทึกเวลาเข้างาน"
           >
-            {clockLoading ? '⏳ กำลังบันทึก...' : 'Clock In · เข้างาน'}
+            <AppIcon name="map-pin" size={19} />
+            <span>
+              {clockLoading && gpsStage !== 'idle'
+                ? gpsStage === 'locating'
+                  ? 'ค้นหา GPS...'
+                  : 'บันทึกเวลา...'
+                : 'Clock In · เข้างาน'}
+            </span>
           </button>
           <button
+            type="button"
             className="me-clock-btn out"
             disabled={clockLoading || !clockedIn || clockedOut}
             onClick={() => handleClock('out')}
+            aria-label="บันทึกเวลาออกงาน"
           >
-            {clockLoading ? '⏳' : 'Clock Out · ออกงาน'}
+            <AppIcon name="logout" size={19} />
+            <span>
+              {clockLoading && gpsStage !== 'idle' ? 'กำลังบันทึก...' : 'Clock Out · ออกงาน'}
+            </span>
           </button>
         </div>
 
-        {clockedIn && (
-          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(60,60,67,0.08)', fontSize: 12.5, color: '#3C3C43', display: 'flex', justifyContent: 'space-between' }}>
-            <span>✅ เข้างาน <strong>{clockStatus.clock_in?.slice(0, 5)}</strong> {clockStatus.location_name && `(${clockStatus.location_name})`}</span>
-            {clockedOut && <span>ออกงาน <strong>{clockStatus.clock_out?.slice(0, 5)}</strong></span>}
+        {gpsStage !== 'idle' && (
+          <div className="me-gps-feedback" role="status">
+            <AppIcon name="clock" size={15} />
+            <span>{gpsMessage}</span>
           </div>
         )}
-      </div>
 
-      {/* Attendance summary */}
-      <div className="me-leave-grid me-attendance-grid">
+        {clockedIn && (
+          <div
+            style={{
+              marginTop: 14,
+              paddingTop: 11,
+              borderTop: '1px solid #E2E8F0',
+              fontSize: 13,
+              color: '#334155',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="check-circle" size={15} />
+              <span>
+                เข้างาน <strong>{clockStatus.clock_in?.slice(0, 5)} น.</strong>{' '}
+                {clockStatus.location_name && `(${clockStatus.location_name})`}
+              </span>
+            </span>
+            {clockedOut && (
+              <span>
+                ออกงาน <strong>{clockStatus.clock_out?.slice(0, 5)} น.</strong>
+              </span>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ── 2. Operational Quick Actions (Fast Access) ── */}
+      <section className="me-quick-grid" aria-label="ทางลัดการปฏิบัติงาน">
+        <button
+          type="button"
+          className="me-quick-btn"
+          onClick={() => onNavigateTab('leave')}
+        >
+          <div className="me-quick-icon">
+            <AppIcon name="calendar" size={18} />
+          </div>
+          <span>ลางาน</span>
+        </button>
+        <button
+          type="button"
+          className="me-quick-btn"
+          onClick={() => onNavigateSubTab('ot')}
+        >
+          <div className="me-quick-icon">
+            <AppIcon name="ot" size={18} />
+          </div>
+          <span>ขอโอที</span>
+        </button>
+        <button
+          type="button"
+          className="me-quick-btn"
+          onClick={() => onNavigateSubTab('expenses')}
+        >
+          <div className="me-quick-icon">
+            <AppIcon name="receipt" size={18} />
+          </div>
+          <span>เบิกค่าเที่ยว</span>
+        </button>
+        <button
+          type="button"
+          className="me-quick-btn"
+          onClick={() => onNavigateTab('payslip')}
+        >
+          <div className="me-quick-icon">
+            <AppIcon name="payroll" size={18} />
+          </div>
+          <span>สลิปเงินเดือน</span>
+        </button>
+      </section>
+
+      {/* ── 3. Attendance Statistics ── */}
+      <section className="me-leave-grid me-attendance-grid" aria-label="สถิติการมาทำงานเดือนนี้">
         <div className="me-leave-card">
-          <div className="me-leave-icon">⏰</div>
-          <div className="me-leave-remain" style={{ color: '#d97706' }}>{attendanceStats.late || 0}</div>
-          <div className="me-leave-label">สายเดือนนี้</div>
+          <div className="me-leave-icon" style={{ color: '#D97706' }}>
+            <AppIcon name="clock" size={22} />
+          </div>
+          <div className="me-leave-remain" style={{ color: '#D97706' }}>
+            {attendanceStats.late || 0}
+          </div>
+          <div className="me-leave-label">มาสายเดือนนี้ (ครั้ง)</div>
         </div>
         <div className="me-leave-card">
-          <div className="me-leave-icon">🚫</div>
-          <div className="me-leave-remain" style={{ color: '#dc2626' }}>{attendanceStats.absent || 0}</div>
-          <div className="me-leave-label">ขาดงานเดือนนี้</div>
+          <div className="me-leave-icon" style={{ color: '#DC2626' }}>
+            <AppIcon name="alert-triangle" size={22} />
+          </div>
+          <div className="me-leave-remain" style={{ color: '#DC2626' }}>
+            {attendanceStats.absent || 0}
+          </div>
+          <div className="me-leave-label">ขาดงานเดือนนี้ (วัน)</div>
         </div>
-      </div>
+      </section>
 
-      {/* Leave balance */}
-      <div className="me-leave-grid me-balance-grid">
+      {/* ── 4. Leave Balance Quotas ── */}
+      <section className="me-leave-grid me-balance-grid" aria-label="โควตาวันลาคงเหลือ">
         {Object.entries(data.leaveBalance || {}).map(([key, val]) => (
           <div key={key} className="me-leave-card">
-            <div className="me-leave-icon">{LEAVE_ICONS[key] || '📅'}</div>
+            <div className="me-leave-icon">
+              <AppIcon name={LEAVE_ICON_NAMES[key] || 'calendar'} size={20} />
+            </div>
             <div className="me-leave-remain">{val.remaining}</div>
             <div className="me-leave-label">{leaveLabel(key, val, data.leaveTypes)}</div>
           </div>
         ))}
-      </div>
+      </section>
 
-      {/* Recent Leave Requests */}
+      {/* ── 5. Recent Leave Requests ── */}
       {(data.leaves || []).length > 0 && (
-        <div className="me-card" style={{ marginTop: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div className="me-section-title" style={{ marginBottom: 0 }}>📋 สถานะคำขอล่าสุด</div>
+        <section className="me-card" aria-label="คำขอลางานล่าสุด">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div className="me-section-title" style={{ marginBottom: 0 }}>
+              <AppIcon name="file-text" size={18} /> สถานะคำขอล่าสุด
+            </div>
             <button
               type="button"
               onClick={() => onNavigateTab && onNavigateTab('leave')}
-              style={{ border: 'none', background: 'transparent', color: '#6d28d9', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#0284C7',
+                fontSize: 12.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
             >
               ดูทั้งหมด ›
             </button>
@@ -388,56 +700,85 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
             const badge = STATUS_BADGE[l.status] || STATUS_BADGE.pending;
             return (
               <div key={l.id} className="me-row">
-                <span className="k" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>{LEAVE_ICONS[l.leave_type] || '📅'}</span>
-                  <span>{LEAVE_LABELS[l.leave_type] || l.leave_type} {l.days} วัน · {l.start_date}</span>
+                <span className="k" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <AppIcon name={LEAVE_ICON_NAMES[l.leave_type] || 'calendar'} size={16} />
+                  <span>
+                    {LEAVE_LABELS[l.leave_type] || l.leave_type} {l.days} วัน · {l.start_date}
+                  </span>
                 </span>
                 <span className={`me-badge ${badge.cls}`}>{badge.label}</span>
               </div>
             );
           })}
-        </div>
+        </section>
       )}
 
-      {/* Announcements */}
-      <div className="me-card" style={{ marginTop: 14 }}>
-        <div className="me-section-title">📢 ประกาศล่าสุด</div>
-        {(data.announcements || []).length === 0 && <div className="me-empty">ไม่มีประกาศ</div>}
-        {(data.announcements || []).slice(0, 5).map((a) => (
-          <button key={a.id} type="button" className="me-row me-announcement-row" onClick={() => setSelectedAnnouncement(a)}>
-            <span className="k">{a.pinned ? '📌 ' : ''}{a.title}{a.docId ? ' 📎' : ''}</span>
-            <span className="v" style={{ fontSize: 12 }}>{a.publish_date || '›'}</span>
+      {/* ── 6. Operational Announcements ── */}
+      <section className="me-card" aria-label="ประกาศล่าสุด">
+        <div className="me-section-title">
+          <AppIcon name="megaphone" size={18} /> ข่าวสารและประกาศบริษัท
+        </div>
+        {(data.announcements || []).length === 0 && <div className="me-empty">ไม่มีประกาศใหม่</div>}
+        {(data.announcements || []).slice(0, 4).map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            className="me-row me-announcement-row"
+            onClick={() => setSelectedAnnouncement(a)}
+          >
+            <span className="k" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {a.pinned && <AppIcon name="pin" size={14} />}
+              <span>{a.title}</span>
+            </span>
+            <span className="v" style={{ fontSize: 12 }}>
+              {a.publish_date || '›'}
+            </span>
           </button>
         ))}
-      </div>
+      </section>
 
+      {/* Announcement Detail Sheet */}
       {selectedAnnouncement && (
         <div className="me-sheet-overlay" onClick={() => setSelectedAnnouncement(null)}>
           <div className="me-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="me-sheet-head">
               <div>
-                <div className="me-sheet-title">{selectedAnnouncement.pinned ? '📌 ' : ''}{selectedAnnouncement.title}</div>
+                <div className="me-sheet-title">{selectedAnnouncement.title}</div>
                 <div className="me-sheet-meta">
-                  {[selectedAnnouncement.category, selectedAnnouncement.publish_date, selectedAnnouncement.author].filter(Boolean).join(' · ') || 'ประกาศบริษัท'}
+                  {[selectedAnnouncement.category, selectedAnnouncement.publish_date, selectedAnnouncement.author]
+                    .filter(Boolean)
+                    .join(' · ') || 'ประกาศบริษัท'}
                 </div>
               </div>
-              <button className="me-sheet-close" onClick={() => setSelectedAnnouncement(null)}>✕</button>
+              <button
+                type="button"
+                className="me-sheet-close"
+                onClick={() => setSelectedAnnouncement(null)}
+                aria-label="ปิด"
+              >
+                ✕
+              </button>
             </div>
             <div className="me-sheet-body">
-              {selectedAnnouncement.body
-                ? selectedAnnouncement.body.split('\n').map((line, idx) => <p key={idx}>{line || '\u00a0'}</p>)
-                : <p>ไม่มีรายละเอียดเพิ่มเติม</p>}
+              {selectedAnnouncement.body ? (
+                selectedAnnouncement.body.split('\n').map((line, idx) => <p key={idx}>{line || '\u00a0'}</p>)
+              ) : (
+                <p>ไม่มีรายละเอียดเพิ่มเติม</p>
+              )}
               {selectedAnnouncement.docId && (
-                <div style={{ marginTop: 16 }}>
+                <div style={{ marginTop: 18 }}>
                   <button
                     type="button"
                     className="me-btn"
                     onClick={() => {
                       const token = localStorage.getItem('hr-token');
-                      window.open(`/api/documents/${selectedAnnouncement.docId}/download?token=${encodeURIComponent(token || '')}`, '_blank');
+                      window.open(
+                        `/api/documents/${selectedAnnouncement.docId}/download?token=${encodeURIComponent(token || '')}`,
+                        '_blank'
+                      );
                     }}
                   >
-                    📥 เปิดดู / ดาวน์โหลดไฟล์ประกาศ ({selectedAnnouncement.fileName || 'เอกสารแนบ'})
+                    <AppIcon name="download" size={16} /> ดาวน์โหลดเอกสารแนบ ({selectedAnnouncement.fileName || 'เอกสาร'})
                   </button>
                 </div>
               )}
@@ -449,21 +790,31 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
   );
 }
 
-/* ═══════════════════ LEAVE TAB ═══════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   LEAVE TAB (Accessible radiogroup, segmented duration, balance)
+   ═══════════════════════════════════════════════════════════════ */
 function LeaveTab({ data, setData, showToast, refreshData }) {
-  const leaveOptions = (data.leaveTypes && data.leaveTypes.length > 0)
-    ? data.leaveTypes
-    : [
-        { code: 'annual', name: 'ลาพักร้อน' },
-        { code: 'sick', name: 'ลาป่วย' },
-        { code: 'personal', name: 'ลากิจ' },
-      ];
+  const leaveOptions =
+    data.leaveTypes && data.leaveTypes.length > 0
+      ? data.leaveTypes
+      : [
+          { code: 'annual', name: 'ลาพักร้อน' },
+          { code: 'sick', name: 'ลาป่วย' },
+          { code: 'personal', name: 'ลากิจ' },
+        ];
   const firstLeaveType = leaveOptions[0]?.code || 'annual';
-  const [form, setForm] = useState({ leave_type: firstLeaveType, start_date: '', end_date: '', days: 1, reason: '' });
+
+  const [form, setForm] = useState({
+    leave_type: firstLeaveType,
+    start_date: '',
+    end_date: '',
+    days: 1,
+    reason: '',
+  });
+  const [durationMode, setDurationMode] = useState('full'); // 'full' | 'morning' | 'afternoon' | 'custom'
   const [loading, setLoading] = useState(false);
   const [leaves, setLeaves] = useState(data.leaves || []);
 
-  // ซิงค์ leaves เมื่อข้อมูลจาก parent เปลี่ยนแปลง (เช่น หลัง refresh)
   useEffect(() => {
     setLeaves(data.leaves || []);
   }, [data.leaves]);
@@ -478,8 +829,11 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
         body: JSON.stringify(form),
       });
       const d = await res.json();
-      if (!res.ok) { showToast(d.error, true); return; }
-      showToast('ยื่นใบลาเรียบร้อย');
+      if (!res.ok) {
+        showToast(d.error || 'ยื่นใบลาไม่สำเร็จ', true);
+        return;
+      }
+      showToast('ยื่นใบลาเรียบร้อยแล้ว');
       setLeaves((prev) => [d.item, ...prev]);
       if (setData) {
         setData((prev) => ({
@@ -488,27 +842,38 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
         }));
       }
       setForm({ leave_type: firstLeaveType, start_date: '', end_date: '', days: 1, reason: '' });
+      setDurationMode('full');
       if (refreshData) refreshData();
-    } catch { showToast('เกิดข้อผิดพลาด', true); }
-    finally { setLoading(false); }
+    } catch {
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <>
-      {/* Balance */}
+      {/* Leave Balance Quotas */}
       <div className="me-leave-grid" style={{ marginTop: 0, padding: 0 }}>
         {Object.entries(data.leaveBalance || {}).map(([key, val]) => (
           <div key={key} className="me-leave-card">
-            <div className="me-leave-icon">{LEAVE_ICONS[key] || '📅'}</div>
-            <div className="me-leave-remain">{val.remaining}<span style={{ fontSize: 11, fontWeight: 400, color: '#9aa1b5' }}>/{val.total}</span></div>
+            <div className="me-leave-icon">
+              <AppIcon name={LEAVE_ICON_NAMES[key] || 'calendar'} size={20} />
+            </div>
+            <div className="me-leave-remain">
+              {val.remaining}
+              <span style={{ fontSize: 11, fontWeight: 500, color: '#64748B' }}>/{val.total}</span>
+            </div>
             <div className="me-leave-label">{leaveLabel(key, val, data.leaveTypes)}</div>
           </div>
         ))}
       </div>
 
-      {/* Form */}
+      {/* Leave Form */}
       <div className="me-card" style={{ marginTop: 14 }}>
-        <div className="me-section-title">📝 ยื่นใบลา</div>
+        <div className="me-section-title">
+          <AppIcon name="file-text" size={18} /> ยื่นใบลาออนไลน์
+        </div>
         <form onSubmit={handleSubmit}>
           <div className="me-field">
             <label>ประเภทการลา</label>
@@ -522,15 +887,17 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
                 const remainText = bal ? ` (คงเหลือ ${bal.remaining} วัน)` : '';
                 return (
                   <option key={t.code} value={t.code}>
-                    {t.name}{remainText}
+                    {t.name}
+                    {remainText}
                   </option>
                 );
               })}
             </select>
           </div>
+
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="me-field" style={{ flex: 1 }}>
-              <label>วันที่เริ่ม</label>
+              <label>วันที่เริ่มลา</label>
               <input
                 type="date"
                 className="me-input"
@@ -539,7 +906,7 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
                   const s = e.target.value;
                   const end = form.end_date && form.end_date >= s ? form.end_date : s;
                   const diff = Math.max(1, Math.round((new Date(end) - new Date(s)) / 86400000) + 1);
-                  setForm({ ...form, start_date: s, end_date: end, days: diff });
+                  setForm({ ...form, start_date: s, end_date: end, days: durationMode.startsWith('half') ? 0.5 : diff });
                 }}
                 required
               />
@@ -555,624 +922,87 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
                   const end = e.target.value;
                   const s = form.start_date || end;
                   const diff = Math.max(1, Math.round((new Date(end) - new Date(s)) / 86400000) + 1);
-                  setForm({ ...form, end_date: end, days: diff });
+                  setForm({ ...form, end_date: end, days: durationMode.startsWith('half') ? 0.5 : diff });
                 }}
                 required
               />
             </div>
           </div>
+
+          {/* Accessible Segmented Duration Picker (Fix WCAG role="radiogroup") */}
           <div className="me-field">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <label style={{ margin: 0 }}>จำนวนวัน</label>
-              <button
-                type="button"
-                className="me-badge me-badge-gray"
-                style={{ cursor: 'pointer', border: 'none', padding: '2px 8px', fontSize: 11 }}
-                onClick={() => setForm({ ...form, days: 0.5 })}
-              >
-                ลาครึ่งวัน (0.5)
-              </button>
+            <label>ช่วงเวลา / ระยะเวลาการลา</label>
+            <div className="me-segmented-picker" role="radiogroup" aria-label="ช่วงเวลาการลา">
+              {[
+                { id: 'full', label: 'เต็มวัน (1.0)', days: 1 },
+                { id: 'half_morning', label: 'ครึ่งเช้า (0.5)', days: 0.5 },
+                { id: 'half_afternoon', label: 'ครึ่งบ่าย (0.5)', days: 0.5 },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={durationMode === opt.id}
+                  className={`me-segmented-opt${durationMode === opt.id ? ' active' : ''}`}
+                  onClick={() => {
+                    setDurationMode(opt.id);
+                    setForm({ ...form, days: opt.days });
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-            <input type="number" className="me-input" min="0.5" step="0.5" value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} required />
           </div>
+
           <div className="me-field">
-            <label>เหตุผล</label>
-            <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="ระบุเหตุผล (ถ้ามี)" />
+            <label>จำนวนวันลา (วัน)</label>
+            <input
+              type="number"
+              className="me-input"
+              min="0.5"
+              step="0.5"
+              value={form.days}
+              onChange={(e) => {
+                setDurationMode('custom');
+                setForm({ ...form, days: e.target.value });
+              }}
+              required
+            />
           </div>
-          <button className="me-btn" disabled={loading}>{loading ? '⏳ กำลังส่ง...' : '📅 ยื่นใบลา'}</button>
+
+          <div className="me-field">
+            <label>เหตุผลการลา</label>
+            <textarea
+              value={form.reason}
+              onChange={(e) => setForm({ ...form, reason: e.target.value })}
+              placeholder="ระบุเหตุผลการลา เช่น ธุระครอบครัว หรือลาป่วย..."
+            />
+          </div>
+
+          <button className="me-btn" disabled={loading}>
+            <AppIcon name="calendar" size={16} />
+            <span>{loading ? 'กำลังส่งคำขอ...' : 'ส่งใบลา'}</span>
+          </button>
         </form>
       </div>
 
-      {/* History */}
+      {/* Leave History */}
       <div className="me-card">
-        <div className="me-section-title">📋 ประวัติการลา</div>
-        {leaves.length === 0 && <div className="me-empty">ยังไม่มีรายการ</div>}
+        <div className="me-section-title">
+          <AppIcon name="file-text" size={18} /> ประวัติการลาของฉัน
+        </div>
+        {leaves.length === 0 && <div className="me-empty">ยังไม่มีประวัติการลา</div>}
         {leaves.map((l) => {
           const badge = STATUS_BADGE[l.status] || STATUS_BADGE.pending;
           return (
             <div key={l.id} className="me-row">
-              <span className="k">{LEAVE_LABELS[l.leave_type] || l.leave_type} {l.days} วัน · {l.start_date}</span>
-              <span className={`me-badge ${badge.cls}`}>{badge.label}</span>
-            </div>
-          );
-        })}
-      </div>
-    </>
-  );
-}
-
-/* ═══════════════════ CHAT TAB ═══════════════════ */
-function renderChatMarkdown(text) {
-  if (!text) return '';
-  const parts = String(text).split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
-}
-
-function ChatTab({ user }) {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const endRef = useRef(null);
-
-  // โหลดประวัติแชทจาก sessionStorage เพื่อไม่ให้หายเมื่อสลับแท็บ
-  useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem('hr-me-chat-messages');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load chat history:', e);
-    }
-  }, []);
-
-  // บันทึกประวัติแชทลง sessionStorage ทุกครั้งที่ข้อความเปลี่ยน
-  useEffect(() => {
-    try {
-      if (messages.length > 0) {
-        sessionStorage.setItem('hr-me-chat-messages', JSON.stringify(messages));
-      }
-    } catch (e) {
-      console.warn('Failed to save chat history:', e);
-    }
-  }, [messages]);
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-  const clearChat = () => {
-    setMessages([]);
-    try { sessionStorage.removeItem('hr-me-chat-messages'); } catch {}
-  };
-
-  const SUGGESTIONS = [
-    { icon: '📅', text: 'วันลาคงเหลือของฉัน' },
-    { icon: '📋', text: 'ระเบียบบริษัท' },
-    { icon: '🏥', text: 'สวัสดิการพนักงาน' },
-    { icon: '📝', text: 'ขอใบลาพักร้อน' },
-    { icon: '📢', text: 'ประกาศล่าสุดของบริษัท' },
-    { icon: '📞', text: 'ติดต่อ HR' },
-  ];
-
-  const send = async (text) => {
-    if (!text.trim() || loading) return;
-    const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-    const userMsg = { id: Date.now(), role: 'user', content: text.trim(), time };
-    const nextMessages = [...messages, userMsg];
-    setMessages(nextMessages);
-    setInput('');
-    setLoading(true);
-    try {
-      const history = messages.map((m) => ({
-        role: m.role === 'ai' ? 'assistant' : 'user',
-        content: m.content,
-      }));
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ message: text.trim(), history }),
-      });
-      const d = await res.json();
-      setMessages((p) => [...p, { id: Date.now() + 1, role: 'ai', content: d.reply || d.error || 'เกิดข้อผิดพลาด', documents: d.documents || [], time }]);
-    } catch {
-      setMessages((p) => [...p, { id: Date.now() + 1, role: 'ai', content: '❌ ไม่สามารถเชื่อมต่อได้', time }]);
-    } finally { setLoading(false); }
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 200px)' }}>
-      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 12 }}>
-        {messages.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, padding: '0 4px' }}>
-            <button onClick={clearChat} style={{ border: 'none', background: 'transparent', color: '#9aa1b5', fontSize: 12, cursor: 'pointer' }}>
-              🗑️ ล้างประวัติแชท
-            </button>
-          </div>
-        )}
-        {messages.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '30px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>🤖</div>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>HR AI Assistant</div>
-            <div style={{ fontSize: 13, color: '#9aa1b5', marginBottom: 18 }}>ถามอะไรก็ได้เกี่ยวกับ HR ครับ</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-              {SUGGESTIONS.map((s, i) => (
-                <button key={i} onClick={() => send(s.text)}
-                  style={{ padding: '8px 14px', borderRadius: 12, border: '1px solid #e7e9f4', background: '#fff', cursor: 'pointer', fontSize: 13 }}>
-                  {s.icon} {s.text}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {messages.map((m) => (
-          <div key={m.id} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
-            <div style={{
-              maxWidth: '85%', padding: '10px 14px', borderRadius: 16,
-              background: m.role === 'user' ? 'linear-gradient(135deg,#6d5ef5,#8b7cf8)' : '#f6f7fc',
-              color: m.role === 'user' ? '#fff' : '#1d2433', fontSize: 14, lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-            }}>
-              {renderChatMarkdown(m.content)}
-              {m.documents?.length > 0 && (
-                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {m.documents.map((doc) => (
-                    <button
-                      key={doc.id}
-                      onClick={() => {
-                        const token = localStorage.getItem('hr-token');
-                        window.open(`/api/documents/${doc.id}/download?token=${encodeURIComponent(token || '')}`, '_blank');
-                      }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
-                        borderRadius: 12, border: '1px solid #e7e9f4', background: '#fff',
-                        cursor: 'pointer', fontSize: 13, color: '#1d2433', textAlign: 'left',
-                      }}
-                    >
-                      <span>⬇️</span>
-                      <span style={{ flex: 1 }}>{doc.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: 'right' }}>{m.time}</div>
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 10 }}>
-            <div style={{ padding: '10px 18px', borderRadius: 16, background: '#f6f7fc', fontSize: 20 }}>
-              <span className="me-typing">⏳</span>
-            </div>
-          </div>
-        )}
-        <div ref={endRef} />
-      </div>
-      <div style={{ display: 'flex', gap: 8, position: 'sticky', bottom: 76, background: '#f4f5fb', paddingTop: 8 }}>
-        <input className="me-input" placeholder="พิมพ์คำถาม..." value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); send(input); } }}
-          disabled={loading} style={{ flex: 1 }} />
-        <button className="me-btn" style={{ width: 48, padding: 0 }} disabled={!input.trim() || loading}
-          onClick={() => send(input)}>➤</button>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════ PAYSLIP TAB ═══════════════════ */
-function PayslipTab({ data }) {
-  const slips = data.payslips || [];
-  const [selected, setSelected] = useState(slips[0] || null);
-  const [showDoc, setShowDoc] = useState(false);
-  const [allowanceData, setAllowanceData] = useState({});
-
-  const num = (v) => Number(v || 0).toLocaleString();
-
-  // เปิดสลิป → คำนวณ YTD (ยอดสะสมต้นปี) + ดึงลดหย่อนของปีนั้นมาทำรายการลดหย่อนในสลิป
-  async function openSlip(s) {
-    setSelected(s);
-    const year = Number(s.period.slice(0, 4)) + 543;
-    if (allowanceData[year] === undefined) {
-      try {
-        const r = await fetch(`/api/me/allowances?year=${year}`, { headers: authHeaders() });
-        const d = await r.json();
-        setAllowanceData((p) => ({ ...p, [year]: d.allowance?.data || {} }));
-      } catch { setAllowanceData((p) => ({ ...p, [year]: {} })); }
-    }
-    setShowDoc(true);
-  }
-
-  function computeYtd(slip) {
-    const yr = slip.period.slice(0, 4);
-    const upTo = slips.filter((s) => s.period.slice(0, 4) === yr && s.period <= slip.period);
-    const sum = (k) => upTo.reduce((a, s) => a + (Number(s[k]) || 0), 0);
-    return { income: sum('base_salary') + sum('ot_pay') + sum('bonus'), tax: sum('tax'), sso: sum('sso') };
-  }
-
-  return (
-    <>
-      {selected && (
-        <div className="me-card">
-          <div className="me-section-title">💰 สลิปเงินเดือน งวด {selected.period}</div>
-          <div className="me-row"><span className="k">เงินเดือน</span><span className="v">{num(selected.base_salary)} ฿</span></div>
-          <div className="me-row"><span className="k">ค่าล่วงเวลา (OT)</span><span className="v">{num(selected.ot_pay)} ฿</span></div>
-          <div className="me-row"><span className="k">โบนัส</span><span className="v">{num(selected.bonus)} ฿</span></div>
-          <div className="me-row"><span className="k">หักภาษี ณ ที่จ่าย</span><span className="v" style={{ color: '#dc2626' }}>-{num(selected.tax)} ฿</span></div>
-          <div className="me-row"><span className="k">หักประกันสังคม</span><span className="v" style={{ color: '#dc2626' }}>-{num(selected.sso)} ฿</span></div>
-          <div className="me-row"><span className="k">หักอื่นๆ</span><span className="v" style={{ color: '#dc2626' }}>-{num(selected.deduction)} ฿</span></div>
-          <div className="me-row" style={{ borderTop: '2px solid #e7e9f4' }}>
-            <span className="k" style={{ fontWeight: 700 }}>รับสุทธิ</span>
-            <span className="me-slip-net">{num(selected.net)} ฿</span>
-          </div>
-          <button className="me-btn" style={{ marginTop: 12 }} onClick={() => openSlip(selected)}>🖨️ ดู/บันทึกสลิป PDF</button>
-        </div>
-      )}
-      <div className="me-card">
-        <div className="me-section-title">📋 สลิปย้อนหลัง</div>
-        {slips.length === 0 && <div className="me-empty">ยังไม่มีสลิปเงินเดือนที่ปล่อยแล้ว</div>}
-        {slips.map((s) => (
-          <div key={s.id} className="me-row" style={{ cursor: 'pointer' }} onClick={() => openSlip(s)}>
-            <span className="k">งวด {periodThai(s.period)}</span>
-            <span className="v">{num(s.net)} ฿</span>
-          </div>
-        ))}
-      </div>
-
-      {showDoc && selected && (() => {
-        const year = Number(selected.period.slice(0, 4)) + 543;
-        const a = allowanceData[year] || {};
-        const ytd = computeYtd(selected);
-        const deductions = slipDeductionBreakdown(ytd.income, ytd.sso, a);
-        return <SlipDocument slip={selected} profile={data.profile} ytd={ytd} deductions={deductions} onClose={() => setShowDoc(false)} />;
-      })()}
-    </>
-  );
-}
-
-/* ─── เอกสารสลิปเงินเดือน (พิมพ์ได้) ─── */
-const THAI_MONTHS_FULL = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-function periodThai(p) {
-  if (!p) return '-';
-  const [y, m] = p.split('-').map(Number);
-  return `${THAI_MONTHS_FULL[m - 1] || ''} ${y + 543}`;
-}
-function thaiDate(value) {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
-}
-function thaiDateShort(value) {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-function SlipDocument({ slip, profile, ytd, deductions, onClose }) {
-  const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const income = Number(slip.base_salary) + Number(slip.ot_pay) + Number(slip.bonus);
-  const totalDed = Number(slip.tax) + Number(slip.sso) + Number(slip.deduction);
-  return (
-    <div className="me-doc-overlay">
-      <div className="me-doc-actions">
-        <button className="me-badge me-badge-gray" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={onClose}>← ปิด</button>
-        <button className="me-badge me-badge-purple" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => window.print()}>🖨️ พิมพ์ / บันทึก PDF</button>
-      </div>
-      <div className="me-doc-print">
-        <div className="me-doc">
-          <div className="me-doc-head" style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', right: 0, top: 0, fontSize: 10, color: '#dc2626', fontWeight: 700 }}>STRICTLY CONFIDENTIAL</div>
-            <div className="me-doc-title" style={{ marginTop: 0, fontSize: 16 }}>สลิปเงินเดือน</div>
-            <div className="me-doc-co" style={{ marginTop: 6 }}>{COMPANY.name}</div>
-            <div className="me-doc-addr">{COMPANY.address}</div>
-            <div className="me-doc-addr">Tax ID: {COMPANY.taxId}</div>
-          </div>
-
-          <table className="me-doc-meta">
-            <tbody>
-              <tr><td>ชื่อ-สกุล</td><td>{profile.name} ({profile.employeeId})</td><td>ประจำงวด</td><td>{periodThai(slip.period)}</td></tr>
-              <tr><td>ตำแหน่ง</td><td>{profile.position || '-'}</td><td>ฝ่าย/แผนก</td><td>{profile.department || '-'}</td></tr>
-              <tr><td>วันที่เริ่มงาน</td><td>{profile.startDate || '-'}</td><td>เลขที่บัญชี</td><td>{profile.bankAccount || '-'}</td></tr>
-            </tbody>
-          </table>
-
-          <table className="me-doc-table">
-            <thead><tr><th>เงินได้</th><th className="r">จำนวน</th><th>เงินหัก</th><th className="r">จำนวน</th></tr></thead>
-            <tbody>
-              <tr><td>เงินเดือน / ค่าจ้าง</td><td className="r">{num(slip.base_salary)}</td><td>ประกันสังคม</td><td className="r">{num(slip.sso)}</td></tr>
-              <tr><td>ค่าล่วงเวลา (OT)</td><td className="r">{num(slip.ot_pay)}</td><td>ภาษี ณ ที่จ่าย</td><td className="r">{num(slip.tax)}</td></tr>
-              <tr><td>โบนัส</td><td className="r">{num(slip.bonus)}</td><td>หักอื่นๆ</td><td className="r">{num(slip.deduction)}</td></tr>
-            </tbody>
-            <tfoot>
-              <tr><td>รวมเงินได้</td><td className="r">{num(income)}</td><td>รวมเงินหัก</td><td className="r">{num(totalDed)}</td></tr>
-            </tfoot>
-          </table>
-
-          <div className="me-doc-net">เงินสุทธิ: {num(slip.net)} บาท</div>
-
-          {ytd && (
-            <>
-              <div style={{ fontWeight: 700, fontSize: 12.5, margin: '6px 0 4px' }}>เงินสะสมตั้งแต่ต้นปี</div>
-              <table className="me-doc-table">
-                <tbody>
-                  <tr><td>เงินได้คำนวณภาษี</td><td className="r">{num(ytd.income)}</td></tr>
-                  <tr><td>ภาษี</td><td className="r">{num(ytd.tax)}</td></tr>
-                  <tr><td>ประกันสังคม</td><td className="r">{num(ytd.sso)}</td></tr>
-                </tbody>
-              </table>
-            </>
-          )}
-
-          {deductions && deductions.length > 0 && (
-            <>
-              <div style={{ fontWeight: 700, fontSize: 12.5, margin: '6px 0 4px' }}>รายการลดหย่อนภาษี</div>
-              <table className="me-doc-table">
-                <tbody>
-                  {deductions.map((d, i) => <tr key={i}><td>{d.label}</td><td className="r">{num(d.amount)}</td></tr>)}
-                </tbody>
-              </table>
-            </>
-          )}
-
-          <div className="me-doc-sign">
-            <div>ลงชื่อ ......................................... พนักงาน</div>
-            <div>ลงชื่อ ......................................... ฝ่ายบุคคล</div>
-          </div>
-          <div className="me-doc-foot">{COMPANY.legalName} — เอกสารลับเฉพาะบุคคล</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════ MORE TAB ═══════════════════ */
-function MoreTab({ user, router, showToast, data }) {
-  const [subTab, setSubTab] = useState(null);
-
-  const menus = [
-    { id: 'expenses', icon: '🧾', color: '#007AFF', label: 'เบิกค่าใช้จ่าย', desc: 'ยื่นเบิกค่าเดินทาง เบี้ยเลี้ยง ฯลฯ' },
-    { id: 'ot', icon: '⏱️', color: '#FF9500', label: 'ขอค่าล่วงเวลา (OT)', desc: 'ยื่นขอ OT + ดูสถานะอนุมัติ' },
-    { id: 'rooms', icon: '🎦', color: '#5856D6', label: 'จองห้องประชุม', desc: 'ดูตารางห้องว่าง + จองห้อง' },
-    { id: 'workplace', icon: '🎓', color: '#AF52DE', label: 'อบรม / ทริป / OKR', desc: 'ดูตารางอบรม ทริปบริษัท และ OKR ของฉัน' },
-    { id: 'calendar', icon: '📆', color: '#FF2D55', label: 'ปฏิทินงาน', desc: 'ดูตารางกะ วันลา วันหยุด' },
-    { id: 'attendance', icon: '⏰', color: '#34C759', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติ Clock-in/out ย้อนหลัง' },
-    { id: 'evaluation', icon: '⭐', color: '#FFCC00', label: 'ประเมินเพื่อนร่วมงาน', desc: 'ให้คะแนน + ดูผลประเมิน' },
-    { id: 'assets', icon: '📦', color: '#00C7BE', label: 'ทรัพย์สิน/อุปกรณ์', desc: 'ดูอุปกรณ์ + ขอเบิก/คืน/เปลี่ยน' },
-    { id: 'documentRequests', icon: '📄', color: '#007AFF', label: 'ขอเอกสารรับรอง', desc: 'ขอหนังสือรับรองเงินเดือน/การทำงาน' },
-    { id: 'taxcert', icon: '🧾', color: '#5856D6', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้-ภาษีทั้งปี ดู/บันทึก PDF ได้' },
-    { id: 'allowance', icon: '📝', color: '#34C759', label: 'แบบลดหย่อนภาษี (ลย.01)', desc: 'กรอกค่าลดหย่อนส่งให้ HR' },
-    ...(data?.isManager ? [{ id: 'teamleave', icon: '✅', color: '#FF3B30', label: 'อนุมัติคำขอลูกทีม (ลา/OT/เบิกจ่าย)', desc: 'อนุมัติขั้นต้นสำหรับหัวหน้างาน' }] : []),
-  ];
-
-  if (subTab === 'expenses') return <ExpensesSection back={() => setSubTab(null)} showToast={showToast} />;
-  if (subTab === 'ot') return <OtSection back={() => setSubTab(null)} showToast={showToast} />;
-  if (subTab === 'rooms') return <RoomsSection back={() => setSubTab(null)} showToast={showToast} />;
-  if (subTab === 'workplace') return <WorkplaceSection back={() => setSubTab(null)} />;
-  if (subTab === 'calendar') return <CalendarSection back={() => setSubTab(null)} />;
-  if (subTab === 'attendance') return <AttendanceSection back={() => setSubTab(null)} />;
-  if (subTab === 'evaluation') return <EvaluationSection back={() => setSubTab(null)} showToast={showToast} />;
-  if (subTab === 'taxcert') return <TaxCertSection back={() => setSubTab(null)} profile={data?.profile} />;
-  if (subTab === 'allowance') return <AllowanceSection back={() => setSubTab(null)} showToast={showToast} />;
-  if (subTab === 'teamleave') return <TeamLeaveSection back={() => setSubTab(null)} showToast={showToast} />;
-  if (subTab === 'assets') return <AssetsSection back={() => setSubTab(null)} showToast={showToast} />;
-  if (subTab === 'documentRequests') return <DocumentRequestsSection back={() => setSubTab(null)} showToast={showToast} profile={data?.profile} />;
-
-  return (
-    <>
-      <div className="me-card">
-        <div className="me-section-title">📱 บริการพนักงาน (Self-Service)</div>
-        {menus.map((m) => (
-          <div key={m.id} className="me-row" style={{ cursor: 'pointer', padding: '11px 0' }} onClick={() => setSubTab(m.id)}>
-            <span className="k" style={{ display: 'flex', alignItems: 'center' }}>
-              <span className="me-menu-icon-badge" style={{ background: m.color }}>{m.icon}</span>
-              <span>
-                <div style={{ fontWeight: 600, color: '#1C1C1E', fontSize: 14 }}>{m.label}</div>
-                <div style={{ fontSize: 11.5, color: '#8E8E93', marginTop: 1 }}>{m.desc}</div>
+              <span className="k" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AppIcon name={LEAVE_ICON_NAMES[l.leave_type] || 'calendar'} size={15} />
+                <span>
+                  {LEAVE_LABELS[l.leave_type] || l.leave_type} {l.days} วัน · {l.start_date}
+                </span>
               </span>
-            </span>
-            <span className="v" style={{ fontSize: 20, color: '#C7C7CC', fontWeight: 400 }}>›</span>
-          </div>
-        ))}
-      </div>
-      <div className="me-card">
-        <div className="me-section-title">👤 ข้อมูลส่วนตัว</div>
-        <div className="me-row"><span className="k">ชื่อ</span><span className="v">{user.name}</span></div>
-        <div className="me-row"><span className="k">Role</span><span className="v">{user.role}</span></div>
-        <div className="me-row"><span className="k">รหัสพนักงาน</span><span className="v">{user.employeeId}</span></div>
-      </div>
-      <button className="me-btn" style={{ background: '#ef4444', marginTop: 10 }} onClick={() => {
-        localStorage.removeItem('hr-token');
-        localStorage.removeItem('hr-user');
-        document.cookie = 'hr-token=; path=/; max-age=0';
-        router.push('/');
-      }}>🚪 ออกจากระบบ</button>
-    </>
-  );
-}
-
-/* ─── Expenses Sub-section ─── */
-function ExpensesSection({ back, showToast }) {
-  const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ category: 'travel', amount: '', description: '', claim_date: new Date().toISOString().slice(0, 10), receiptUrl: '' });
-  const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/me/expenses', { headers: authHeaders() })
-      .then((r) => r.json()).then((d) => { setItems(d.items || []); setLoaded(true); }).catch(() => setLoaded(true));
-  }, []);
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-      const res = await fetch('/api/me/upload', {
-        method: 'POST',
-        headers: token ? { Authorization: 'Bearer ' + token } : {},
-        body: fd,
-      });
-      const d = await res.json();
-      if (!res.ok) { showToast(d.error || 'อัปโหลดไม่สำเร็จ', true); return; }
-      setForm((prev) => ({ ...prev, receiptUrl: d.fileUrl }));
-      showToast('แนบใบเสร็จเรียบร้อย');
-    } catch {
-      showToast('อัปโหลดไฟล์ล้มเหลว', true);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await fetch('/api/me/expenses', { method: 'POST', headers: authHeaders(), body: JSON.stringify(form) });
-      const d = await res.json();
-      if (!res.ok) { showToast(d.error, true); return; }
-      showToast('ยื่นเบิกค่าใช้จ่ายเรียบร้อย');
-      setItems((p) => [d.item, ...p]);
-      setForm({ category: 'travel', amount: '', description: '', claim_date: new Date().toISOString().slice(0, 10), receiptUrl: '' });
-    } catch { showToast('เกิดข้อผิดพลาด', true); }
-    finally { setLoading(false); }
-  };
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div className="me-card">
-        <div className="me-section-title">🧾 ยื่นเบิกค่าใช้จ่าย</div>
-        <form onSubmit={handleSubmit}>
-          <div className="me-field">
-            <label>หมวดหมู่</label>
-            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              {EXPENSE_CATS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select>
-          </div>
-          <div className="me-field">
-            <label>จำนวนเงิน (บาท)</label>
-            <input type="number" className="me-input" min="1" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
-          </div>
-          <div className="me-field">
-            <label>วันที่</label>
-            <input type="date" className="me-input" value={form.claim_date} onChange={(e) => setForm({ ...form, claim_date: e.target.value })} required />
-          </div>
-          <div className="me-field">
-            <label>รายละเอียด</label>
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="ระบุรายละเอียด เช่น ทะเบียนรถ / เส้นทาง / ลูกค้า" />
-          </div>
-          <div className="me-field">
-            <label>แนบใบเสร็จ / สลิป (JPG, PNG, PDF ไม่เกิน 5MB)</label>
-            <input type="file" accept="image/*,.pdf" className="me-input" onChange={handleFileChange} disabled={uploading} />
-            {uploading && <div style={{ fontSize: 12, color: '#6d5ef5', marginTop: 4 }}>⏳ กำลังอัปโหลดใบเสร็จ...</div>}
-            {form.receiptUrl && !uploading && <div style={{ fontSize: 12, color: '#16a34a', marginTop: 4 }}>✅ แนบไฟล์สำเร็จ พร้อมส่งเบิก</div>}
-          </div>
-          <button className="me-btn" disabled={loading || uploading}>{loading ? '⏳ กำลังส่ง...' : '🧾 ยื่นเบิก'}</button>
-        </form>
-      </div>
-      <div className="me-card">
-        <div className="me-section-title">📋 รายการเบิกย้อนหลัง</div>
-        {!loaded && <div className="me-empty">กำลังโหลด...</div>}
-        {loaded && items.length === 0 && <div className="me-empty">ยังไม่มีรายการ</div>}
-        {items.map((item) => {
-          const badge = STATUS_BADGE[item.status] || STATUS_BADGE.pending;
-          const catLabel = EXPENSE_CATS.find((c) => c.value === item.category)?.label || item.category;
-          const rawDesc = String(item.description || '');
-          const receiptMatch = rawDesc.match(/\[RECEIPT:([^\]]+)\]/);
-          const receiptFile = receiptMatch ? receiptMatch[1].trim() : null;
-          const cleanDesc = rawDesc.replace(/\[RECEIPT:[^\]]+\]/g, '').trim();
-          return (
-            <div key={item.id} className="me-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="k">{catLabel} · {Number(item.amount).toLocaleString()} ฿</span>
-                <span className={'me-badge ' + badge.cls}>{badge.label}</span>
-              </div>
-              {(cleanDesc || receiptFile) && (
-                <div style={{ fontSize: 12, color: '#6b7280', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{cleanDesc || item.claim_date}</span>
-                  {receiptFile && (
-                    <a href={assetImg(receiptFile)} target="_blank" rel="noreferrer" style={{ color: '#6d5ef5', fontWeight: 600 }}>
-                      📎 ดูใบเสร็จ
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </>
-  );
-}
-
-/* ─── OT Sub-section ─── */
-function OtSection({ back, showToast }) {
-  const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ ot_date: new Date().toISOString().slice(0, 10), hours: '', note: '' });
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/me/ot', { headers: authHeaders() })
-      .then((r) => r.json()).then((d) => { setItems(d.items || []); setLoaded(true); }).catch(() => setLoaded(true));
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await fetch('/api/me/ot', { method: 'POST', headers: authHeaders(), body: JSON.stringify(form) });
-      const d = await res.json();
-      if (!res.ok) { showToast(d.error, true); return; }
-      showToast('ยื่นขอ OT เรียบร้อย');
-      setItems((p) => [d.item, ...p]);
-      setForm({ ot_date: new Date().toISOString().slice(0, 10), hours: '', note: '' });
-    } catch { showToast('เกิดข้อผิดพลาด', true); }
-    finally { setLoading(false); }
-  };
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div className="me-card">
-        <div className="me-section-title">⏱️ ยื่นขอค่าล่วงเวลา (OT)</div>
-        <form onSubmit={handleSubmit}>
-          <div className="me-field">
-            <label>วันที่ทำ OT</label>
-            <input type="date" className="me-input" value={form.ot_date} onChange={(e) => setForm({ ...form, ot_date: e.target.value })} required />
-          </div>
-          <div className="me-field">
-            <label>จำนวนชั่วโมง</label>
-            <input type="number" className="me-input" min="0.5" max="12" step="0.5" value={form.hours} onChange={(e) => setForm({ ...form, hours: e.target.value })} required />
-          </div>
-          <div className="me-field">
-            <label>รายละเอียดงาน</label>
-            <textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="ระบุงานที่ทำล่วงเวลา" />
-          </div>
-          <button className="me-btn" disabled={loading}>{loading ? '⏳ กำลังส่ง...' : '⏱️ ยื่นขอ OT'}</button>
-        </form>
-      </div>
-      <div className="me-card">
-        <div className="me-section-title">📋 รายการ OT ย้อนหลัง</div>
-        {!loaded && <div className="me-empty">กำลังโหลด...</div>}
-        {loaded && items.length === 0 && <div className="me-empty">ยังไม่มีรายการ</div>}
-        {items.map((item) => {
-          const badge = STATUS_BADGE[item.status] || STATUS_BADGE.pending;
-          return (
-            <div key={item.id} className="me-row">
-              <span className="k">{item.ot_date} · {Number(item.hours)} ชม. · {Number(item.amount || 0).toLocaleString()} ฿</span>
               <span className={`me-badge ${badge.cls}`}>{badge.label}</span>
             </div>
           );
@@ -1182,1692 +1012,124 @@ function OtSection({ back, showToast }) {
   );
 }
 
-/* ─── Meeting Rooms Sub-section ─── */
-function RoomsSection({ back, showToast }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [data, setData] = useState(null);
-  const [form, setForm] = useState({ room_id: '', start_time: '09:00', end_time: '10:00', title: '' });
-  const [loading, setLoading] = useState(false);
+/* ═══════════════════════════════════════════════════════════════
+   MORE TAB (Logistics 3 Clear Operational Groups)
+   ═══════════════════════════════════════════════════════════════ */
+function MoreTab({ user, data, subTab, onOpenSubTab, onCloseSubTab, showToast, onLogout }) {
+  // Render active sub-view if selected
+  if (subTab === 'payslip') return <DynamicPayslipTab data={data} back={onCloseSubTab} />;
+  if (subTab === 'expenses') return <DynamicExpensesSection back={onCloseSubTab} showToast={showToast} />;
+  if (subTab === 'ot') return <DynamicOtSection back={onCloseSubTab} showToast={showToast} />;
+  if (subTab === 'rooms') return <DynamicRoomsSection back={onCloseSubTab} showToast={showToast} />;
+  if (subTab === 'workplace') return <DynamicWorkplaceSection back={onCloseSubTab} showToast={showToast} />;
+  if (subTab === 'calendar') return <DynamicCalendarSection back={onCloseSubTab} />;
+  if (subTab === 'attendance') return <DynamicAttendanceSection back={onCloseSubTab} />;
+  if (subTab === 'evaluation') return <DynamicEvaluationSection back={onCloseSubTab} showToast={showToast} />;
+  if (subTab === 'taxcert') return <DynamicTaxCertSection back={onCloseSubTab} profile={data?.profile} />;
+  if (subTab === 'allowance') return <DynamicAllowanceSection back={onCloseSubTab} showToast={showToast} />;
+  if (subTab === 'teamleave') return <DynamicTeamLeaveSection back={onCloseSubTab} showToast={showToast} />;
+  if (subTab === 'assets') return <DynamicAssetsSection back={onCloseSubTab} showToast={showToast} />;
+  if (subTab === 'documentRequests') return <DynamicDocumentRequestsSection back={onCloseSubTab} showToast={showToast} profile={data?.profile} />;
+  if (subTab === 'benefits') return <DynamicBenefitsTab back={onCloseSubTab} />;
+  if (subTab === 'onboarding') return <DynamicOnboardingTab back={onCloseSubTab} />;
+  if (subTab === 'shiftswap') return <DynamicShiftSwapTab back={onCloseSubTab} showToast={showToast} />;
+  if (subTab === 'profile') return <DynamicProfileTab user={user} profile={data?.profile} back={onCloseSubTab} />;
+  if (subTab === 'announcements') return <DynamicAnnouncementsTab announcements={data?.announcements} back={onCloseSubTab} />;
 
-  const load = useCallback(() => {
-    fetch(`/api/me/rooms?date=${date}`, { headers: authHeaders() })
-      .then((r) => r.json()).then(setData).catch(() => {});
-  }, [date]);
-  useEffect(() => { load(); }, [load]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await fetch('/api/me/rooms', {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ ...form, book_date: date }),
-      });
-      const d = await res.json();
-      if (!res.ok) { showToast(d.error, true); return; }
-      showToast('จองห้องประชุมเรียบร้อย');
-      setForm({ room_id: '', start_time: '09:00', end_time: '10:00', title: '' });
-      load();
-    } catch { showToast('เกิดข้อผิดพลาด', true); }
-    finally { setLoading(false); }
-  };
-
-  const rooms = data?.rooms || [];
-  const bookings = data?.bookings || [];
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div className="me-card">
-        <div className="me-section-title">🎦 จองห้องประชุม</div>
-        <form onSubmit={handleSubmit}>
-          <div className="me-field">
-            <label>วันที่</label>
-            <input type="date" className="me-input" value={date} onChange={(e) => setDate(e.target.value)} required />
-          </div>
-          <div className="me-field">
-            <label>ห้องประชุม</label>
-            <select value={form.room_id} onChange={(e) => setForm({ ...form, room_id: e.target.value })} required>
-              <option value="">— เลือกห้อง —</option>
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id} disabled={r.status !== 'available'}>
-                  {r.name} (จุ {r.capacity} คน){r.status !== 'available' ? ' — ปิดจอง' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div className="me-field" style={{ flex: 1 }}>
-              <label>เริ่ม</label>
-              <input type="time" className="me-input" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} required />
-            </div>
-            <div className="me-field" style={{ flex: 1 }}>
-              <label>สิ้นสุด</label>
-              <input type="time" className="me-input" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} required />
-            </div>
-          </div>
-          <div className="me-field">
-            <label>หัวข้อประชุม</label>
-            <input type="text" className="me-input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="เช่น ประชุมทีมขาย" />
-          </div>
-          <button className="me-btn" disabled={loading}>{loading ? '⏳ กำลังจอง...' : '🎦 จองห้อง'}</button>
-        </form>
-      </div>
-      <div className="me-card">
-        <div className="me-section-title">📋 ตารางจองวันที่เลือก</div>
-        {bookings.length === 0 && <div className="me-empty">ยังไม่มีการจองในวันนี้</div>}
-        {bookings.map((b) => {
-          const room = rooms.find((r) => r.id === b.room_id);
-          return (
-            <div key={b.id} className="me-row">
-              <span className="k">{room?.name || `ห้อง #${b.room_id}`} · {(b.start_time || '').slice(0, 5)}-{(b.end_time || '').slice(0, 5)}</span>
-              <span className="v">{b.title || '-'}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div className="me-card">
-        <div className="me-section-title">🗓️ การจองของฉัน</div>
-        {(data?.myBookings || []).length === 0 && <div className="me-empty">ยังไม่มีการจอง</div>}
-        {(data?.myBookings || []).map((b) => (
-          <div key={b.id} className="me-row">
-            <span className="k">{b.book_date} · {(b.start_time || '').slice(0, 5)}-{(b.end_time || '').slice(0, 5)}</span>
-            <span className="v">{b.title || '-'}</span>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
-/* ─── Workplace (อบรม/ทริป/OKR) Sub-section ─── */
-function WorkplaceSection({ back, showToast }) {
-  const [data, setData] = useState(null);
-  const [editingOkr, setEditingOkr] = useState(null);
-  const [newProg, setNewProg] = useState(0);
-  const [savingOkr, setSavingOkr] = useState(false);
-
-  const loadData = () => {
-    fetch('/api/me/workplace', { headers: authHeaders() })
-      .then((r) => r.json()).then(setData).catch(() => {});
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleUpdateOkr = async (okrId) => {
-    setSavingOkr(true);
-    try {
-      const res = await fetch('/api/me/workplace', {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ okrId, progress: newProg }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || 'อัปเดตไม่สำเร็จ');
-      if (showToast) showToast('อัปเดตความคืบหน้า OKR เรียบร้อย');
-      setEditingOkr(null);
-      loadData();
-    } catch (err) {
-      if (showToast) showToast(err.message);
-    } finally {
-      setSavingOkr(false);
-    }
-  };
-
-  const TRAIN_STATUS = { planned: 'กำหนดการ', done: 'จบแล้ว' };
+  // 3 Clear Logistics Groups
+  const MENU_GROUPS = [
+    {
+      groupTitle: 'การเงินและเอกสารสำคัญ',
+      icon: 'wallet',
+      items: [
+        { id: 'payslip', icon: 'payroll', label: 'สลิปเงินเดือนและภาษี', desc: 'ตรวจสอบสลิปย้อนหลังและพิมพ์เอกสาร PDF' },
+        { id: 'expenses', icon: 'receipt', label: 'เบิกค่าเที่ยว / ค่าใช้จ่าย', desc: 'ยื่นเบิกค่าน้ำมัน ทางด่วน และเบี้ยเลี้ยง' },
+        { id: 'ot', icon: 'ot', label: 'ขอค่าล่วงเวลา (OT)', desc: 'ยื่นคำขอ OT พร้อมติดตามผลการอนุมัติ' },
+        { id: 'documentRequests', icon: 'document-requests', label: 'ขอหนังสือรับรอง', desc: 'ขอหนังสือรับรองเงินเดือนและการทำงาน' },
+        { id: 'taxcert', icon: 'file-text', label: 'หนังสือรับรองหักภาษี (50 ทวิ)', desc: 'สรุปรายได้และภาษีสะสมประจำปี' },
+        { id: 'allowance', icon: 'file-signature', label: 'แบบลดหย่อนภาษี (ลย.01)', desc: 'กรอกรายการลดหย่อนส่งให้ฝ่ายบุคคล' },
+        { id: 'benefits', icon: 'benefits', label: 'สวัสดิการและเงินกู้', desc: 'สิทธิประกันสังคม และเงินกู้สวัสดิการ' },
+      ],
+    },
+    {
+      groupTitle: 'การปฏิบัติงานและทรัพย์สิน',
+      icon: 'truck',
+      items: [
+        { id: 'calendar', icon: 'calendar', label: 'ตารางกะและปฏิทินงาน', desc: 'ดูตารางเวร วันหยุด และวันทำงาน' },
+        { id: 'shiftswap', icon: 'refresh', label: 'การขอสลับกะงาน', desc: 'ยื่นเรื่องขอเปลี่ยนกะหรือสลับเวร' },
+        { id: 'attendance', icon: 'clock', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติเวลาและพิกัดลงเวลาย้อนหลัง' },
+        { id: 'assets', icon: 'package', label: 'รถและทรัพย์สินที่เบิกใช้', desc: 'ขอเบิก คืน หรือเปลี่ยนยานพาหนะ/อุปกรณ์' },
+        { id: 'announcements', icon: 'megaphone', label: 'ข่าวสารและประกาศบริษัท', desc: 'ระเบียบปฏิบัติและข่าวสารองค์กร' },
+        { id: 'profile', icon: 'id-card', label: 'ข้อมูลส่วนตัวพนักงาน', desc: 'ตรวจสอบรหัสพนักงาน ตำแหน่ง และฝ่าย' },
+        ...(data?.isManager
+          ? [
+              {
+                id: 'teamleave',
+                icon: 'check-circle',
+                label: 'อนุมัติคำขอลูกทีม (ลา/OT/เบิกจ่าย)',
+                desc: 'การอนุมัติขั้นต้นสำหรับหัวหน้างาน',
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      groupTitle: 'การพัฒนาและสวัสดิการสำนักงาน',
+      icon: 'graduation-cap',
+      items: [
+        { id: 'onboarding', icon: 'rocket', label: 'ปฐมนิเทศพนักงานใหม่', desc: 'ขั้นตอนและคู่มือสำหรับพนักงานใหม่' },
+        { id: 'workplace', icon: 'trending-up', label: 'อบรม ทริปบริษัท และ OKR', desc: 'พัฒนาทักษะ ทริปประจำปี และเป้าหมายงาน' },
+        { id: 'evaluation', icon: 'star', label: 'ประเมินผล 360° เพื่อนร่วมงาน', desc: 'ให้คะแนนและดูผลประเมินสมรรถนะ' },
+        { id: 'rooms', icon: 'rooms', label: 'จองห้องประชุม', desc: 'ดูตารางห้องว่างและจองเวลาประชุม' },
+      ],
+    },
+  ];
 
   return (
     <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div className="me-card">
-        <div className="me-section-title">🎓 ตารางอบรม</div>
-        {!data && <div className="me-empty">กำลังโหลด...</div>}
-        {data && (data.trainings || []).length === 0 && <div className="me-empty">ยังไม่มีการอบรม</div>}
-        {(data?.trainings || []).map((t) => (
-          <div key={t.id} className="me-row">
-            <span className="k">{t.isMine ? '⭐ ' : ''}{t.title}{t.train_date ? ` · ${t.train_date}` : ''}</span>
-            <span className={`me-badge ${t.status === 'done' ? 'me-badge-gray' : 'me-badge-green'}`}>{TRAIN_STATUS[t.status] || t.status}</span>
+      {MENU_GROUPS.map((group, gIdx) => (
+        <div key={gIdx} className="me-card">
+          <div className="me-section-title">
+            <AppIcon name={group.icon} size={18} /> {group.groupTitle}
           </div>
-        ))}
-      </div>
-      <div className="me-card">
-        <div className="me-section-title">✈️ ทริปบริษัท</div>
-        {data && (data.trips || []).length === 0 && <div className="me-empty">ยังไม่มีทริป</div>}
-        {(data?.trips || []).map((t) => (
-          <div key={t.id} className="me-row">
-            <span className="k">{t.title}{t.destination ? ` · ${t.destination}` : ''}</span>
-            <span className="v">{t.start_date || ''}</span>
-          </div>
-        ))}
-      </div>
-      <div className="me-card">
-        <div className="me-section-title">📈 OKR ของฉัน</div>
-        {data && (data.okrs || []).length === 0 && <div className="me-empty">ยังไม่มี OKR ที่ผูกกับคุณ</div>}
-        {(data?.okrs || []).map((o) => (
-          <div key={o.id} style={{ padding: '10px 0', borderBottom: '1px solid #eef0f5' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{o.objective}</div>
-              <button
-                type="button"
-                className="me-badge me-badge-purple"
-                style={{ cursor: 'pointer', border: 'none', padding: '3px 8px', fontSize: 11 }}
-                onClick={() => {
-                  setEditingOkr(o.id);
-                  setNewProg(Number(o.progress) || 0);
-                }}
-              >
-                ✏️ ปรับ %
-              </button>
+          {group.items.map((m) => (
+            <div
+              key={m.id}
+              className="me-row"
+              style={{ cursor: 'pointer', padding: '12px 0' }}
+              onClick={() => onOpenSubTab(m.id)}
+            >
+              <span className="k" style={{ display: 'flex', alignItems: 'center' }}>
+                <span className="me-menu-icon-badge">
+                  <AppIcon name={m.icon} size={18} />
+                </span>
+                <span>
+                  <div style={{ fontWeight: 700, color: '#0F172A', fontSize: 14 }}>{m.label}</div>
+                  <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{m.desc}</div>
+                </span>
+              </span>
+              <span className="v" style={{ color: '#94A3B8' }}>
+                <AppIcon name="chevron-right" size={16} />
+              </span>
             </div>
-            {o.key_results && <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{o.key_results}</div>}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-              <div style={{ flex: 1, height: 8, background: '#eef0f5', borderRadius: 4, overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, Number(o.progress) || 0)}%`, height: '100%', background: '#22c55e' }} />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>{Number(o.progress) || 0}%</span>
-            </div>
-            {editingOkr === o.id && (
-              <div style={{ marginTop: 8, padding: 8, background: '#f8fafc', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={newProg}
-                  onChange={(e) => setNewProg(Number(e.target.value))}
-                  style={{ flex: 1 }}
-                />
-                <span style={{ fontSize: 13, fontWeight: 700, minWidth: 40 }}>{newProg}%</span>
-                <button
-                  type="button"
-                  className="me-btn-primary"
-                  style={{ padding: '4px 10px', fontSize: 12 }}
-                  disabled={savingOkr}
-                  onClick={() => handleUpdateOkr(o.id)}
-                >
-                  {savingOkr ? '...' : 'บันทึก'}
-                </button>
-                <button
-                  type="button"
-                  className="me-badge me-badge-gray"
-                  style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', fontSize: 12 }}
-                  onClick={() => setEditingOkr(null)}
-                >
-                  ยกเลิก
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
+          ))}
+        </div>
+      ))}
 
-/* ─── Calendar Sub-section ─── */
-function CalendarSection({ back }) {
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const currentMonthStr = todayStr.slice(0, 7);
-  const [month, setMonth] = useState(currentMonthStr);
-  const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [data, setData] = useState(null);
-  const [touchStartX, setTouchStartX] = useState(null);
-
-  useEffect(() => {
-    fetch(`/api/me/calendar?month=${month}`, { headers: authHeaders() })
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => {});
-  }, [month]);
-
-  const [y, m] = month.split('-').map(Number);
-  const daysInMonth = new Date(y, m, 0).getDate();
-  const firstDow = new Date(y, m - 1, 1).getDay();
-  const DOWS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
-  const workDays = new Set((data?.workSettings?.work_days || '1,2,3,4,5').split(',').filter(Boolean).map(Number));
-
-  const shiftMap = {};
-  const leaveMap = {};
-  const attendMap = {};
-  const holidayMap = {};
-  const leaveTypeNameMap = {};
-
-  if (data) {
-    (data.leaveTypes || []).forEach((t) => {
-      leaveTypeNameMap[t.code] = t.name;
-    });
-    (data.shifts || []).forEach((s) => {
-      shiftMap[s.shift_date] = s;
-    });
-    (data.attendance || []).forEach((a) => {
-      attendMap[a.work_date] = a;
-    });
-    (data.holidays || []).forEach((h) => {
-      holidayMap[h.holiday_date] = h;
-    });
-    (data.leaves || []).forEach((l) => {
-      if (!l.start_date || !l.end_date) return;
-      const start = new Date(l.start_date + 'T00:00:00');
-      const end = new Date(l.end_date + 'T00:00:00');
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        leaveMap[ds] = l;
-      }
-    });
-  }
-
-  const changeMonth = (delta) => {
-    const d = new Date(y, m - 1 + delta, 1);
-    const targetY = d.getFullYear();
-    const targetM = String(d.getMonth() + 1).padStart(2, '0');
-    const newMonth = `${targetY}-${targetM}`;
-    setMonth(newMonth);
-    if (newMonth === currentMonthStr) {
-      setSelectedDate(todayStr);
-    } else {
-      setSelectedDate(`${newMonth}-01`);
-    }
-  };
-
-  const handleTouchStart = (e) => {
-    setTouchStartX(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = (e) => {
-    if (touchStartX === null) return;
-    const diff = e.changedTouches[0].clientX - touchStartX;
-    if (Math.abs(diff) > 45) {
-      if (diff > 0) changeMonth(-1);
-      else changeMonth(1);
-    }
-    setTouchStartX(null);
-  };
-
-  // Selected date details
-  const selHoliday = holidayMap[selectedDate];
-  const selLeave = leaveMap[selectedDate];
-  const selAttend = attendMap[selectedDate];
-  const selShift = shiftMap[selectedDate];
-  const selDateObj = selectedDate ? new Date(selectedDate + 'T00:00:00') : new Date();
-  const selDow = selDateObj.getDay();
-  const selIsWeeklyOff = !workDays.has(selDow);
-  const isSelectedToday = selectedDate === todayStr;
-  const isSelectedFuture = selectedDate > todayStr;
-  const isSelectedPast = selectedDate < todayStr;
-
-  const thaiDateFormatted = selDateObj.toLocaleDateString('th-TH', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const getLeaveName = (type) => leaveTypeNameMap[type] || LEAVE_LABELS[type] || type || 'ลา';
-
-  return (
-    <>
+      {/* Logout Action */}
       <button
-        className="me-badge me-badge-gray"
-        style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }}
-        onClick={back}
+        type="button"
+        className="me-btn"
+        style={{
+          background: '#DC2626',
+          boxShadow: '0 4px 12px rgba(220, 38, 38, 0.22)',
+          marginTop: 6,
+          marginBottom: 16,
+        }}
+        onClick={onLogout}
       >
-        ← กลับ
+        <AppIcon name="logout" size={18} /> ออกจากระบบ
       </button>
-
-      {/* ─── Calendar Grid Card ─── */}
-      <div
-        className="me-card"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        style={{ userSelect: 'none' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <button
-            type="button"
-            className="me-badge me-badge-gray"
-            style={{
-              cursor: 'pointer',
-              border: 'none',
-              minWidth: 40,
-              minHeight: 40,
-              fontSize: 16,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 10,
-            }}
-            onClick={() => changeMonth(-1)}
-            aria-label="เดือนก่อนหน้า"
-          >
-            ◀
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#1f2937' }}>
-              {new Date(y, m - 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
-            </div>
-            {month !== currentMonthStr && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMonth(currentMonthStr);
-                  setSelectedDate(todayStr);
-                }}
-                style={{
-                  border: 'none',
-                  background: '#ede9fe',
-                  color: '#6d28d9',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '3px 9px',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                }}
-              >
-                วันนี้
-              </button>
-            )}
-          </div>
-          <button
-            type="button"
-            className="me-badge me-badge-gray"
-            style={{
-              cursor: 'pointer',
-              border: 'none',
-              minWidth: 40,
-              minHeight: 40,
-              fontSize: 16,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 10,
-            }}
-            onClick={() => changeMonth(1)}
-            aria-label="เดือนถัดไป"
-          >
-            ▶
-          </button>
-        </div>
-
-        {/* Days of Week Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center', fontSize: 12 }}>
-          {DOWS.map((d, i) => (
-            <div key={d} style={{ fontWeight: 600, color: !workDays.has(i) ? '#dc2626' : '#9aa1b5', padding: 4 }}>
-              {d}
-            </div>
-          ))}
-
-          {/* Empty cells before month starts */}
-          {Array.from({ length: firstDow }, (_, i) => (
-            <div key={`e${i}`} />
-          ))}
-
-          {/* Day Cells */}
-          {Array.from({ length: daysInMonth }, (_, i) => {
-            const day = i + 1;
-            const dateStr = `${month}-${String(day).padStart(2, '0')}`;
-            const isToday = dateStr === todayStr;
-            const isSelected = dateStr === selectedDate;
-            const shift = shiftMap[dateStr];
-            const leave = leaveMap[dateStr];
-            const attend = attendMap[dateStr];
-            const holiday = holidayMap[dateStr];
-            const dow = new Date(y, m - 1, day).getDay();
-            const weeklyOff = !workDays.has(dow);
-
-            return (
-              <button
-                key={day}
-                type="button"
-                onClick={() => setSelectedDate(dateStr)}
-                style={{
-                  padding: '5px 2px 4px',
-                  borderRadius: 12,
-                  minHeight: 56,
-                  border: isSelected
-                    ? '2.5px solid #007AFF'
-                    : isToday
-                    ? '2px solid #5856D6'
-                    : '1px solid #F1F2F8',
-                  background: isSelected
-                    ? '#EFF6FF'
-                    : holiday
-                    ? '#FEE2E2'
-                    : leave
-                    ? '#FEF3C7'
-                    : attend
-                    ? '#F0FDF4'
-                    : '#FFFFFF',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'flex-start',
-                  boxShadow: isSelected ? '0 3px 10px rgba(0, 122, 255, 0.22)' : 'none',
-                  transform: isSelected ? 'scale(1.02)' : 'scale(1)',
-                  transition: 'all 0.15s cubic-bezier(0.32, 0.72, 0, 1)',
-                  position: 'relative',
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: isSelected || isToday ? 800 : 600,
-                    color: isSelected ? '#007AFF' : holiday || weeklyOff ? '#DC2626' : '#1F2937',
-                    fontSize: 13,
-                    width: 24,
-                    height: 24,
-                    lineHeight: '24px',
-                    borderRadius: '50%',
-                    background: isSelected ? '#007AFF' : 'transparent',
-                    color: isSelected ? '#FFFFFF' : holiday || weeklyOff ? '#DC2626' : '#1F2937',
-                  }}
-                >
-                  {day}
-                </div>
-
-                {/* Dot Indicators */}
-                <div style={{ display: 'flex', gap: 2, marginTop: 2, alignItems: 'center', justifyContent: 'center' }}>
-                  {holiday && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#EF4444' }} />}
-                  {attend && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10B981' }} />}
-                  {leave && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B' }} />}
-                  {shift && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#8B5CF6' }} />}
-                </div>
-
-                {/* Micro Label */}
-                {holiday ? (
-                  <div style={{ fontSize: 8.5, color: '#DC2626', lineHeight: 1.1, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                    🎌{holiday.name.length > 4 ? holiday.name.slice(0, 4) + '…' : holiday.name}
-                  </div>
-                ) : attend ? (
-                  <div style={{ fontSize: 8.5, color: '#16A34A', fontWeight: 600, marginTop: 2 }}>
-                    ✅{attend.clock_in?.slice(0, 5)}
-                  </div>
-                ) : leave ? (
-                  <div style={{ fontSize: 8.5, color: '#B45309', fontWeight: 600, marginTop: 2 }}>
-                    🏖️{getLeaveName(leave.leave_type).slice(0, 3)}
-                  </div>
-                ) : shift ? (
-                  <div style={{ fontSize: 8.5, color: '#6D28D9', marginTop: 2 }}>
-                    {shift.shift_type === 'morning' ? '🌅เช้า' : shift.shift_type === 'afternoon' ? '🌇บ่าย' : '🌙ดึก'}
-                  </div>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Legend */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexWrap: 'wrap',
-            gap: 12,
-            marginTop: 14,
-            paddingTop: 10,
-            borderTop: '1px solid #F1F2F8',
-            fontSize: 11,
-            color: '#6B7280',
-          }}
-        >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981' }} /> เช็คอินแล้ว
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#EF4444' }} /> วันหยุด
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#F59E0B' }} /> วันลา
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#8B5CF6' }} /> ตารางกะ
-          </span>
-        </div>
-      </div>
-
-      {/* ─── Selected Date Detail Card ─── */}
-      <div className="me-card" style={{ marginTop: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, gap: 8 }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#1C1C1E', letterSpacing: '-0.02em' }}>
-              {thaiDateFormatted}
-            </div>
-            <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>
-              {selectedDate} · {isSelectedToday ? '📌 วันนี้' : isSelectedFuture ? '🔮 วันข้างหน้า' : '📜 วันที่ผ่านมา'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {isSelectedToday && <span className="me-badge me-badge-purple">วันนี้</span>}
-            {selHoliday ? (
-              <span className="me-badge me-badge-red">วันหยุดนักขัตฤกษ์</span>
-            ) : selIsWeeklyOff ? (
-              <span className="me-badge me-badge-gray">วันหยุดสัปดาห์</span>
-            ) : (
-              <span className="me-badge me-badge-blue">วันทำงาน</span>
-            )}
-          </div>
-        </div>
-
-        {/* 1. Holiday Section */}
-        {selHoliday && (
-          <div
-            style={{
-              background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
-              border: '1px solid #FECACA',
-              borderRadius: 14,
-              padding: '12px 14px',
-              marginBottom: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: '#DC2626', fontSize: 14 }}>
-              <span>🎌</span>
-              <span>วันหยุด: {selHoliday.name}</span>
-            </div>
-            {selHoliday.note && (
-              <div style={{ fontSize: 12.5, color: '#991B1B', marginTop: 4 }}>
-                หมายเหตุ: {selHoliday.note}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!selHoliday && selIsWeeklyOff && (
-          <div
-            style={{
-              background: '#F8FAFC',
-              border: '1px solid #E2E8F0',
-              borderRadius: 14,
-              padding: '10px 14px',
-              marginBottom: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, color: '#475569', fontSize: 13 }}>
-              <span>🛌</span>
-              <span>วันหยุดประจำสัปดาห์ (Weekly Off)</span>
-            </div>
-          </div>
-        )}
-
-        {/* 2. Attendance (Clock in / Clock out) Section */}
-        <div
-          style={{
-            background: selAttend ? 'linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%)' : '#F9FAFB',
-            border: selAttend ? '1px solid #BBF7D0' : '1px solid #E5E7EB',
-            borderRadius: 14,
-            padding: '12px 14px',
-            marginBottom: 10,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 13.5, color: selAttend ? '#166534' : '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>⏱️</span>
-              <span>บันทึกการลงเวลาทำงาน</span>
-            </div>
-            {selAttend && (
-              <span className={`me-badge ${selAttend.status === 'late' ? 'me-badge-yellow' : 'me-badge-green'}`}>
-                {selAttend.status === 'late' ? 'มาสาย' : 'ตรงเวลา'}
-              </span>
-            )}
-          </div>
-
-          {selAttend ? (
-            <div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
-                <div style={{ background: '#FFFFFF', padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(22, 163, 74, 0.2)' }}>
-                  <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>เช็คอิน (เข้างาน)</div>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: '#15803D', marginTop: 2 }}>
-                    {selAttend.clock_in ? selAttend.clock_in.slice(0, 8) : '-'} น.
-                  </div>
-                </div>
-                <div style={{ background: '#FFFFFF', padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(22, 163, 74, 0.2)' }}>
-                  <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>เช็คเอาท์ (ออกงาน)</div>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: selAttend.clock_out ? '#15803D' : '#9CA3AF', marginTop: 2 }}>
-                    {selAttend.clock_out ? `${selAttend.clock_out.slice(0, 8)} น.` : 'ยังไม่ลงเวลา'}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, fontSize: 12, color: '#374151' }}>
-                <span>📍 รูปแบบ: <strong>{selAttend.check_type === 'office' ? '🏢 ออฟฟิศ' : selAttend.check_type === 'wfh' ? '🏠 WFH' : '📍 นอกสถานที่'}</strong></span>
-                {selAttend.location_name && <span>· สาขา: <strong>{selAttend.location_name}</strong></span>}
-              </div>
-
-              {selAttend.note && (
-                <div style={{ fontSize: 12, color: '#4B5563', marginTop: 6, fontStyle: 'italic' }}>
-                  หมายเหตุ: {selAttend.note}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ fontSize: 12.5, color: '#6B7280', padding: '4px 0' }}>
-              {isSelectedToday ? (
-                <span style={{ color: '#D97706', fontWeight: 600 }}>⏳ วันนี้ยังไม่มีการบันทึกเวลาเข้างาน</span>
-              ) : isSelectedPast && !selHoliday && !selIsWeeklyOff && !selLeave ? (
-                <span style={{ color: '#DC2626' }}>⚠️ ไม่มีประวัติลงเวลาเข้างาน (ขาดงาน หรือไม่ได้ลงเวลา)</span>
-              ) : isSelectedFuture ? (
-                <span>📅 ยังไม่ถึงกำหนดวันทำงาน</span>
-              ) : (
-                <span>ไม่มีบันทึกการลงเวลาทำงานในวันนี้</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 3. Leave Section */}
-        {selLeave ? (
-          <div
-            style={{
-              background: 'linear-gradient(135deg, #FEFCE8 0%, #FEF9C3 100%)',
-              border: '1px solid #FEF08A',
-              borderRadius: 14,
-              padding: '12px 14px',
-              marginBottom: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#854D0E', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>🏖️</span>
-                <span>การลา: {getLeaveName(selLeave.leave_type)}</span>
-              </div>
-              <span className={`me-badge ${selLeave.status === 'approved' ? 'me-badge-green' : selLeave.status === 'rejected' ? 'me-badge-red' : 'me-badge-yellow'}`}>
-                {selLeave.status === 'approved' ? 'อนุมัติแล้ว' : selLeave.status === 'rejected' ? 'ไม่อนุมัติ' : 'รออนุมัติ'}
-              </span>
-            </div>
-
-            <div style={{ fontSize: 12.5, color: '#713F12', lineHeight: 1.6 }}>
-              <div>
-                <strong>ช่วงวันลา:</strong> {selLeave.start_date} ถึง {selLeave.end_date} ({selLeave.days} วัน)
-              </div>
-              <div>
-                <strong>สถานะเวลา:</strong> {isSelectedFuture ? '🔮 ลาล่วงหน้า' : isSelectedToday ? '📌 ลาวันนี้' : '📜 ประวัติการลาที่ผ่านมา'}
-              </div>
-              {selLeave.reason && (
-                <div>
-                  <strong>เหตุผลการลา:</strong> {selLeave.reason}
-                </div>
-              )}
-              {selLeave.created_at && (
-                <div style={{ fontSize: 11, color: '#A16207', marginTop: 4 }}>
-                  ยื่นคำขอเมื่อ: {new Date(selLeave.created_at).toLocaleDateString('th-TH')}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        {/* 4. Shift Section */}
-        {selShift ? (
-          <div
-            style={{
-              background: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%)',
-              border: '1px solid #E9D5FF',
-              borderRadius: 14,
-              padding: '12px 14px',
-              marginBottom: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div style={{ fontWeight: 700, fontSize: 13.5, color: '#6B21A8', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>⏰</span>
-                <span>ตารางกะ: {selShift.shift_type === 'morning' ? '🌅 กะเช้า' : selShift.shift_type === 'afternoon' ? '🌇 กะบ่าย' : selShift.shift_type === 'night' ? '🌙 กะดึก' : '⬜ กะหยุด'}</span>
-              </div>
-              {selShift.start_time && (
-                <span className="me-badge me-badge-purple">
-                  {selShift.start_time.slice(0, 5)} - {selShift.end_time?.slice(0, 5)} น.
-                </span>
-              )}
-            </div>
-            {selShift.note && (
-              <div style={{ fontSize: 12, color: '#581C87', marginTop: 4 }}>
-                หมายเหตุ: {selShift.note}
-              </div>
-            )}
-          </div>
-        ) : null}
-
-        {/* 5. Clean Empty State (When regular workday with no special events) */}
-        {!selHoliday && !selIsWeeklyOff && !selAttend && !selLeave && !selShift && (
-          <div
-            style={{
-              background: '#F9FAFB',
-              border: '1px dashed #D1D5DB',
-              borderRadius: 14,
-              padding: '14px',
-              textAlign: 'center',
-              color: '#6B7280',
-              fontSize: 13,
-            }}
-          >
-            {isSelectedFuture ? (
-              <div>📅 วันทำงานปกติในอนาคต (ยังไม่มีตารางกะหรือการลาล่วงหน้า)</div>
-            ) : isSelectedToday ? (
-              <div>📌 วันนี้เป็นวันทำงานปกติ — รอการลงเวลาเข้างาน</div>
-            ) : (
-              <div>📋 วันทำงานปกติ — ไม่มีบันทึกเวลาหรือประวัติการลาในวันนี้</div>
-            )}
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-/* ─── Attendance Sub-section ─── */
-function AttendanceSection({ back }) {
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [data, setData] = useState(null);
-
-  useEffect(() => {
-    fetch(`/api/me/attendance?month=${month}`, { headers: authHeaders() })
-      .then((r) => r.json()).then(setData).catch(() => {});
-  }, [month]);
-
-  const [y, m] = month.split('-').map(Number);
-  const changeMonth = (delta) => {
-    const d = new Date(y, m - 1 + delta, 1);
-    const targetY = d.getFullYear();
-    const targetM = String(d.getMonth() + 1).padStart(2, '0');
-    setMonth(`${targetY}-${targetM}`);
-  };
-
-  const currentMonthStr = new Date().toISOString().slice(0, 7);
-  const CHECK_TYPE_LABEL = { office: '🏢 ออฟฟิศ', offsite: '📍 นอกสถานที่', wfh: '🏠 WFH' };
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-
-      {data?.stats && (
-        <div className="me-leave-grid" style={{ marginTop: 0, padding: 0, gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 14 }}>
-          <div className="me-leave-card"><div className="me-leave-remain" style={{ color: '#16a34a' }}>{data.stats.onTime}</div><div className="me-leave-label">ปกติ</div></div>
-          <div className="me-leave-card"><div className="me-leave-remain" style={{ color: '#d97706' }}>{data.stats.late}</div><div className="me-leave-label">สาย</div></div>
-          <div className="me-leave-card"><div className="me-leave-remain" style={{ color: '#dc2626' }}>{data.stats.absent}</div><div className="me-leave-label">ขาด</div></div>
-        </div>
-      )}
-
-      <div className="me-card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <button
-            type="button"
-            className="me-badge me-badge-gray"
-            style={{
-              cursor: 'pointer',
-              border: 'none',
-              minWidth: 40,
-              minHeight: 40,
-              fontSize: 16,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 10,
-            }}
-            onClick={() => changeMonth(-1)}
-            aria-label="เดือนก่อนหน้า"
-          >
-            ◀
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#1f2937' }}>
-              {new Date(y, m - 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}
-            </div>
-            {month !== currentMonthStr && (
-              <button
-                type="button"
-                onClick={() => setMonth(currentMonthStr)}
-                style={{
-                  border: 'none',
-                  background: '#ede9fe',
-                  color: '#6d28d9',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '3px 9px',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                }}
-              >
-                วันนี้
-              </button>
-            )}
-          </div>
-          <button
-            type="button"
-            className="me-badge me-badge-gray"
-            style={{
-              cursor: 'pointer',
-              border: 'none',
-              minWidth: 40,
-              minHeight: 40,
-              fontSize: 16,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 10,
-            }}
-            onClick={() => changeMonth(1)}
-            aria-label="เดือนถัดไป"
-          >
-            ▶
-          </button>
-        </div>
-        {!data && <div className="me-empty">กำลังโหลด...</div>}
-        {data?.records?.length === 0 && <div className="me-empty">ไม่มีข้อมูลเดือนนี้</div>}
-        {(data?.records || []).map((r) => (
-          <div key={r.id} className="me-row" style={{ flexWrap: 'wrap' }}>
-            <span className="k" style={{ minWidth: 80 }}>{r.work_date?.slice(5)}</span>
-            <span style={{ fontSize: 12 }}>{CHECK_TYPE_LABEL[r.check_type] || '🏢'}</span>
-            <span className="v">
-              {r.clock_in ? `🟢${r.clock_in.slice(0, 5)}` : '—'}
-              {' → '}
-              {r.clock_out ? `🔴${r.clock_out.slice(0, 5)}` : '—'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
-/* ─── Evaluation Sub-section ─── */
-function EvaluationSection({ back, showToast }) {
-  const [data, setData] = useState(null);
-  const [viewTab, setViewTab] = useState('give'); // give | received | form
-  const [targetId, setTargetId] = useState('');
-  const [period, setPeriod] = useState(new Date().getFullYear().toString());
-  const [scores, setScores] = useState({ teamwork: 5, communication: 5, responsibility: 5, punctuality: 5, leadership: 5 });
-  const [comments, setComments] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const loadData = () => {
-    fetch('/api/me/evaluations', { headers: authHeaders() })
-      .then((r) => r.json()).then(setData).catch(() => {});
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!targetId.trim()) return showToast('กรุณาระบุรหัสพนักงานที่ต้องการประเมิน');
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/me/evaluations', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ target_id: targetId.trim(), period, scores, comments }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || 'ส่งผลประเมินไม่สำเร็จ');
-      showToast('ส่งผลประเมิน 360° เรียบร้อยแล้ว');
-      setComments('');
-      setTargetId('');
-      setViewTab('give');
-      loadData();
-    } catch (err) {
-      showToast(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button className={`me-badge ${viewTab === 'give' ? 'me-badge-purple' : 'me-badge-gray'}`}
-          style={{ cursor: 'pointer', border: 'none', padding: '8px 16px' }} onClick={() => setViewTab('give')}>
-          ⭐ ฉันประเมิน
-        </button>
-        <button className={`me-badge ${viewTab === 'received' ? 'me-badge-purple' : 'me-badge-gray'}`}
-          style={{ cursor: 'pointer', border: 'none', padding: '8px 16px' }} onClick={() => setViewTab('received')}>
-          📊 ผลประเมินฉัน
-        </button>
-        <button className={`me-badge ${viewTab === 'form' ? 'me-badge-purple' : 'me-badge-gray'}`}
-          style={{ cursor: 'pointer', border: 'none', padding: '8px 16px', marginLeft: 'auto' }} onClick={() => setViewTab('form')}>
-          ✍️ ประเมินเพื่อนร่วมงาน
-        </button>
-      </div>
-
-      {!data && <div className="me-empty">กำลังโหลด...</div>}
-
-      {viewTab === 'form' && (
-        <form onSubmit={handleSubmit} className="me-card">
-          <div className="me-section-title">✍️ แบบประเมินเพื่อนร่วมงาน 360°</div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>รหัสพนักงานที่ต้องการประเมิน *</label>
-            <input className="me-input" placeholder="เช่น DD-002, EMP002" value={targetId} onChange={(e) => setTargetId(e.target.value)} required />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>รอบการประเมิน (ปี/รอบ)</label>
-            <input className="me-input" value={period} onChange={(e) => setPeriod(e.target.value)} required />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 'bold', marginBottom: 8 }}>ให้คะแนนเกณฑ์การประเมิน (1-5)</div>
-            {(data?.criteria || [
-              { key: 'teamwork', label: 'การทำงานเป็นทีม' },
-              { key: 'communication', label: 'การสื่อสาร' },
-              { key: 'responsibility', label: 'ความรับผิดชอบ' },
-              { key: 'punctuality', label: 'ความตรงต่อเวลา' },
-              { key: 'leadership', label: 'ภาวะผู้นำ' },
-            ]).map((c) => (
-              <div key={c.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: 13 }}>
-                <span>{c.label}</span>
-                <select className="me-input" style={{ width: 100 }} value={scores[c.key] || 5} onChange={(e) => setScores({ ...scores, [c.key]: Number(e.target.value) })}>
-                  <option value={5}>5 - ดีเลิศ</option>
-                  <option value={4}>4 - ดี</option>
-                  <option value={3}>3 - ปานกลาง</option>
-                  <option value={2}>2 - พอใช้</option>
-                  <option value={1}>1 - ต้องปรับปรุง</option>
-                </select>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>ข้อเสนอแนะเพิ่มเติม</label>
-            <textarea className="me-input" rows={3} placeholder="สิ่งที่ประทับใจ หรือสิ่งที่อยากให้พัฒนา..." value={comments} onChange={(e) => setComments(e.target.value)} />
-          </div>
-          <button type="submit" className="me-btn-primary" disabled={submitting} style={{ width: '100%' }}>
-            {submitting ? 'กำลังส่งข้อมูล...' : 'ส่งผลประเมิน'}
-          </button>
-        </form>
-      )}
-
-      {viewTab === 'give' && data && (
-        <div className="me-card">
-          <div className="me-section-title">⭐ รายการที่ฉันประเมิน</div>
-          {(data.myEvaluations || []).length === 0 && <div className="me-empty">ยังไม่มีรายการ</div>}
-          {(data.myEvaluations || []).map((e) => {
-            const badge = STATUS_BADGE[e.status] || STATUS_BADGE.draft;
-            return (
-              <div key={e.id} className="me-row">
-                <span className="k">ประเมิน {e.target_id} · รอบ {e.period}</span>
-                <span className={`me-badge ${badge.cls}`}>{badge.label}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {viewTab === 'received' && data && (
-        <div className="me-card">
-          <div className="me-section-title">📊 คะแนนเฉลี่ยที่ฉันได้รับ</div>
-          {!data.avgScores && <div className="me-empty">ยังไม่มีผลประเมิน</div>}
-          {data.avgScores && (data.criteria || []).map((c) => (
-            <div key={c.key} className="me-row">
-              <span className="k">{c.label}</span>
-              <span className="v">{data.avgScores[c.key] != null ? `${data.avgScores[c.key]} / 5` : '—'}</span>
-            </div>
-          ))}
-          <div style={{ marginTop: 12, fontSize: 12, color: '#9aa1b5' }}>
-            จากผู้ประเมิน {data.receivedEvaluations?.length || 0} คน
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-/* ─── 50 ทวิ (หนังสือรับรองหักภาษี ณ ที่จ่าย) ─── */
-function TaxCertSection({ back, profile }) {
-  const thisYearBE = new Date().getFullYear() + 543;
-  const [year, setYear] = useState(thisYearBE);
-  const [data, setData] = useState(null);
-  const [showDoc, setShowDoc] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/me/tax-cert?year=${year}`, { headers: authHeaders() })
-      .then((r) => r.json()).then(setData).catch(() => {});
-  }, [year]);
-
-  const num = (v) => Number(v || 0).toLocaleString();
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div className="me-card">
-        <div className="me-section-title">🧾 หนังสือรับรองหักภาษี ณ ที่จ่าย (50 ทวิ)</div>
-        <div className="me-field">
-          <label>ปีภาษี (พ.ศ.)</label>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {[thisYearBE, thisYearBE - 1, thisYearBE - 2].map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        {data && (
-          <>
-            <div className="me-row"><span className="k">เงินได้รวมทั้งปี</span><span className="v">{num(data.totalIncome)} ฿</span></div>
-            <div className="me-row"><span className="k">ภาษีหัก ณ ที่จ่ายรวม</span><span className="v">{num(data.totalTax)} ฿</span></div>
-            <div className="me-row"><span className="k">ประกันสังคมรวม</span><span className="v">{num(data.totalSso)} ฿</span></div>
-            <div className="me-row"><span className="k">จำนวนงวด</span><span className="v">{data.months} งวด</span></div>
-            {data.months > 0
-              ? <button className="me-btn" style={{ marginTop: 12 }} onClick={() => setShowDoc(true)}>🖨️ ดู/บันทึก 50 ทวิ PDF</button>
-              : <div className="me-empty">ยังไม่มีข้อมูลเงินเดือนในปีนี้</div>}
-          </>
-        )}
-      </div>
-      {showDoc && data && <TaxCertDocument cert={data} profile={profile} onClose={() => setShowDoc(false)} />}
-    </>
-  );
-}
-
-function TaxCertDocument({ cert, profile, onClose }) {
-  const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const incomeRows = [
-    { no: '1.', label: 'เงินเดือน ค่าจ้าง เบี้ยเลี้ยง โบนัส ฯลฯ ตามมาตรา 40 (1)', amount: cert.totalIncome, tax: cert.totalTax },
-    { no: '2.', label: 'ค่าธรรมเนียม ค่านายหน้า ฯลฯ ตามมาตรา 40 (2)', amount: 0, tax: 0 },
-    { no: '3.', label: 'ค่าแห่งลิขสิทธิ์ ฯลฯ ตามมาตรา 40 (3)', amount: 0, tax: 0 },
-    { no: '4.', label: 'ดอกเบี้ย เงินปันผล ฯลฯ ตามมาตรา 40 (4)', amount: 0, tax: 0 },
-    { no: '5.', label: 'เงินได้ตามคำสั่งกรมสรรพากร (รางวัล ส่วนลด ฯลฯ)', amount: 0, tax: 0 },
-    { no: '6.', label: 'อื่น ๆ', amount: 0, tax: 0 },
-  ];
-  return (
-    <div className="me-doc-overlay">
-      <div className="me-doc-actions">
-        <button className="me-badge me-badge-gray" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={onClose}>← ปิด</button>
-        <button className="me-badge me-badge-purple" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => window.print()}>🖨️ พิมพ์ / บันทึก PDF</button>
-      </div>
-      <div className="me-doc-print">
-        <div className="me-doc" style={{ fontSize: 12 }}>
-          <div style={{ textAlign: 'right', fontSize: 10, color: '#5b6478' }}>ฉบับที่ 1 (สำหรับผู้ถูกหักภาษี ณ ที่จ่าย ใช้แนบพร้อมแบบแสดงรายการภาษี)</div>
-          <div className="me-doc-head" style={{ borderBottom: 'none', marginBottom: 8 }}>
-            <div className="me-doc-title" style={{ marginTop: 4 }}>หนังสือรับรองการหักภาษี ณ ที่จ่าย</div>
-            <div style={{ fontSize: 11.5 }}>ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร</div>
-          </div>
-
-          <div style={{ border: '1px solid #1d2433', padding: '8px 10px', marginBottom: 6 }}>
-            <div style={{ fontWeight: 700 }}>ผู้มีหน้าที่หักภาษี ณ ที่จ่าย :</div>
-            <div>ชื่อ {COMPANY.legalName}</div>
-            <div>ที่อยู่ {COMPANY.address}</div>
-            <div>เลขประจำตัวผู้เสียภาษีอากร {COMPANY.taxId}</div>
-          </div>
-          <div style={{ border: '1px solid #1d2433', padding: '8px 10px', marginBottom: 8 }}>
-            <div style={{ fontWeight: 700 }}>ผู้ถูกหักภาษี ณ ที่จ่าย :</div>
-            <div>ชื่อ {profile?.name || '-'}</div>
-            <div>เลขประจำตัวผู้เสียภาษีอากร {profile?.taxId || profile?.nationalId || '-'}</div>
-          </div>
-
-          <table className="me-doc-table">
-            <thead>
-              <tr><th style={{ width: 24 }}></th><th>ประเภทเงินได้พึงประเมินที่จ่าย</th><th className="r" style={{ width: 70 }}>วันเดือนปีภาษี</th><th className="r" style={{ width: 90 }}>จำนวนเงินที่จ่าย</th><th className="r" style={{ width: 80 }}>ภาษีที่หักและนำส่ง</th></tr>
-            </thead>
-            <tbody>
-              {incomeRows.map((r) => (
-                <tr key={r.no}>
-                  <td>{r.no}</td><td>{r.label}</td>
-                  <td className="r">{r.amount ? cert.year : ''}</td>
-                  <td className="r">{r.amount ? num(r.amount) : ''}</td>
-                  <td className="r">{r.amount ? num(r.tax) : ''}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr><td></td><td>รวมเงินภาษีที่หักนำส่ง</td><td></td><td className="r">{num(cert.totalIncome)}</td><td className="r">{num(cert.totalTax)}</td></tr>
-            </tfoot>
-          </table>
-
-          <div style={{ margin: '6px 0', fontSize: 11.5 }}>
-            เงินที่จ่ายเข้า กบข./กสจ./กองทุนสงเคราะห์ครูโรงเรียนเอกชน 0.00 บาท ·
-            กองทุนประกันสังคม {num(cert.totalSso)} บาท · กองทุนสำรองเลี้ยงชีพ 0.00 บาท
-          </div>
-          <div style={{ fontSize: 11.5, marginBottom: 10 }}>
-            ผู้จ่ายเงิน &nbsp; (1) ☑ หัก ณ ที่จ่าย &nbsp; (2) ☐ ออกให้ตลอดไป &nbsp; (3) ☐ ออกให้ครั้งเดียว &nbsp; (4) ☐ อื่น ๆ
-          </div>
-
-          <div style={{ fontSize: 11.5 }}>ขอรับรองว่าข้อความและตัวเลขดังกล่าวข้างต้นถูกต้องตรงกับความจริงทุกประการ</div>
-          <div className="me-doc-sign" style={{ marginTop: 22 }}>
-            <div>ลงชื่อ ......................................... ผู้จ่ายเงิน</div>
-            <div>วันที่ 31 / 12 / {cert.year}</div>
-          </div>
-          <div className="me-doc-foot">ออกให้เพื่อเป็นหลักฐานในการยื่นแบบแสดงรายการภาษีเงินได้บุคคลธรรมดา</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── แบบลดหย่อนภาษี (ลย.01) — แบ่งเป็นหมวดเหมือนแอป HR ─── */
-const ALLOWANCE_GROUPS = [
-  {
-    key: 'family', icon: '🧑', title: 'ตนเองและครอบครัว',
-    desc: 'รายการลดหย่อนสำหรับตนเอง ครอบครัว ฝากครรภ์ บุตร และอุปการะเลี้ยงดูผู้พิการ',
-    fields: [
-      { key: 'spouse', label: 'คู่สมรสไม่มีเงินได้', type: 'check', value: 60000 },
-      { key: 'children', label: 'จำนวนบุตร (คนละ 30,000)', type: 'count', unit: 30000 },
-      { key: 'parents', label: 'อุปการะบิดามารดา (คนละ 30,000)', type: 'count', unit: 30000 },
-    ],
-  },
-  {
-    key: 'insurance', icon: '🛡️', title: 'ประกัน',
-    desc: 'รายการลดหย่อนสำหรับค่าประกันชีวิต ประกันชีวิตแบบบำนาญ และประกันสุขภาพ',
-    fields: [
-      { key: 'life_insurance', label: 'เบี้ยประกันชีวิต (สูงสุด 100,000)', type: 'baht' },
-      { key: 'health_insurance', label: 'เบี้ยประกันสุขภาพ (สูงสุด 25,000)', type: 'baht' },
-    ],
-  },
-  {
-    key: 'fund', icon: '💰', title: 'กองทุน',
-    desc: 'รายการลดหย่อนสำหรับกองทุนประกันสังคม RMF TESG และกองทุนสำรองเลี้ยงชีพ',
-    fields: [
-      { key: 'provident_fund', label: 'กองทุนสำรองเลี้ยงชีพ', type: 'baht' },
-    ],
-  },
-  {
-    key: 'other', icon: '⋯', title: 'อื่นๆ',
-    desc: 'รายการลดหย่อนอื่นๆ เช่น ค่าลดหย่อนที่อยู่อาศัย ค่าใช้จ่ายกลุ่มเงินบริจาค',
-    fields: [
-      { key: 'mortgage', label: 'ดอกเบี้ยกู้ซื้อบ้าน (สูงสุด 100,000)', type: 'baht' },
-      { key: 'donation', label: 'เงินบริจาค', type: 'baht' },
-    ],
-  },
-];
-
-function groupTotal(group, form) {
-  let sum = 0;
-  for (const f of group.fields) {
-    if (f.type === 'check') sum += form[f.key] ? f.value : 0;
-    else if (f.type === 'count') sum += (Number(form[f.key]) || 0) * f.unit;
-    else sum += Number(form[f.key]) || 0;
-  }
-  return sum;
-}
-
-function AllowanceSection({ back, showToast }) {
-  const thisYearBE = new Date().getFullYear() + 543;
-  const [year, setYear] = useState(thisYearBE);
-  const [form, setForm] = useState({});
-  const [open, setOpen] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const PERSONAL = 60000; // ลดหย่อนส่วนตัวอัตโนมัติ
-
-  useEffect(() => {
-    fetch(`/api/me/allowances?year=${year}`, { headers: authHeaders() })
-      .then((r) => r.json()).then((d) => setForm(d.allowance?.data || {})).catch(() => {});
-  }, [year]);
-
-  const num = (v) => Number(v || 0).toLocaleString();
-  const total = PERSONAL + ALLOWANCE_GROUPS.reduce((a, g) => a + groupTotal(g, form), 0);
-
-  const save = async () => {
-    setSaving(true);
-    const res = await fetch('/api/me/allowances', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ year, data: form }) });
-    setSaving(false);
-    if (res.ok) showToast('บันทึกแบบลดหย่อนแล้ว ส่งให้ HR เรียบร้อย');
-    else showToast('บันทึกไม่สำเร็จ', true);
-  };
-
-  const setF = (k, v) => setForm((p) => ({ ...p, [k]: v }));
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div className="me-section-title" style={{ margin: 0 }}>ลดหย่อน</div>
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: 'auto', padding: '6px 10px', borderRadius: 10, border: '1px solid #e7e9f4' }}>
-          {[thisYearBE, thisYearBE + 1].map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
-      </div>
-
-      {ALLOWANCE_GROUPS.map((g) => {
-        const gt = groupTotal(g, form) + (g.key === 'family' ? PERSONAL : 0);
-        const isOpen = open === g.key;
-        return (
-          <div className="me-card" key={g.key} style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, cursor: 'pointer' }} onClick={() => setOpen(isOpen ? null : g.key)}>
-              <div style={{ fontSize: 22 }}>{g.icon}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700 }}>{g.title}</div>
-                <div style={{ fontSize: 11.5, color: '#9aa1b5', lineHeight: 1.3 }}>{g.desc}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 700, color: gt > 0 ? '#6d5ef5' : '#9aa1b5' }}>฿{num(gt)}</div>
-                <div style={{ fontSize: 14, color: '#9aa1b5' }}>{isOpen ? '▴' : '▾'}</div>
-              </div>
-            </div>
-            {isOpen && (
-              <div style={{ padding: '0 14px 14px', borderTop: '1px solid #f1f2f8' }}>
-                {g.key === 'family' && (
-                  <div className="me-row"><span className="k">ลดหย่อนส่วนตัว (อัตโนมัติ)</span><span className="v">฿{num(PERSONAL)}</span></div>
-                )}
-                {g.fields.map((f) => (
-                  <div className="me-field" key={f.key} style={{ marginTop: 10 }}>
-                    <label>{f.label}</label>
-                    {f.type === 'check'
-                      ? <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                          <input type="checkbox" checked={!!form[f.key]} onChange={(e) => setF(f.key, e.target.checked)} style={{ width: 'auto' }} /> มีสิทธิ์ (฿{num(f.value)})
-                        </label>
-                      : <input className="me-input" type="number" placeholder={f.type === 'count' ? 'จำนวน (คน)' : 'จำนวนเงิน'}
-                          value={form[f.key] ?? ''} onChange={(e) => setF(f.key, e.target.value === '' ? '' : Number(e.target.value))} />}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      <div style={{ position: 'sticky', bottom: 84, marginTop: 8, background: '#fff', border: '1px solid #e7e9f4', borderRadius: 14, padding: 14, display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 -2px 10px rgba(16,24,40,0.06)' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, color: '#9aa1b5' }}>ลดหย่อนรวม</div>
-          <div style={{ fontWeight: 800, fontSize: 18, color: '#6d5ef5' }}>฿{num(total)}</div>
-        </div>
-        <button className="me-btn" style={{ width: 'auto', padding: '12px 24px' }} disabled={saving} onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
-      </div>
-    </>
-  );
-}
-
-/* ─── อนุมัติการลาทีม (สำหรับหัวหน้า) ─── */
-function TeamLeaveSection({ back, showToast }) {
-  const [tab, setTab] = useState('leave');
-  const [items, setItems] = useState([]);
-  const [otItems, setOtItems] = useState([]);
-  const [expenseItems, setExpenseItems] = useState([]);
-  const [loaded, setLoaded] = useState(false);
-
-  const load = () => fetch('/api/me/team-leave', { headers: authHeaders() })
-    .then((r) => r.json()).then((d) => {
-      setItems(d.items || []);
-      setOtItems(d.otItems || []);
-      setExpenseItems(d.expenseItems || []);
-      setLoaded(true);
-    }).catch(() => setLoaded(true));
-
-  useEffect(() => { load(); }, []);
-
-  const act = async (id, action, type = 'leave') => {
-    const res = await fetch('/api/me/team-leave', {
-      method: 'POST', headers: authHeaders(), body: JSON.stringify({ id, action, type }),
-    });
-    const d = await res.json();
-    if (res.ok) { showToast(action === 'approve' ? 'อนุมัติขั้นต้นแล้ว (ส่งต่อ HR)' : 'ปฏิเสธคำขอแล้ว'); load(); }
-    else showToast(d.error || 'ไม่สำเร็จ', true);
-  };
-
-  const LB = { annual: 'พักร้อน', sick: 'ลาป่วย', personal: 'ลากิจ' };
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button className={'me-badge ' + (tab === 'leave' ? 'me-badge-purple' : 'me-badge-gray')} style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => setTab('leave')}>
-          🏖️ ใบลา ({items.filter((i) => i.manager_status === 'pending').length})
-        </button>
-        <button className={'me-badge ' + (tab === 'ot' ? 'me-badge-purple' : 'me-badge-gray')} style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => setTab('ot')}>
-          ⏱️ OT ({otItems.filter((i) => i.status === 'pending' && !String(i.note || '').includes('[หัวหน้าอนุมัติ:')).length})
-        </button>
-        <button className={'me-badge ' + (tab === 'expense' ? 'me-badge-purple' : 'me-badge-gray')} style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => setTab('expense')}>
-          🧾 เบิกจ่าย ({expenseItems.filter((i) => i.status === 'pending' && !String(i.description || '').includes('[หัวหน้าอนุมัติ:')).length})
-        </button>
-      </div>
-
-      {tab === 'leave' && (
-        <div className="me-card">
-          <div className="me-section-title">✅ อนุมัติการลาของลูกทีม (ขั้นที่ 1 → HR)</div>
-          {loaded && items.length === 0 && <div className="me-empty">ไม่มีใบลาของลูกทีม</div>}
-          {items.map((l) => (
-            <div key={l.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 600 }}>{l.employeeName}</span>
-                <span className={'me-badge ' + (l.manager_status === 'pending' ? 'me-badge-yellow' : l.manager_status === 'approved' ? 'me-badge-green' : 'me-badge-red')}>
-                  {l.manager_status === 'pending' ? 'รอหัวหน้า' : l.manager_status === 'approved' ? 'ส่งต่อ HR แล้ว' : 'ปฏิเสธ'}
-                </span>
-              </div>
-              <div style={{ fontSize: 13, color: '#5b6478', margin: '4px 0' }}>
-                {LB[l.leave_type] || l.leave_type} · {l.days} วัน · {l.start_date} ถึง {l.end_date}
-              </div>
-              {l.reason && <div style={{ fontSize: 12.5, color: '#9aa1b5' }}>เหตุผล: {l.reason}</div>}
-              {l.manager_status === 'pending' && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => act(l.id, 'approve', 'leave')}>✓ อนุมัติส่งต่อ HR</button>
-                  <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#ef4444,#f87171)' }} onClick={() => act(l.id, 'reject', 'leave')}>✗ ปฏิเสธ</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === 'ot' && (
-        <div className="me-card">
-          <div className="me-section-title">⏱️ อนุมัติ OT ลูกทีม (ขั้นที่ 1 → HR)</div>
-          {loaded && otItems.length === 0 && <div className="me-empty">ไม่มีคำขอ OT ของลูกทีม</div>}
-          {otItems.map((o) => {
-            const mgrApproved = String(o.note || '').includes('[หัวหน้าอนุมัติ:');
-            return (
-              <div key={o.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontWeight: 600 }}>{o.employeeName}</span>
-                  <span className={'me-badge ' + (o.status === 'approved' ? 'me-badge-green' : o.status === 'rejected' ? 'me-badge-red' : mgrApproved ? 'me-badge-blue' : 'me-badge-yellow')}>
-                    {o.status === 'approved' ? 'HR อนุมัติแล้ว' : o.status === 'rejected' ? 'ปฏิเสธ' : mgrApproved ? 'ส่งต่อ HR แล้ว' : 'รอหัวหน้า'}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, color: '#5b6478', margin: '4px 0' }}>
-                  วันที่ {o.ot_date} · {o.hours} ชม. (x{o.rate || 1.5})
-                </div>
-                {o.note && <div style={{ fontSize: 12.5, color: '#9aa1b5' }}>{o.note}</div>}
-                {o.status === 'pending' && !mgrApproved && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => act(o.id, 'approve', 'ot')}>✓ อนุมัติส่งต่อ HR</button>
-                    <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#ef4444,#f87171)' }} onClick={() => act(o.id, 'reject', 'ot')}>✗ ปฏิเสธ</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {tab === 'expense' && (
-        <div className="me-card">
-          <div className="me-section-title">🧾 อนุมัติเบิกจ่ายลูกทีม (ขั้นที่ 1 → HR)</div>
-          {loaded && expenseItems.length === 0 && <div className="me-empty">ไม่มีรายการเบิกของลูกทีม</div>}
-          {expenseItems.map((ex) => {
-            const rawDesc = String(ex.description || '');
-            const mgrApproved = rawDesc.includes('[หัวหน้าอนุมัติ:');
-            const receiptMatch = rawDesc.match(/\[RECEIPT:([^\]]+)\]/);
-            const receiptFile = receiptMatch ? receiptMatch[1].trim() : null;
-            const cleanDesc = rawDesc.replace(/\[RECEIPT:[^\]]+\]/g, '').trim();
-            const catLabel = EXPENSE_CATS.find((c) => c.value === ex.category)?.label || ex.category;
-            return (
-              <div key={ex.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontWeight: 600 }}>{ex.employeeName}</span>
-                  <span className={'me-badge ' + (ex.status === 'approved' || ex.status === 'paid' ? 'me-badge-green' : ex.status === 'rejected' ? 'me-badge-red' : mgrApproved ? 'me-badge-blue' : 'me-badge-yellow')}>
-                    {ex.status === 'approved' ? 'HR อนุมัติแล้ว' : ex.status === 'paid' ? 'จ่ายแล้ว' : ex.status === 'rejected' ? 'ปฏิเสธ' : mgrApproved ? 'ส่งต่อ HR แล้ว' : 'รอหัวหน้า'}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, color: '#5b6478', margin: '4px 0' }}>
-                  {catLabel} · {Number(ex.amount || 0).toLocaleString()} ฿ · วันที่ {ex.claim_date}
-                </div>
-                {cleanDesc && <div style={{ fontSize: 12.5, color: '#9aa1b5' }}>{cleanDesc}</div>}
-                {receiptFile && (
-                  <div style={{ marginTop: 4 }}>
-                    <a href={assetImg(receiptFile)} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#6d5ef5', fontWeight: 600 }}>📎 ดูใบเสร็จแนบ</a>
-                  </div>
-                )}
-                {ex.status === 'pending' && !mgrApproved && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => act(ex.id, 'approve', 'expense')}>✓ อนุมัติส่งต่อ HR</button>
-                    <button className="me-btn" style={{ flex: 1, background: 'linear-gradient(135deg,#ef4444,#f87171)' }} onClick={() => act(ex.id, 'reject', 'expense')}>✗ ปฏิเสธ</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </>
-  );
-}
-
-/* ─── ขอเอกสารรับรอง ─── */
-function DocumentRequestsSection({ back, showToast, profile }) {
-  const [data, setData] = useState(null);
-  const [form, setForm] = useState({ document_type: 'salary_certificate', purpose: '' });
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = () => fetch('/api/me/document-requests', { headers: authHeaders() })
-    .then((r) => r.json())
-    .then(setData)
-    .catch(() => {});
-
-  useEffect(() => { load(); }, []);
-
-  async function submit(e) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await fetch('/api/me/document-requests', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
-      if (!res.ok) {
-        showToast(d.error || 'ส่งคำขอไม่สำเร็จ', true);
-        return;
-      }
-      showToast('ส่งคำขอเอกสารแล้ว รอ HR อนุมัติ');
-      setForm({ document_type: 'salary_certificate', purpose: '' });
-      setData((p) => ({ ...(p || {}), requests: [d.item, ...(p?.requests || [])] }));
-    } catch {
-      showToast('เชื่อมต่อไม่สำเร็จ', true);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const requests = data?.requests || [];
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-      <div className="me-card">
-        <div className="me-section-title">📄 ขอเอกสารรับรอง</div>
-        <form onSubmit={submit}>
-          <div className="me-field">
-            <label>ประเภทเอกสาร</label>
-            <select value={form.document_type} onChange={(e) => setForm((p) => ({ ...p, document_type: e.target.value }))}>
-              <option value="salary_certificate">หนังสือรับรองเงินเดือน</option>
-              <option value="employment_certificate">หนังสือรับรองการทำงาน</option>
-            </select>
-          </div>
-          <div className="me-field">
-            <label>วัตถุประสงค์</label>
-            <textarea value={form.purpose} onChange={(e) => setForm((p) => ({ ...p, purpose: e.target.value }))} placeholder="เช่น ใช้ประกอบการสมัครสินเชื่อ / ยื่นหน่วยงานราชการ" />
-          </div>
-          <button className="me-btn" disabled={loading}>{loading ? 'กำลังส่ง...' : 'ส่งคำขอเอกสาร'}</button>
-        </form>
-      </div>
-
-      <div className="me-card">
-        <div className="me-section-title">📋 คำขอของฉัน</div>
-        {!data && <div className="me-empty">กำลังโหลด...</div>}
-        {data && requests.length === 0 && <div className="me-empty">ยังไม่มีคำขอเอกสาร</div>}
-        {requests.map((item) => {
-          const badge = STATUS_BADGE[item.status] || STATUS_BADGE.pending;
-          return (
-            <div key={item.id} style={{ borderTop: '1px solid #f1f2f8', padding: '11px 0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ fontWeight: 700 }}>{CERTIFICATE_TYPES[item.document_type] || item.document_type}</span>
-                <span className={`me-badge ${badge.cls}`}>{badge.label}</span>
-              </div>
-              <div style={{ color: '#9aa1b5', fontSize: 12.5, marginTop: 3 }}>ยื่นเมื่อ {thaiDateShort(item.requested_at)}</div>
-              {item.purpose && <div style={{ color: '#5b6478', fontSize: 13, marginTop: 5 }}>วัตถุประสงค์: {item.purpose}</div>}
-              {item.review_note && <div style={{ color: '#5b6478', fontSize: 13, marginTop: 5 }}>หมายเหตุ HR: {item.review_note}</div>}
-              {item.status === 'approved' && (
-                <button className="me-btn" style={{ marginTop: 10 }} onClick={() => setSelected(item)}>🖨️ ดู/บันทึก PDF</button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {selected && (
-        <CertificateDocument
-          request={selected}
-          fallbackProfile={profile}
-          onClose={() => setSelected(null)}
-        />
-      )}
-    </>
-  );
-}
-
-function CertificateDocument({ request, fallbackProfile, onClose }) {
-  const docProfile = request.employeeProfile || fallbackProfile || {};
-  const isSalary = request.document_type === 'salary_certificate';
-  const title = CERTIFICATE_TYPES[request.document_type] || 'หนังสือรับรอง';
-  const salary = Number(docProfile.salary) || Number(request.latestPayslip?.base_salary) || 0;
-  const issuedDate = thaiDate(request.approved_at || new Date().toISOString());
-  const purpose = request.purpose || 'ใช้เป็นหลักฐานตามที่พนักงานร้องขอ';
-  const signature = request.signatureAsset;
-  const stamp = request.stampAsset;
-  const logo = request.logoAsset;
-  const logoSrc = logo?.image_url ? storedImage(logo.image_url) : '/brand/hr-pro-logo.svg';
-  const startDate = docProfile.startDate ? thaiDate(docProfile.startDate) : '-';
-  const employeeName = docProfile.name || '-';
-  const employeeId = docProfile.employeeId || request.employee_id;
-  const position = docProfile.position || '-';
-  const department = docProfile.department || '-';
-  const salaryText = salary.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  return (
-    <div className="me-doc-overlay">
-      <div className="me-doc-actions">
-        <button className="me-badge me-badge-gray" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={onClose}>← ปิด</button>
-        <button className="me-badge me-badge-purple" style={{ border: 'none', padding: '8px 14px', cursor: 'pointer' }} onClick={() => window.print()}>🖨️ พิมพ์ / บันทึก PDF</button>
-      </div>
-      <div className="me-doc-print">
-        <div className="me-doc me-cert-doc">
-          <div className="me-doc-head">
-            <img className="me-doc-logo me-cert-logo" src={logoSrc} alt="" />
-            <div className="me-doc-co">{COMPANY.legalName}</div>
-            <div className="me-doc-addr">{COMPANY.nameEn}</div>
-            <div className="me-doc-addr">{COMPANY.address}</div>
-            <div className="me-doc-addr">เลขประจำตัวผู้เสียภาษี {COMPANY.taxId}</div>
-          </div>
-
-          <div className="me-cert-ref">เลขที่เอกสาร HR-CERT-{String(request.id).padStart(5, '0')}</div>
-          <div className="me-doc-title me-cert-title">{title}</div>
-          <div className="me-cert-date">ออกให้ ณ วันที่ {issuedDate}</div>
-
-          <div className="me-cert-body">
-            {isSalary ? (
-              <>
-                <p>หนังสือฉบับนี้ออกเพื่อรับรองว่า คุณ{employeeName} รหัสพนักงาน {employeeId} เป็นพนักงานของ {COMPANY.legalName}</p>
-                <p>ปฏิบัติงานในตำแหน่ง {position} แผนก/ฝ่าย {department} โดยเริ่มทำงานตั้งแต่วันที่ {startDate} จนถึงปัจจุบัน</p>
-                <p>มีอัตราเงินเดือนประจำเดือนละ {salaryText} บาท ({thaiBahtText(salary)}) ซึ่งอัตรานี้ยังไม่รวมค่าตอบแทนและเงินพิเศษอื่นๆ</p>
-                <p>หนังสือรับรองเงินเดือนฉบับนี้ใช้เพื่อ {purpose} เท่านั้น</p>
-              </>
-            ) : (
-              <>
-                <p>ขอรับรองว่า คุณ{employeeName} รหัสพนักงาน {employeeId} เป็นพนักงานของ {COMPANY.legalName}</p>
-                <p>ปฏิบัติงานในตำแหน่ง {position} แผนก/ฝ่าย {department} เริ่มปฏิบัติงานตั้งแต่วันที่ {startDate} จนถึงปัจจุบัน</p>
-                <p>ตลอดระยะเวลาการปฏิบัติงาน พนักงานดังกล่าวอยู่ในสถานะพนักงานของบริษัทตามข้อมูลที่บริษัทมีอยู่ในระบบ</p>
-                <p>หนังสือรับรองการทำงานฉบับนี้ออกให้เพื่อ {purpose}</p>
-              </>
-            )}
-            <p>จึงออกหนังสือรับรองฉบับนี้ไว้เป็นหลักฐาน</p>
-          </div>
-
-          <div className="me-cert-assets">
-            {stamp?.image_url && <img className="me-cert-stamp" src={storedImage(stamp.image_url)} alt={stamp.name || 'company stamp'} />}
-            <div className="me-cert-sign-box">
-              {signature?.image_url && <img className="me-cert-signature-img" src={storedImage(signature.image_url)} alt={signature.name || 'signature'} />}
-              <div className="me-cert-sign-line">ลงชื่อ ................................................ ผู้รับรอง</div>
-              <div>{signature?.signer_name || request.approved_by || 'ผู้มีอำนาจลงนาม'}</div>
-              <div>{signature?.signer_title || 'ฝ่ายทรัพยากรบุคคล'}</div>
-              <div className="me-cert-issued-by">วันที่ {issuedDate}</div>
-            </div>
-          </div>
-
-          <div className="me-cert-contact">สอบถามฝ่ายบุคคล{COMPANY.phone ? ` โทร. ${COMPANY.phone}` : ''}</div>
-          <div className="me-doc-foot">เอกสารนี้ออกจากระบบ HR Pro Suite ตามคำขอเลขที่ #{request.id}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── ทรัพย์สิน/อุปกรณ์ (พนักงาน: ดู + ขอเบิก/คืน/เปลี่ยน) ─── */
-const ASSET_STATUS = { available: { c: 'me-badge-green', l: 'ว่าง' }, assigned: { c: 'me-badge-blue', l: 'มีคนใช้' }, repair: { c: 'me-badge-yellow', l: 'ส่งซ่อม' }, retired: { c: 'me-badge-gray', l: 'ปลดระวาง' } };
-const ASSET_REQ_TYPE = { borrow: 'ขอเบิก', return: 'ขอคืน', replace: 'ขอเปลี่ยน' };
-
-function assetImg(file) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return `/api/assets/image?file=${encodeURIComponent(file)}&token=${encodeURIComponent(token || '')}`;
-}
-
-function AssetsSection({ back, showToast }) {
-  const [data, setData] = useState(null);
-  const [modal, setModal] = useState(null); // { asset, type }
-  const [targetBranch, setTargetBranch] = useState('');
-  const [reason, setReason] = useState('');
-
-  const load = () => fetch('/api/me/assets', { headers: authHeaders() }).then((r) => r.json()).then(setData).catch(() => {});
-  useEffect(() => { load(); }, []);
-
-  const openReq = (asset, type) => { setModal({ asset, type }); setTargetBranch(''); setReason(''); };
-
-  const submit = async () => {
-    const res = await fetch('/api/me/assets', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ asset_id: modal.asset.id, type: modal.type, target_branch_id: targetBranch || null, reason }),
-    });
-    const d = await res.json();
-    if (res.ok) { showToast('ส่งคำขอแล้ว รอ HR อนุมัติ'); setModal(null); load(); }
-    else showToast(d.error || 'ส่งไม่สำเร็จ', true);
-  };
-
-  if (!data) return <div className="me-empty">กำลังโหลด...</div>;
-
-  return (
-    <>
-      <button className="me-badge me-badge-gray" style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '6px 14px' }} onClick={back}>← กลับ</button>
-
-      {data.myRequests.length > 0 && (
-        <div className="me-card">
-          <div className="me-section-title">📨 คำขอของฉัน</div>
-          {data.myRequests.map((r) => (
-            <div key={r.id} className="me-row">
-              <span className="k">{ASSET_REQ_TYPE[r.type]} · #{r.asset_id}</span>
-              <span className={`me-badge ${STATUS_BADGE[r.status]?.cls || 'me-badge-yellow'}`}>{STATUS_BADGE[r.status]?.label || r.status}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="me-card">
-        <div className="me-section-title">📦 ทรัพย์สิน/อุปกรณ์</div>
-        {data.assets.length === 0 && <div className="me-empty">ยังไม่มีทรัพย์สิน</div>}
-        {data.assets.map((a) => (
-          <div key={a.id} style={{ borderTop: '1px solid #f1f2f8', padding: '10px 0', display: 'flex', gap: 12 }}>
-            {a.imageUrl
-              ? <img src={assetImg(a.imageUrl)} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 10 }} />
-              : <div style={{ width: 56, height: 56, borderRadius: 10, background: '#f1f2f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ fontWeight: 600 }}>{a.name}</span>
-                <span className={`me-badge ${ASSET_STATUS[a.status]?.c || 'me-badge-gray'}`}>{ASSET_STATUS[a.status]?.l || a.status}</span>
-              </div>
-              <div style={{ fontSize: 12, color: '#9aa1b5' }}>{a.code} · {a.category || '-'} · 🏬 {a.branchName}</div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                {a.status === 'available' && !a.isMine &&
-                  <button className="me-btn" style={{ padding: '7px 12px', width: 'auto', fontSize: 13 }} onClick={() => openReq(a, 'borrow')}>เบิก</button>}
-                {a.isMine && <>
-                  <button className="me-btn" style={{ padding: '7px 12px', width: 'auto', fontSize: 13, background: 'linear-gradient(135deg,#16a34a,#22c55e)' }} onClick={() => openReq(a, 'return')}>คืน</button>
-                  <button className="me-btn" style={{ padding: '7px 12px', width: 'auto', fontSize: 13, background: 'linear-gradient(135deg,#f59e0b,#fbbf24)' }} onClick={() => openReq(a, 'replace')}>ขอเปลี่ยน</button>
-                </>}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {modal && (
-        <div className="me-doc-overlay" style={{ background: 'rgba(29,36,51,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setModal(null)}>
-          <div className="me-card" style={{ maxWidth: 360, width: '100%' }} onClick={(e) => e.stopPropagation()}>
-            <div className="me-section-title">{ASSET_REQ_TYPE[modal.type]} · {modal.asset.name}</div>
-            {modal.type !== 'return' && (
-              <div className="me-field">
-                <label>จัดส่งไปสาขา</label>
-                <select value={targetBranch} onChange={(e) => setTargetBranch(e.target.value)}>
-                  <option value="">— เลือกสาขา —</option>
-                  {data.branches.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
-                </select>
-              </div>
-            )}
-            <div className="me-field"><label>เหตุผล/รายละเอียด</label><textarea value={reason} onChange={(e) => setReason(e.target.value)} /></div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="me-btn" style={{ background: '#9aa1b5' }} onClick={() => setModal(null)}>ยกเลิก</button>
-              <button className="me-btn" onClick={submit}>ส่งคำขอ</button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { confirmDialog, alertDialog } from '@/components/ui/ConfirmDialog';
 
 const SESSION_STATUS = {
   queued: { label: 'เข้าคิว รอโทร', color: '#6b7280' },
@@ -50,7 +51,10 @@ export default function InterviewDetailPage() {
     try {
       const res = await fetch(`/api/hr/interviews/${id}/score`, { method: 'POST', headers: authHeaders() });
       const d = await res.json();
-      if (!res.ok) { alert(d.error || 'ประเมินไม่สำเร็จ'); return; }
+      if (!res.ok) {
+        await alertDialog({ title: 'ประเมินไม่สำเร็จ', message: d.error || 'เกิดข้อผิดพลาดในการประเมินคะแนน', type: 'error' });
+        return;
+      }
       const fresh = await fetch(`/api/hr/interviews/${id}`, { headers: authHeaders() }).then((r) => r.json());
       setData(fresh);
     } finally {
@@ -59,7 +63,13 @@ export default function InterviewDetailPage() {
   }
 
   async function remove() {
-    if (!confirm('ลบรอบสัมภาษณ์นี้?')) return;
+    const ok = await confirmDialog({
+      title: 'ยืนยันการลบรอบสัมภาษณ์?',
+      message: 'คุณต้องการลบรอบสัมภาษณ์นี้ใช่หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้',
+      confirmLabel: 'ลบรอบสัมภาษณ์',
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/hr/interviews/${id}`, { method: 'DELETE', headers: authHeaders() });
     if (res.ok) router.push('/hr/applicants');
   }

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
+import { AppIcon } from '@/components/ui/Icons';
 
 const STATUS = { available: { c: 'green', l: 'ว่าง' }, assigned: { c: 'blue', l: 'มีคนใช้' }, repair: { c: 'yellow', l: 'ส่งซ่อม' }, retired: { c: 'gray', l: 'ปลดระวาง' } };
 const REQ_TYPE = { borrow: 'ขอเบิก', return: 'ขอคืน', replace: 'ขอเปลี่ยน' };
@@ -85,7 +87,13 @@ export default function AssetsPage() {
   }
 
   async function remove(a) {
-    if (!confirm('ลบทรัพย์สินนี้?')) return;
+    const ok = await confirmDialog({
+      title: 'ยืนยันการลบทรัพย์สิน?',
+      message: `คุณต้องการลบทรัพย์สิน "${a.name}" (${a.code}) ใช่หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้`,
+      confirmLabel: 'ลบทรัพย์สิน',
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/hr/assets/${a.id}`, { method: 'DELETE', headers: authHeaders() });
     if (res.ok) { showToast('ลบแล้ว'); load(); } else showToast('ลบไม่สำเร็จ', true);
   }

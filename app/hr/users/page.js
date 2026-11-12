@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 
 const ROLE_BADGES = {
   admin: 'red',
@@ -148,7 +149,13 @@ export default function UsersPage() {
   }
 
   async function deleteUser(user) {
-    if (!confirm(`ต้องการลบผู้ใช้ ${user.name} หรือไม่?`)) return;
+    const ok = await confirmDialog({
+      title: 'ยืนยันการลบผู้ใช้?',
+      message: `คุณต้องการลบผู้ใช้ "${user.name}" (${user.username || user.employeeId || ''}) หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้`,
+      confirmLabel: 'ลบผู้ใช้',
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE', headers: authHeaders() });
     const data = await res.json();
     if (!res.ok) {
@@ -160,7 +167,13 @@ export default function UsersPage() {
   }
 
   async function unlinkLine(lineId) {
-    if (!confirm('ต้องการยกเลิกการผูกบัญชี LINE นี้หรือไม่?')) return;
+    const ok = await confirmDialog({
+      title: 'ยกเลิกการผูกบัญชี LINE?',
+      message: 'ต้องการยกเลิกการผูกบัญชี LINE นี้หรือไม่ การแจ้งเตือนผ่าน LINE ของพนักงานจะหยุดทำงาน',
+      confirmLabel: 'ยกเลิกการผูก',
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/line/mappings/${encodeURIComponent(lineId)}`, { method: 'DELETE', headers: authHeaders() });
     const data = await res.json();
     if (!res.ok) {

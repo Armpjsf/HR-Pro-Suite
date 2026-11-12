@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authHeaders } from '@/components/hr/exportUtils';
+import { confirmDialog } from '@/components/ui/ConfirmDialog';
 
 const EMPTY = {
   asset_type: 'signature',
@@ -117,7 +118,13 @@ export default function DocumentAssetsPage() {
   }
 
   async function remove(item) {
-    if (!confirm(`ลบ ${item.name} หรือไม่?`)) return;
+    const ok = await confirmDialog({
+      title: 'ยืนยันการลบ?',
+      message: `คุณต้องการลบ "${item.name}" หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้`,
+      confirmLabel: 'ลบรายการ',
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/hr/document-assets/${item.id}`, { method: 'DELETE', headers: authHeaders() });
     if (res.ok) {
       showToast('ลบแล้ว');
