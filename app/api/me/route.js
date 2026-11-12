@@ -140,6 +140,8 @@ export async function GET(request) {
     announcements: announcements.data || [],
     todayClock: todayClockResult.data || null,
     attendanceStats,
+    workSettings,
+    today,
     isManager: (reportCount || 0) > 0 || ['manager', 'admin', 'hr'].includes(user.role),
   });
 }

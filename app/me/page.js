@@ -269,6 +269,22 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
   const dateLabel = nowTime.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const timeLabel = nowTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 
+  const todayStr = data.today || nowTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+  const todayShift = (data.shifts || []).find((s) => s.shift_date === todayStr);
+  const ws = data.workSettings || { standard_in: '08:00', standard_out: '17:00' };
+  const fmtHm = (t) => String(t || '').slice(0, 5);
+  let shiftLabel = '🕘 เวลาทำงานปกติ';
+  let shiftTimeText = `${fmtHm(ws.standard_in || '08:00')} – ${fmtHm(ws.standard_out || '17:00')} น.`;
+  if (todayShift) {
+    if (todayShift.shift_type === 'off') {
+      shiftLabel = '🌴 ตารางกะวันนี้';
+      shiftTimeText = 'วันหยุดตามกะงาน';
+    } else if (todayShift.start_time && todayShift.end_time) {
+      shiftLabel = '🕘 เวลาทำงานตามกะวันนี้';
+      shiftTimeText = `${fmtHm(todayShift.start_time)} – ${fmtHm(todayShift.end_time)} น.`;
+    }
+  }
+
   return (
     <>
       {/* iOS Attendance Clock Widget */}
@@ -284,8 +300,8 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
         </div>
 
         <div className="me-clock-hours-bar">
-          <span>🕘 เวลาทำงานปกติ</span>
-          <strong style={{ fontVariantNumeric: 'tabular-nums' }}>08:30 – 17:30 น.</strong>
+          <span>{shiftLabel}</span>
+          <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{shiftTimeText}</strong>
         </div>
 
         <div className="me-segmented-picker" role="radiogroup" aria-label="สถานที่ปฏิบัติงาน">
