@@ -16,6 +16,17 @@ function authHeaders() {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+function renderFormattedText(text) {
+  if (!text) return '';
+  const parts = String(text).split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 export default function HrChatPage() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -23,7 +34,40 @@ export default function HrChatPage() {
   const endRef = useRef(null);
   const inputRef = useRef(null);
 
+  // โหลดประวัติแชทจาก sessionStorage เมื่อเปิดหน้าเว็บ
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('hr-web-chat-messages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load chat history:', e);
+    }
+  }, []);
+
+  // บันทึกประวัติแชทลง sessionStorage ทุกครั้งที่ข้อความเปลี่ยน
+  useEffect(() => {
+    try {
+      if (messages.length > 0) {
+        sessionStorage.setItem('hr-web-chat-messages', JSON.stringify(messages));
+      }
+    } catch (e) {
+      console.warn('Failed to save chat history:', e);
+    }
+  }, [messages]);
+
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const clearChat = () => {
+    setMessages([]);
+    try {
+      sessionStorage.removeItem('hr-web-chat-messages');
+    } catch {}
+  };
 
   const send = async (text) => {
     if (!text.trim() || loading) return;
@@ -58,6 +102,16 @@ export default function HrChatPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
+      {/* Header bar when messages exist */}
+      {messages.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px 8px', borderBottom: '1px solid #f0f1f8' }}>
+          <span style={{ fontSize: 13, color: '#9aa1b5' }}>💬 การสนทนากับพี่ HR</span>
+          <button onClick={clearChat} className="hr-btn" style={{ fontSize: 12, padding: '4px 10px', background: '#fff', border: '1px solid #e7e9f4' }}>
+            🗑️ ล้างแชท
+          </button>
+        </div>
+      )}
+
       {/* Messages area */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 0' }}>
         {messages.length === 0 && (
@@ -85,7 +139,7 @@ export default function HrChatPage() {
               boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
               fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap',
             }}>
-              {m.content}
+              {renderFormattedText(m.content)}
               {m.documents?.length > 0 && (
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {m.documents.map((doc) => (

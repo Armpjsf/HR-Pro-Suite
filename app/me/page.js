@@ -405,7 +405,7 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
         {(data.announcements || []).length === 0 && <div className="me-empty">ไม่มีประกาศ</div>}
         {(data.announcements || []).slice(0, 5).map((a) => (
           <button key={a.id} type="button" className="me-row me-announcement-row" onClick={() => setSelectedAnnouncement(a)}>
-            <span className="k">{a.pinned ? '📌 ' : ''}{a.title}</span>
+            <span className="k">{a.pinned ? '📌 ' : ''}{a.title}{a.docId ? ' 📎' : ''}</span>
             <span className="v" style={{ fontSize: 12 }}>{a.publish_date || '›'}</span>
           </button>
         ))}
@@ -427,6 +427,20 @@ function HomeTab({ data, setData, showToast, onNavigateTab }) {
               {selectedAnnouncement.body
                 ? selectedAnnouncement.body.split('\n').map((line, idx) => <p key={idx}>{line || '\u00a0'}</p>)
                 : <p>ไม่มีรายละเอียดเพิ่มเติม</p>}
+              {selectedAnnouncement.docId && (
+                <div style={{ marginTop: 16 }}>
+                  <button
+                    type="button"
+                    className="me-btn"
+                    onClick={() => {
+                      const token = localStorage.getItem('hr-token');
+                      window.open(`/api/documents/${selectedAnnouncement.docId}/download?token=${encodeURIComponent(token || '')}`, '_blank');
+                    }}
+                  >
+                    📥 เปิดดู / ดาวน์โหลดไฟล์ประกาศ ({selectedAnnouncement.fileName || 'เอกสารแนบ'})
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -588,19 +602,63 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
 }
 
 /* ═══════════════════ CHAT TAB ═══════════════════ */
+function renderChatMarkdown(text) {
+  if (!text) return '';
+  const parts = String(text).split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 function ChatTab({ user }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const endRef = useRef(null);
 
+  // โหลดประวัติแชทจาก sessionStorage เพื่อไม่ให้หายเมื่อสลับแท็บ
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('hr-me-chat-messages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load chat history:', e);
+    }
+  }, []);
+
+  // บันทึกประวัติแชทลง sessionStorage ทุกครั้งที่ข้อความเปลี่ยน
+  useEffect(() => {
+    try {
+      if (messages.length > 0) {
+        sessionStorage.setItem('hr-me-chat-messages', JSON.stringify(messages));
+      }
+    } catch (e) {
+      console.warn('Failed to save chat history:', e);
+    }
+  }, [messages]);
+
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const clearChat = () => {
+    setMessages([]);
+    try { sessionStorage.removeItem('hr-me-chat-messages'); } catch {}
+  };
 
   const SUGGESTIONS = [
     { icon: '📅', text: 'วันลาคงเหลือของฉัน' },
     { icon: '📋', text: 'ระเบียบบริษัท' },
     { icon: '🏥', text: 'สวัสดิการพนักงาน' },
     { icon: '📝', text: 'ขอใบลาพักร้อน' },
+    { icon: '📢', text: 'ประกาศล่าสุดของบริษัท' },
+    { icon: '📞', text: 'ติดต่อ HR' },
   ];
 
   const send = async (text) => {
@@ -631,6 +689,13 @@ function ChatTab({ user }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 200px)' }}>
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 12 }}>
+        {messages.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, padding: '0 4px' }}>
+            <button onClick={clearChat} style={{ border: 'none', background: 'transparent', color: '#9aa1b5', fontSize: 12, cursor: 'pointer' }}>
+              🗑️ ล้างประวัติแชท
+            </button>
+          </div>
+        )}
         {messages.length === 0 && (
           <div style={{ textAlign: 'center', padding: '30px 0' }}>
             <div style={{ fontSize: 40, marginBottom: 10 }}>🤖</div>
@@ -654,7 +719,7 @@ function ChatTab({ user }) {
               color: m.role === 'user' ? '#fff' : '#1d2433', fontSize: 14, lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
             }}>
-              {m.content}
+              {renderChatMarkdown(m.content)}
               {m.documents?.length > 0 && (
                 <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {m.documents.map((doc) => (

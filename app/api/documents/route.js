@@ -4,6 +4,7 @@ import { filterDocumentsByRole } from '@/lib/permissions';
 import { getDocuments, addDocument, writeStoredFile, addAuditEntry } from '@/lib/db';
 import { detectFileType, extractText } from '@/lib/extract';
 import { indexDocument } from '@/lib/rag';
+import { supabase } from '@/lib/supabase';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -94,6 +95,29 @@ export async function POST(request) {
     };
 
     await addDocument(doc);
+
+    // หากเป็นเอกสารหมวดประกาศบริษัท (announcements) ให้สร้างประกาศใน announcements table อัตโนมัติ
+    if (category === 'announcements') {
+      try {
+        const cleanSnippet = (content || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 500);
+        const bodyText = cleanSnippet
+          ? `${cleanSnippet}${content.length > 500 ? '...' : ''}\n\n📎 ไฟล์แนบ: ${doc.fileName} [DOC:${doc.id}]`
+          : `ประกาศบริษัทฉบับเต็มแนบอยู่ในไฟล์เอกสาร: ${doc.fileName} [DOC:${doc.id}]`;
+        await supabase.from('announcements').insert({
+          title: doc.name,
+          body: bodyText,
+          category: 'ประกาศบริษัท',
+          publish_date: doc.updatedAt,
+          author: user.name || 'HR',
+          pinned: true,
+        });
+      } catch (annErr) {
+        console.warn('Auto-create announcement from document failed:', annErr.message);
+      }
+    }
 
     // สร้าง RAG index (ตัดเป็นชิ้น + embedding) เพื่อให้ AI ตอบเฉพาะจุด
     // ถ้าล้มเหลว (เช่น embedding quota หมด) ไม่ให้กระทบการอัปโหลด — chat จะ fallback ใช้เนื้อหาเต็ม

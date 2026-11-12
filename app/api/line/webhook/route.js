@@ -149,7 +149,7 @@ function createFlexResponse(text, documents = [], userName = '', downloadToken =
       contents: [
         {
           type: 'text',
-          text: text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n').slice(0, 800),
+          text: text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n').slice(0, 1800),
           wrap: true,
           size: 'sm',
           color: '#1f2937',
@@ -172,7 +172,7 @@ function createFlexResponse(text, documents = [], userName = '', downloadToken =
           color: '#6b7280',
           weight: 'bold',
         },
-        ...documents.slice(0, 3).map((doc) => {
+        ...documents.slice(0, 5).map((doc) => {
           const downloadUrl = `${baseUrl}/api/documents/${doc.id}/download${downloadToken ? `?token=${encodeURIComponent(downloadToken)}` : ''}`;
           const cleanName = (doc.name || 'เอกสาร').replace(/^แบบฟอร์ม|^Template/i, '').trim();
           const label = `📥 โหลด: ${cleanName.slice(0, 11)}`;
@@ -354,26 +354,34 @@ export async function POST(request) {
           continue;
         }
 
+        // ดึงข้อมูลผู้ใช้ล่าสุดจากฐานข้อมูลพนักงาน (เพื่อให้ข้อมูลสาขา แผนก ตำแหน่ง และสิทธิ์ตรงกับระบบ 100%)
+        let activeUser = { ...userMapping, id: userId };
+        try {
+          const freshUser = await findUserByEmployeeId(userMapping.employeeId);
+          if (freshUser) {
+            activeUser = { ...userMapping, ...freshUser, id: userId };
+          }
+        } catch (err) {
+          console.warn('[LINE Webhook] Failed to fetch fresh user:', err.message);
+        }
+
         // 3. ตรวจสอบเคสขอติดต่อคนจริง / Human Escalation / แจ้งเหตุฉุกเฉิน
         if (/^(ติดต่อ hr|ขอเบอร์ hr|คุยกับคน|คุยกับ hr|แจ้งอุบัติเหตุ|ร้องเรียน|ติดต่อเจ้าหน้าที่|สายด่วน)/i.test(text)) {
           await addAuditEntry({
-            user: userMapping.name,
+            user: activeUser.name,
             action: `[ร้องขอติดต่อ HR] ${text}`,
             channel: 'LINE',
             type: 'escalation',
           });
 
           await replyMessage(event.replyToken, [
-            createHumanEscalationResponse(userMapping.name),
+            createHumanEscalationResponse(activeUser.name),
           ]);
           continue;
         }
 
         // 4. ส่งข้อความเข้าประมวลผลผ่าน Smart Hybrid AI (Gemini Flash / Tier 0)
-        const response = await generateResponse(text, {
-          ...userMapping,
-          id: userId,
-        }, {
+        const response = await generateResponse(text, activeUser, {
           channel: 'LINE',
           history: getLineHistory(userId),
         });
@@ -381,7 +389,7 @@ export async function POST(request) {
         rememberLineTurn(userId, text, response.text);
 
         await addAuditEntry({
-          user: userMapping.name,
+          user: activeUser.name,
           action: text.slice(0, 80),
           channel: 'LINE',
           type: 'chat',
@@ -390,8 +398,8 @@ export async function POST(request) {
         // 5. ส่งคำตอบกลับ
         const messages = [];
         if (response.documents?.length > 0) {
-          const downloadToken = createToken(userMapping);
-          const flexMsg = createFlexResponse(response.text, response.documents, userMapping.name, downloadToken);
+          const downloadToken = createToken(activeUser);
+          const flexMsg = createFlexResponse(response.text, response.documents, activeUser.name, downloadToken);
           flexMsg.quickReply = getQuickReply(response.intent);
           messages.push(flexMsg);
         } else if (response.intent === 'leave_submit_guide') {
@@ -413,7 +421,7 @@ export async function POST(request) {
                 contents: [
                   {
                     type: 'text',
-                    text: response.text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n').slice(0, 800),
+                    text: response.text.replace(/\*\*/g, '').replace(/<br\/>/g, '\n').slice(0, 1800),
                     wrap: true,
                     size: 'sm',
                     color: '#1f2937',

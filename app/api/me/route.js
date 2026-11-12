@@ -73,7 +73,7 @@ export async function GET(request) {
     .lte('holiday_date', today);
   holidayQuery = branchId ? holidayQuery.or(`branch_id.is.null,branch_id.eq.${branchId}`) : holidayQuery.is('branch_id', null);
 
-  const [record, leaves, slips, shifts, announcements, todayClockResult, leaveTypes, leaveRows, attendance, holidays, workSettings, approvedLeaves] = await Promise.all([
+  const [record, leaves, slips, shifts, announcements, todayClockResult, leaveTypes, leaveRows, attendance, holidays, workSettings, approvedLeaves, announcementDocs] = await Promise.all([
     supabase.from('employee_records').select('*').eq('employee_id', employeeId).maybeSingle(),
     supabase.from('leave_requests').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false }).limit(20),
     supabase
@@ -98,6 +98,12 @@ export async function GET(request) {
       .eq('status', 'approved')
       .lte('start_date', today)
       .gte('end_date', monthStart),
+    supabase
+      .from('documents')
+      .select('id, name, file_name, type, size, updated_at, uploaded_by, content')
+      .eq('category', 'announcements')
+      .order('updated_at', { ascending: false })
+      .limit(10),
   ]);
 
   // เป็นหัวหน้าหรือไม่ (มีลูกทีมที่ตั้ง manager_id เป็นเรา)
@@ -119,6 +125,62 @@ export async function GET(request) {
     today,
   });
 
+  // รวมและเชื่อมโยงประกาศบริษัทกับเอกสารประกาศ
+  const rawAnnouncements = announcements.data || [];
+  const rawAnnDocs = announcementDocs.data || [];
+  const docMapById = new Map(rawAnnDocs.map((d) => [d.id, d]));
+  const docMapByName = new Map(rawAnnDocs.map((d) => [d.name, d]));
+  const matchedDocIds = new Set();
+
+  const formattedAnnouncements = rawAnnouncements.map((row) => {
+    let docId = null;
+    let fileName = null;
+
+    const docTagMatch = (row.body || '').match(/\[DOC:([^\]]+)\]/);
+    if (docTagMatch) {
+      const matchedDoc = docMapById.get(docTagMatch[1]);
+      if (matchedDoc) {
+        docId = matchedDoc.id;
+        fileName = matchedDoc.file_name;
+      }
+    }
+
+    if (!docId && docMapByName.has(row.title)) {
+      const matchedDoc = docMapByName.get(row.title);
+      docId = matchedDoc.id;
+      fileName = matchedDoc.file_name;
+    }
+
+    if (docId) matchedDocIds.add(docId);
+
+    const cleanBody = (row.body || '')
+      .replace(/\s*\[DOC:[^\]]+\]/g, '')
+      .trim();
+
+    return {
+      ...row,
+      body: cleanBody,
+      docId: docId || null,
+      fileName: fileName || null,
+    };
+  });
+
+  for (const doc of rawAnnDocs) {
+    if (!matchedDocIds.has(doc.id) && !formattedAnnouncements.some((a) => a.title === doc.name)) {
+      formattedAnnouncements.push({
+        id: `doc-ann-${doc.id}`,
+        title: doc.name,
+        body: (doc.content || '').replace(/\s+/g, ' ').trim().slice(0, 500) || `เอกสารประกาศ: ${doc.file_name}`,
+        category: 'ประกาศบริษัท (ไฟล์เอกสาร)',
+        publish_date: doc.updated_at,
+        author: doc.uploaded_by || 'HR',
+        pinned: false,
+        docId: doc.id,
+        fileName: doc.file_name,
+      });
+    }
+  }
+
   return NextResponse.json({
     profile: {
       employeeId,
@@ -137,7 +199,7 @@ export async function GET(request) {
     leaves: leaves.data || [],
     payslips: slips.data || [],
     shifts: shifts.data || [],
-    announcements: announcements.data || [],
+    announcements: formattedAnnouncements,
     todayClock: todayClockResult.data || null,
     attendanceStats,
     workSettings,
