@@ -104,7 +104,7 @@ export async function POST(request) {
         id: docId,
         name,
         fileName: videoUrl,
-        storedFileName: null,
+        storedFileName: '',
         category,
         type: 'video',
         size: sourceLabel,
