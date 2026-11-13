@@ -104,6 +104,11 @@ const DynamicAnnouncementsTab = dynamic(
   { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
 );
 
+const DynamicDriverManualsTab = dynamic(
+  () => import('@/components/me/SecondaryTabs').then((m) => m.DriverManualsTab),
+  { loading: () => <div className="me-card me-empty">กำลังโหลด...</div>, ssr: false }
+);
+
 /* ─── Constants ─── */
 const LEAVE_LABELS = { annual: 'พักร้อน', sick: 'ลาป่วย', personal: 'ลากิจ' };
 const LEAVE_ICON_NAMES = { annual: 'leave', sick: 'heart-pulse', personal: 'file-text' };
@@ -1035,6 +1040,7 @@ function MoreTab({ user, data, subTab, onOpenSubTab, onCloseSubTab, showToast, o
   if (subTab === 'shiftswap') return <DynamicShiftSwapTab back={onCloseSubTab} showToast={showToast} />;
   if (subTab === 'profile') return <DynamicProfileTab user={user} profile={data?.profile} back={onCloseSubTab} />;
   if (subTab === 'announcements') return <DynamicAnnouncementsTab announcements={data?.announcements} back={onCloseSubTab} />;
+  if (subTab === 'manuals') return <DynamicDriverManualsTab back={onCloseSubTab} />;
 
   // 3 Clear Logistics Groups
   const MENU_GROUPS = [
@@ -1059,6 +1065,7 @@ function MoreTab({ user, data, subTab, onOpenSubTab, onCloseSubTab, showToast, o
         { id: 'shiftswap', icon: 'refresh', label: 'การขอสลับกะงาน', desc: 'ยื่นเรื่องขอเปลี่ยนกะหรือสลับเวร' },
         { id: 'attendance', icon: 'clock', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติเวลาและพิกัดลงเวลาย้อนหลัง' },
         { id: 'assets', icon: 'package', label: 'รถและทรัพย์สินที่เบิกใช้', desc: 'ขอเบิก คืน หรือเปลี่ยนยานพาหนะ/อุปกรณ์' },
+        { id: 'manuals', icon: 'rocket', label: 'คู่มือ & คลิปอบรมพนักงานขับรถ', desc: 'วิดีโอสอนการใช้งานและขั้นตอนการทำงาน' },
         { id: 'announcements', icon: 'megaphone', label: 'ข่าวสารและประกาศบริษัท', desc: 'ระเบียบปฏิบัติและข่าวสารองค์กร' },
         { id: 'profile', icon: 'id-card', label: 'ข้อมูลส่วนตัวพนักงาน', desc: 'ตรวจสอบรหัสพนักงาน ตำแหน่ง และฝ่าย' },
         ...(data?.isManager

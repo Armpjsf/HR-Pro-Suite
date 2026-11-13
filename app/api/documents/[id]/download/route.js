@@ -31,6 +31,11 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'คุณไม่มีสิทธิ์เข้าถึงเอกสารนี้' }, { status: 403 });
   }
 
+  if (doc.type === 'video' && doc.fileName && /^https?:\/\//i.test(doc.fileName)) {
+    await addAuditEntry({ user: user.name, action: `เปิดดูวิดีโอ "${doc.name}"`, channel: 'PWA' });
+    return NextResponse.redirect(doc.fileName);
+  }
+
   if (!doc.storedFileName) {
     return NextResponse.json({ error: 'เอกสารนี้ไม่มีไฟล์แนบ' }, { status: 404 });
   }

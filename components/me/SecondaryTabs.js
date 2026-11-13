@@ -2670,3 +2670,121 @@ export function AnnouncementsTab({ announcements, back }) {
     </>
   );
 }
+
+function toVideoEmbedUrl(url) {
+  if (!url) return '';
+  const driveMatch =
+    url.match(/drive\.google\.com\/file\/d\/([^/?]+)/i) ||
+    url.match(/drive\.google\.com\/(?:open|uc)\?(?:[^&]+&)*id=([^&]+)/i);
+  if (driveMatch?.[1]) {
+    return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+  }
+  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/i);
+  if (ytMatch?.[1]) {
+    return `https://www.youtube.com/embed/${ytMatch[1]}`;
+  }
+  return url;
+}
+
+export function DriverManualsTab({ back }) {
+  const [manuals, setManuals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeVideo, setActiveVideo] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/documents?category=driver-manuals', { headers: authHeaders() });
+        const d = await res.json();
+        if (!cancelled && res.ok) setManuals(d.documents || []);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const audienceText = (doc) => {
+    const roles = Array.isArray(doc.accessRoles) ? doc.accessRoles : [];
+    if (roles.includes('employee') && !roles.includes('partner_driver')) return 'สำหรับพนักงานบริษัทดีดี';
+    if (!roles.includes('employee') && roles.includes('partner_driver')) return 'สำหรับพนักงานขับรถร่วม';
+    return 'คู่มือทั่วไป (ทุกกลุ่ม)';
+  };
+
+  return (
+    <>
+      <button
+        className="me-badge me-badge-gray"
+        style={{ cursor: 'pointer', border: 'none', marginBottom: 12, padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        onClick={back}
+      >
+        <AppIcon name="chevron-left" size={14} /> กลับ
+      </button>
+
+      <div className="me-card">
+        <div className="me-section-title">
+          <AppIcon name="rocket" size={18} /> คู่มือ & คลิปอบรมพนักงานขับรถ
+        </div>
+        {loading && <div className="me-empty">กำลังโหลดรายการคู่มือ...</div>}
+        {!loading && manuals.length === 0 && (
+          <div className="me-empty">ยังไม่มีคลิปคู่มือสำหรับกลุ่มของคุณ</div>
+        )}
+        {!loading && manuals.map((doc) => (
+          <button
+            key={doc.id}
+            type="button"
+            className="me-row"
+            onClick={() => setActiveVideo(doc)}
+            style={{ width: '100%', textAlign: 'left', border: 'none', background: 'transparent', cursor: 'pointer', padding: '12px 0' }}
+          >
+            <span className="k" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontWeight: 600 }}>{doc.name}</span>
+              <span style={{ fontSize: 12, opacity: 0.7 }}>{audienceText(doc)} · {doc.size || 'วิดีโอ'}</span>
+            </span>
+            <span className="v" style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary, #2563eb)' }}>▶ ดูคลิป</span>
+          </button>
+        ))}
+      </div>
+
+      {activeVideo && (
+        <div className="me-sheet-overlay" onClick={() => setActiveVideo(null)}>
+          <div className="me-sheet" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 720, width: '95%' }}>
+            <div className="me-sheet-head">
+              <div>
+                <div className="me-sheet-title">{activeVideo.name}</div>
+                <div className="me-sheet-meta">{audienceText(activeVideo)} · {activeVideo.updatedAt || ''}</div>
+              </div>
+              <button className="me-sheet-close" onClick={() => setActiveVideo(null)} aria-label="ปิด">✕</button>
+            </div>
+            <div className="me-sheet-body">
+              {activeVideo.type === 'video' ? (
+                <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', borderRadius: 12, overflow: 'hidden', background: '#000', marginBottom: 14 }}>
+                  <iframe
+                    src={toVideoEmbedUrl(activeVideo.fileName)}
+                    title={activeVideo.name}
+                    allow="autoplay; fullscreen"
+                    allowFullScreen
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+                  />
+                </div>
+              ) : null}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  className="me-btn"
+                  onClick={() => {
+                    const token = localStorage.getItem('hr-token');
+                    window.open(`/api/documents/${activeVideo.id}/download?token=${encodeURIComponent(token || '')}`, '_blank');
+                  }}
+                >
+                  <AppIcon name="download" size={16} /> {activeVideo.type === 'video' ? 'เปิดดูเต็มจอ (Google Drive / แท็บใหม่)' : 'ดาวน์โหลดเอกสาร'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
