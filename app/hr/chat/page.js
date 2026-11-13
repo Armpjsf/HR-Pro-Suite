@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { AppIcon } from '@/components/ui/Icons';
+import { renderChatMarkdown } from '@/components/me/ChatTab';
 
 const SUGGESTIONS = [
   { icon: 'documents', text: 'ขอ Template ใบสมัครงาน' },
@@ -15,17 +16,6 @@ const SUGGESTIONS = [
 function authHeaders() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
-
-function renderFormattedText(text) {
-  if (!text) return '';
-  const parts = String(text).split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
 }
 
 export default function HrChatPage() {
@@ -156,7 +146,7 @@ export default function HrChatPage() {
               boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
               fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap',
             }}>
-              {renderFormattedText(m.content)}
+              {renderChatMarkdown(m.content)}
               {m.documents?.length > 0 && (
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {m.documents.map((doc) => (

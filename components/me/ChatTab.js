@@ -10,10 +10,43 @@ function authHeaders() {
 
 export function renderChatMarkdown(text) {
   if (!text) return '';
-  const parts = String(text).split(/(\*\*[^*]+\*\*)/g);
+  const tokenRegex = /(\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>()]+)/g;
+  const parts = String(text).split(tokenRegex);
   return parts.map((part, i) => {
+    if (!part) return null;
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    const mdLink = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (mdLink) {
+      return (
+        <a
+          key={i}
+          href={mdLink[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#0284C7', textDecoration: 'underline', fontWeight: 600, wordBreak: 'break-all' }}
+        >
+          {mdLink[1]}
+        </a>
+      );
+    }
+    if (/^https?:\/\//i.test(part)) {
+      const cleanUrl = part.replace(/[.,;!?]+$/, '');
+      const trailing = part.slice(cleanUrl.length);
+      return (
+        <span key={i}>
+          <a
+            href={cleanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: '#0284C7', textDecoration: 'underline', fontWeight: 600, wordBreak: 'break-all' }}
+          >
+            {cleanUrl}
+          </a>
+          {trailing}
+        </span>
+      );
     }
     return part;
   });
