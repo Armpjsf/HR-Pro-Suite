@@ -32,16 +32,19 @@ export default function HrDocumentsPage() {
   const [uploadCategory, setUploadCategory] = useState('policies');
   const [uploading, setUploading] = useState(false);
   const [reindexing, setReindexing] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return JSON.parse(localStorage.getItem('hr-user') || '{}').role === 'admin';
+    } catch {
+      return false;
+    }
+  });
   const [toast, setToast] = useState(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [savingVideo, setSavingVideo] = useState(false);
   const [videoForm, setVideoForm] = useState({ name: '', videoUrl: '', targetGroup: 'all', description: '' });
   const fileRef = useRef(null);
-
-  useEffect(() => {
-    try { setIsAdmin(JSON.parse(localStorage.getItem('hr-user') || '{}').role === 'admin'); } catch {}
-  }, []);
 
   const showToast = (message, type = 'success') => { setToast({ message, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -50,7 +53,16 @@ export default function HrDocumentsPage() {
     const d = await res.json();
     if (res.ok) setDocuments(d.documents || []);
   }, []);
-  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
   const filtered = documents.filter((doc) => {
     if (filter !== 'all' && doc.category !== filter) return false;

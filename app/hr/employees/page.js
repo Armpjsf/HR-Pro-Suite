@@ -105,13 +105,19 @@ export default function EmployeesPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load();
+    });
     fetch('/api/hr/branches', { headers: authHeaders() })
-      .then((r) => r.json()).then((d) => setBranches(d.items || [])).catch(() => {});
+      .then((r) => r.json()).then((d) => { if (!cancelled) setBranches(d.items || []); }).catch(() => {});
     fetch('/api/hr/departments', { headers: authHeaders() })
-      .then((r) => r.json()).then((d) => setDepartmentsList(d.items || [])).catch(() => {});
+      .then((r) => r.json()).then((d) => { if (!cancelled) setDepartmentsList(d.items || []); }).catch(() => {});
     fetch('/api/hr/positions', { headers: authHeaders() })
-      .then((r) => r.json()).then((d) => setPositionsList(d.items || [])).catch(() => {});
+      .then((r) => r.json()).then((d) => { if (!cancelled) setPositionsList(d.items || []); }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   const branchName = (id) => {

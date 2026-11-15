@@ -64,20 +64,26 @@ export default function ShiftsPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load();
+    });
     const handleBranchChange = (e) => setActiveBranch(e.detail || 'all');
     window.addEventListener('hr-branch-change', handleBranchChange);
 
     fetch('/api/hr/employees', { headers: authHeaders() })
       .then((r) => r.json())
-      .then((d) => setEmployees(d.employees || []))
+      .then((d) => { if (!cancelled) setEmployees(d.employees || []); })
       .catch(() => {});
     fetch('/api/hr/shift-patterns', { headers: authHeaders() })
       .then((r) => r.json())
-      .then((d) => setPatterns(d.items || []))
+      .then((d) => { if (!cancelled) setPatterns(d.items || []); })
       .catch(() => {});
 
-    return () => window.removeEventListener('hr-branch-change', handleBranchChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('hr-branch-change', handleBranchChange);
+    };
   }, [load]);
 
   function nav(delta) {

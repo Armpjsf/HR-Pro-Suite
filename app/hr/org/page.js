@@ -48,7 +48,15 @@ export default function OrgPage() {
     setLoading(false);
   }, [showToast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
   const employees = useMemo(
     () => [...nodes].sort((a, b) => a.name.localeCompare(b.name, 'th')),

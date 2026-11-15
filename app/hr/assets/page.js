@@ -44,11 +44,18 @@ export default function AssetsPage() {
     setEmployees(e.employees || []);
     setRequests(r.items || []);
   }, []);
+
   useEffect(() => {
-    load();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load();
+    });
     const handleBranchChange = (e) => setActiveBranch(e.detail || 'all');
     window.addEventListener('hr-branch-change', handleBranchChange);
-    return () => window.removeEventListener('hr-branch-change', handleBranchChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('hr-branch-change', handleBranchChange);
+    };
   }, [load]);
 
   const branchName = (id) => { const b = branches.find((x) => x.id === id); return b ? `${b.code} · ${b.name}` : '-'; };

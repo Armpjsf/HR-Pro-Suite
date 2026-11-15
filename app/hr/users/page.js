@@ -20,7 +20,15 @@ function badgeColor(role) {
 
 export default function UsersPage() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = localStorage.getItem('hr-user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [lineMappings, setLineMappings] = useState({});
@@ -68,10 +76,21 @@ export default function UsersPage() {
   useEffect(() => {
     const stored = localStorage.getItem('hr-user');
     if (!stored) { router.push('/'); return; }
-    const parsed = JSON.parse(stored);
+    let parsed;
+    try {
+      parsed = JSON.parse(stored);
+    } catch {
+      router.push('/');
+      return;
+    }
     if (parsed.role !== 'admin') { router.push('/hr'); return; }
-    setCurrentUser(parsed);
-    loadData().catch(() => {});
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) loadData().catch(() => {});
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [loadData, router]);
 
   function showToast(message, type = 'success') {

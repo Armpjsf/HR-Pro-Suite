@@ -2690,20 +2690,52 @@ export function DriverManualsTab({ back }) {
   const [manuals, setManuals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState(null);
+  const [ackIds, setAckIds] = useState(new Set());
+  const [acking, setAcking] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/documents?category=driver-manuals', { headers: authHeaders() });
-        const d = await res.json();
-        if (!cancelled && res.ok) setManuals(d.documents || []);
+        const [resDocs, resAck] = await Promise.all([
+          fetch('/api/documents?category=driver-manuals', { headers: authHeaders() }),
+          fetch('/api/me/read-receipts', { headers: authHeaders() }),
+        ]);
+
+        if (!cancelled && resDocs.ok) {
+          const d = await resDocs.json();
+          setManuals(d.documents || []);
+        }
+
+        if (!cancelled && resAck.ok) {
+          const ackData = await resAck.json();
+          if (Array.isArray(ackData.acknowledgedIds)) {
+            setAckIds(new Set(ackData.acknowledgedIds.map(String)));
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const handleAcknowledge = async () => {
+    if (!activeVideo) return;
+    setAcking(true);
+    try {
+      const res = await fetch('/api/me/read-receipts', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ refId: String(activeVideo.id), title: activeVideo.name }),
+      });
+      if (res.ok) {
+        setAckIds((prev) => new Set([...prev, String(activeVideo.id)]));
+      }
+    } finally {
+      setAcking(false);
+    }
+  };
 
   const audienceText = (doc) => {
     const roles = Array.isArray(doc.accessRoles) ? doc.accessRoles : [];
@@ -2739,7 +2771,12 @@ export function DriverManualsTab({ back }) {
             style={{ width: '100%', textAlign: 'left', border: 'none', background: 'transparent', cursor: 'pointer', padding: '12px 0' }}
           >
             <span className="k" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontWeight: 600 }}>{doc.name}</span>
+              <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {doc.name}
+                {ackIds.has(String(doc.id)) && (
+                  <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✅ รับทราบแล้ว</span>
+                )}
+              </span>
               <span style={{ fontSize: 12, opacity: 0.7 }}>{audienceText(doc)} · {doc.size || 'วิดีโอ'}</span>
             </span>
             <span className="v" style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary, #2563eb)' }}>▶ ดูคลิป</span>
@@ -2769,7 +2806,7 @@ export function DriverManualsTab({ back }) {
                   />
                 </div>
               ) : null}
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button
                   type="button"
                   className="me-btn"
@@ -2780,6 +2817,21 @@ export function DriverManualsTab({ back }) {
                 >
                   <AppIcon name="download" size={16} /> {activeVideo.type === 'video' ? 'เปิดดูเต็มจอ (Google Drive / แท็บใหม่)' : 'ดาวน์โหลดเอกสาร'}
                 </button>
+                {ackIds.has(String(activeVideo.id)) ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 8, background: '#DCFCE7', color: '#15803D', fontWeight: 600, fontSize: 13 }}>
+                    ✅ รับทราบแล้ว
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="me-btn"
+                    disabled={acking}
+                    onClick={handleAcknowledge}
+                    style={{ background: '#16a34a', color: '#fff', border: 'none' }}
+                  >
+                    {acking ? 'กำลังบันทึก...' : '✅ ยืนยันว่าดูคลิปและรับทราบแล้ว'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -39,7 +39,15 @@ export default function InterviewsPage() {
       .then((d) => setPositions(d.items || []))
       .catch(() => {});
   }
-  useEffect(load, []);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function showToast(m) {
     setToast(m);

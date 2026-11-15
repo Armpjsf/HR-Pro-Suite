@@ -112,7 +112,15 @@ function groupMenus(menus) {
 export default function HrLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = localStorage.getItem('hr-user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [access, setAccess] = useState(null); // { allowed, isAdmin }
   const [branches, setBranches] = useState([]);
   const [activeBranch, setActiveBranch] = useState(
@@ -159,7 +167,6 @@ export default function HrLayout({ children }) {
       router.push('/');
       return;
     }
-    setUser(parsed);
 
     fetch('/api/hr/access', { headers: authHeaders() })
       .then(async (r) => {

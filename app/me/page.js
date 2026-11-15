@@ -138,6 +138,20 @@ export default function EmployeePage() {
   const [toast, setToast] = useState(null);
   const [loadError, setLoadError] = useState(false);
 
+  const refreshMeData = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
+    if (!token) return;
+    try {
+      const res = await fetch('/api/me', {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d?.profile) setData(d);
+      }
+    } catch {}
+  }, []);
+
   /* ─── Android Hardware Back Button Synchronization (User Control & Freedom) ─── */
   const navigateToTab = useCallback((nextTab) => {
     setTab(nextTab);
@@ -145,7 +159,10 @@ export default function EmployeePage() {
     if (typeof window !== 'undefined') {
       window.history.pushState({ tab: nextTab, subTab: null }, '', `#${nextTab}`);
     }
-  }, []);
+    if (nextTab === 'leave' || nextTab === 'home') {
+      refreshMeData();
+    }
+  }, [refreshMeData]);
 
   const navigateToSubTab = useCallback((nextSubTab) => {
     setSubTab(nextSubTab);
@@ -167,27 +184,37 @@ export default function EmployeePage() {
 
   useEffect(() => {
     const handlePopState = (e) => {
+      let targetTab = 'home';
       if (e.state) {
-        if (e.state.tab) setTab(e.state.tab);
+        if (e.state.tab) {
+          targetTab = e.state.tab;
+          setTab(e.state.tab);
+        }
         setSubTab(e.state.subTab || null);
       } else {
         const hash = window.location.hash.replace('#', '');
         if (hash.startsWith('more/')) {
+          targetTab = 'more';
           setTab('more');
           setSubTab(hash.replace('more/', ''));
         } else if (hash) {
+          targetTab = hash;
           setTab(hash);
           setSubTab(null);
         } else {
+          targetTab = 'home';
           setTab('home');
           setSubTab(null);
         }
+      }
+      if (targetTab === 'leave' || targetTab === 'home') {
+        refreshMeData();
       }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [refreshMeData]);
 
   /* ─── Auth & Initial Data Load ─── */
   useEffect(() => {
@@ -197,8 +224,9 @@ export default function EmployeePage() {
       router.replace('/');
       return;
     }
+    let parsedUser;
     try {
-      setUser(JSON.parse(stored));
+      parsedUser = JSON.parse(stored);
     } catch {
       localStorage.removeItem('hr-user');
       localStorage.removeItem('hr-token');
@@ -223,6 +251,7 @@ export default function EmployeePage() {
       })
       .then((d) => {
         if (d && d.profile) {
+          setUser(parsedUser);
           setData(d);
         } else if (d) {
           setLoadError(true);
@@ -230,26 +259,6 @@ export default function EmployeePage() {
       })
       .catch(() => setLoadError(true));
   }, [router]);
-
-  const refreshMeData = useCallback(async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-    if (!token) return;
-    try {
-      const res = await fetch('/api/me', {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        const d = await res.json();
-        if (d?.profile) setData(d);
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (tab === 'leave' || tab === 'home') {
-      refreshMeData();
-    }
-  }, [tab, refreshMeData]);
 
   function handleLogout() {
     localStorage.removeItem('hr-user');
@@ -404,7 +413,28 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
   const [clockStatus, setClockStatus] = useState(data.todayClock);
   const [clockType, setClockType] = useState('office');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [ackAnnIds, setAckAnnIds] = useState(new Set());
+  const [ackingAnn, setAckingAnn] = useState(false);
   const [nowTime, setNowTime] = useState(() => new Date());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem('hr-token');
+        const res = await fetch('/api/me/read-receipts', {
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          const d = await res.json();
+          if (!cancelled && Array.isArray(d.acknowledgedIds)) {
+            setAckAnnIds(new Set(d.acknowledgedIds.map(String)));
+          }
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNowTime(new Date()), 30000);
@@ -731,9 +761,12 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
             className="me-row me-announcement-row"
             onClick={() => setSelectedAnnouncement(a)}
           >
-            <span className="k" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="k" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {a.pinned && <AppIcon name="pin" size={14} />}
               <span>{a.title}</span>
+              {ackAnnIds.has(`ann:${a.id}`) && (
+                <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✅ รับทราบแล้ว</span>
+              )}
             </span>
             <span className="v" style={{ fontSize: 12 }}>
               {a.publish_date || '›'}
@@ -770,8 +803,8 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
               ) : (
                 <p>ไม่มีรายละเอียดเพิ่มเติม</p>
               )}
-              {selectedAnnouncement.docId && (
-                <div style={{ marginTop: 18 }}>
+              <div style={{ marginTop: 18, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                {selectedAnnouncement.docId && (
                   <button
                     type="button"
                     className="me-btn"
@@ -785,8 +818,42 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
                   >
                     <AppIcon name="download" size={16} /> ดาวน์โหลดเอกสารแนบ ({selectedAnnouncement.fileName || 'เอกสาร'})
                   </button>
-                </div>
-              )}
+                )}
+                {ackAnnIds.has(`ann:${selectedAnnouncement.id}`) ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 8, background: '#DCFCE7', color: '#15803D', fontWeight: 600, fontSize: 13 }}>
+                    ✅ รับทราบแล้ว
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="me-btn"
+                    disabled={ackingAnn}
+                    style={{ background: '#16a34a', color: '#fff', border: 'none' }}
+                    onClick={async () => {
+                      setAckingAnn(true);
+                      try {
+                        const ref = `ann:${selectedAnnouncement.id}`;
+                        const token = localStorage.getItem('hr-token');
+                        const res = await fetch('/api/me/read-receipts', {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ refId: ref, title: selectedAnnouncement.title }),
+                        });
+                        if (res.ok) {
+                          setAckAnnIds((prev) => new Set([...prev, ref]));
+                          if (showToast) showToast('บันทึกการรับทราบประกาศเรียบร้อยแล้ว');
+                        }
+                      } catch {
+                        if (showToast) showToast('ไม่สามารถบันทึกการรับทราบได้', true);
+                      } finally {
+                        setAckingAnn(false);
+                      }
+                    }}
+                  >
+                    {ackingAnn ? 'กำลังบันทึก...' : '✅ ฉันอ่านและรับทราบประกาศนี้แล้ว'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -818,11 +885,7 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
   });
   const [durationMode, setDurationMode] = useState('full'); // 'full' | 'morning' | 'afternoon' | 'custom'
   const [loading, setLoading] = useState(false);
-  const [leaves, setLeaves] = useState(data.leaves || []);
-
-  useEffect(() => {
-    setLeaves(data.leaves || []);
-  }, [data.leaves]);
+  const leaves = data.leaves || [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -839,7 +902,6 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
         return;
       }
       showToast('ยื่นใบลาเรียบร้อยแล้ว');
-      setLeaves((prev) => [d.item, ...prev]);
       if (setData) {
         setData((prev) => ({
           ...prev,

@@ -39,7 +39,15 @@ export default function DocumentRequestsPage() {
     setAssets(data.assets || []);
   }, []);
 
-  useEffect(() => { load().catch(() => {}); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load().catch(() => {});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
   const signatures = useMemo(() => assets.filter((a) => a.asset_type === 'signature'), [assets]);
   const stamps = useMemo(() => assets.filter((a) => a.asset_type === 'company_stamp'), [assets]);

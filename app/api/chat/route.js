@@ -2,11 +2,20 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { generateResponse } from '@/lib/gemini';
 import { addAuditEntry } from '@/lib/db';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request) {
   const { user, error, status } = requireAuth(request);
   if (error) {
     return NextResponse.json({ error }, { status });
+  }
+
+  const rl = checkRateLimit(`chat:${user.id || getClientIp(request)}`, 20, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: `ส่งข้อความเร็วเกินไป กรุณารอ ${rl.retryAfterSec} วินาที` },
+      { status: 429 }
+    );
   }
 
   try {

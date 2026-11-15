@@ -231,25 +231,19 @@ export default function ApplicantsPage() {
 
 function InterviewModal({ applicant, questionSets, onClose }) {
   const [setsList, setSetsList] = useState(questionSets);
-  const [setId, setSetId] = useState('');
+  const [setId, setSetId] = useState(() => {
+    const match = questionSets?.find((s) => s.position && s.position === applicant.position_applied);
+    if (match) return String(match.id);
+    if (questionSets?.length) return String(questionSets[0].id);
+    return '';
+  });
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genNotice, setGenNotice] = useState('');
   const [result, setResult] = useState(null);
   const [err, setErr] = useState('');
   const [copied, setCopied] = useState(false);
-  const [origin, setOrigin] = useState('');
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') setOrigin(window.location.origin);
-  }, []);
-
-  // เลือกชุดคำถามที่ตรงตำแหน่งให้อัตโนมัติ
-  useEffect(() => {
-    const match = setsList.find((s) => s.position && s.position === applicant.position_applied);
-    if (match) setSetId(String(match.id));
-    else if (setsList.length) setSetId(String(setsList[0].id));
-  }, [setsList, applicant]);
+  const [origin] = useState(() => (typeof window !== 'undefined' ? window.location.origin : ''));
 
   async function handleGenerateForApplicant() {
     const pos = (applicant.position_applied || '').trim();

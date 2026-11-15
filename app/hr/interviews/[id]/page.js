@@ -23,11 +23,7 @@ export default function InterviewDetailPage() {
   const [err, setErr] = useState('');
   const [scoring, setScoring] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [origin, setOrigin] = useState('');
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') setOrigin(window.location.origin);
-  }, []);
+  const [origin] = useState(() => (typeof window !== 'undefined' ? window.location.origin : ''));
 
   useEffect(() => {
     let timer;

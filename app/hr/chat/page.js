@@ -19,26 +19,25 @@ function authHeaders() {
 }
 
 export default function HrChatPage() {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const endRef = useRef(null);
-  const inputRef = useRef(null);
-
-  // โหลดประวัติแชทจาก sessionStorage เมื่อเปิดหน้าเว็บ
-  useEffect(() => {
+  const [messages, setMessages] = useState(() => {
+    if (typeof window === 'undefined') return [];
     try {
       const saved = sessionStorage.getItem('hr-web-chat-messages');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
+          return parsed;
         }
       }
     } catch (e) {
       console.warn('Failed to load chat history:', e);
     }
-  }, []);
+    return [];
+  });
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const endRef = useRef(null);
+  const inputRef = useRef(null);
 
   // บันทึกประวัติแชทลง sessionStorage ทุกครั้งที่ข้อความเปลี่ยน
   useEffect(() => {

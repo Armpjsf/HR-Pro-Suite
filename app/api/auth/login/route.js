@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createToken } from '@/lib/auth';
 import { findUserByUsername, addAuditEntry } from '@/lib/db';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request) {
   try {
@@ -11,6 +12,15 @@ export async function POST(request) {
       return NextResponse.json(
         { error: 'กรุณากรอก username และ password' },
         { status: 400 }
+      );
+    }
+
+    const ip = getClientIp(request);
+    const rl = checkRateLimit(`login:${ip}:${String(username || '').toLowerCase()}`, 10, 15 * 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอ ${rl.retryAfterSec} วินาที` },
+        { status: 429 }
       );
     }
 

@@ -45,7 +45,15 @@ export default function DocumentAssetsPage() {
     setItems(data.items || []);
   }, []);
 
-  useEffect(() => { load().catch(() => {}); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load().catch(() => {});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
   function close() {
     setOpen(false);

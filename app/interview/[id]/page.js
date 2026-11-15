@@ -22,7 +22,11 @@ export default function CandidateInterviewPage() {
   const [transcript, setTranscript] = useState('');
   const [manualText, setManualText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(true);
+  const [speechSupported] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    return !!SpeechRec;
+  });
   const [micPermission, setMicPermission] = useState('prompt'); // 'prompt' | 'granted' | 'denied'
 
   const recognitionRef = useRef(null);
@@ -65,14 +69,8 @@ export default function CandidateInterviewPage() {
 
   // 2. เช็ค Web Speech API Support
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRec) {
-        setSpeechSupported(false);
-      }
-      if ('speechSynthesis' in window) {
-        synthRef.current = window.speechSynthesis;
-      }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      synthRef.current = window.speechSynthesis;
     }
   }, []);
 
