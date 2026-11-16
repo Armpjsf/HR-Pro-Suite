@@ -913,6 +913,416 @@
   color: var(--me-text-3);
 }
 
+/* ═══════════════════ 50 ทวิ OFFICIAL FORM ═══════════════════ */
+.me-50bis-paper {
+  background: #ffffff;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 14px 18px;
+  border: 1px solid #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 7.5pt;
+  line-height: 1.25;
+  color: #000000;
+  box-sizing: border-box;
+}
+
+.me-50bis-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1.5px solid #000000;
+  padding-bottom: 4px;
+  margin-bottom: 5px;
+}
+
+.me-50bis-head-left {
+  font-size: 6.5pt;
+  line-height: 1.25;
+  width: 32%;
+  color: #1e293b;
+}
+
+.me-50bis-head-center {
+  flex: 1;
+  text-align: center;
+}
+
+.me-50bis-title {
+  font-size: 11pt;
+  font-weight: 700;
+  margin: 0;
+  color: #000000;
+  letter-spacing: -0.2px;
+}
+
+.me-50bis-subtitle {
+  font-size: 8pt;
+  font-weight: 600;
+  margin-top: 2px;
+  color: #334155;
+}
+
+.me-50bis-head-right {
+  font-size: 7.5pt;
+  text-align: right;
+  width: 22%;
+  color: #1e293b;
+}
+
+.me-50bis-party {
+  border: 1px solid #000000;
+  padding: 3px 6px;
+  font-size: 7.5pt;
+  background: #ffffff;
+}
+
+.me-50bis-party-title {
+  font-size: 7.5pt;
+  margin-bottom: 2px;
+  color: #000000;
+}
+
+.me-50bis-party-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.me-50bis-party-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.me-50bis-party-addr {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  margin-top: 1px;
+}
+
+.me-50bis-field-label {
+  font-weight: 700;
+  white-space: nowrap;
+  color: #000000;
+}
+
+.me-50bis-field-value {
+  color: #000000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.me-50bis-tax-id-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 7pt;
+  white-space: nowrap;
+}
+
+.me-50bis-tax-boxes {
+  display: inline-flex;
+  border: 1px solid #000000;
+  background: #ffffff;
+}
+
+.me-50bis-tax-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 16px;
+  border-right: 1px solid #000000;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 7.5pt;
+  font-weight: 700;
+  color: #000000;
+}
+
+.me-50bis-tax-cell:last-child {
+  border-right: none;
+}
+
+.me-50bis-tax-cell-sep {
+  border-left: 2px solid #000000;
+}
+
+.me-50bis-type-row {
+  border: 1px solid #000000;
+  border-top: none;
+  padding: 3px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 7pt;
+  background: #ffffff;
+}
+
+.me-50bis-seq {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.me-50bis-chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.me-50bis-chk-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 10px;
+  border: 1px solid #000000;
+  font-size: 6.5pt;
+  line-height: 1;
+}
+
+.me-50bis-chk-box.checked {
+  font-weight: 700;
+  background: #000000;
+  color: #ffffff;
+}
+
+.me-50bis-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #000000;
+  border-top: none;
+  font-size: 7pt;
+}
+
+.me-50bis-table th,
+.me-50bis-table td {
+  border: 1px solid #000000;
+  padding: 1.5px 4px;
+  vertical-align: middle;
+}
+
+.me-50bis-table th {
+  background: #f8fafc;
+  font-weight: 700;
+  text-align: center;
+  color: #000000;
+  padding: 2.5px 4px;
+}
+
+.me-50bis-table .c {
+  text-align: center;
+}
+
+.me-50bis-table .r {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.me-50bis-nested-title {
+  font-weight: 700;
+  background: #f8fafc;
+  padding-left: 12px !important;
+}
+
+.me-50bis-nested-group {
+  font-weight: 600;
+  padding-left: 18px !important;
+  color: #1e293b;
+}
+
+.me-50bis-nested-item {
+  padding-left: 28px !important;
+  color: #334155;
+}
+
+.me-50bis-table tfoot td {
+  background: #f8fafc;
+  border-top: 1.5px solid #000000;
+}
+
+.me-50bis-baht-row {
+  border: 1px solid #000000;
+  border-top: none;
+  padding: 3px 6px;
+  display: flex;
+  align-items: center;
+  font-size: 7.5pt;
+  background: #ffffff;
+}
+
+.me-50bis-baht-lbl {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.me-50bis-baht-val {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+  border-bottom: 1px dotted #000000;
+  margin: 0 8px;
+  min-height: 14px;
+  color: #000000;
+}
+
+.me-50bis-baht-unit {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.me-50bis-funds-row {
+  border: 1px solid #000000;
+  border-top: none;
+  padding: 3px 6px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 7pt;
+  background: #ffffff;
+  gap: 8px;
+}
+
+.me-50bis-payer-row {
+  border: 1px solid #000000;
+  border-top: none;
+  padding: 3px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 7pt;
+  background: #ffffff;
+}
+
+.me-50bis-payer-lbl {
+  font-weight: 700;
+}
+
+.me-50bis-bottom {
+  border: 1px solid #000000;
+  border-top: none;
+  display: flex;
+  min-height: 105px;
+  background: #ffffff;
+}
+
+.me-50bis-bottom-left {
+  width: 36%;
+  border-right: 1px solid #000000;
+  padding: 5px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.me-50bis-warn-title {
+  font-weight: 700;
+  text-align: center;
+  font-size: 8pt;
+  margin-bottom: 3px;
+  color: #000000;
+}
+
+.me-50bis-warn-body {
+  font-size: 6.5pt;
+  line-height: 1.3;
+  text-align: justify;
+  color: #1e293b;
+}
+
+.me-50bis-bottom-right {
+  width: 64%;
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.me-50bis-certify {
+  font-size: 6.5pt;
+  text-align: center;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #000000;
+}
+
+.me-50bis-sign-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+}
+
+.me-50bis-sign-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.me-50bis-sign-placeholder {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.me-50bis-sig-img {
+  max-height: 42px;
+  max-width: 140px;
+  object-fit: contain;
+}
+
+.me-50bis-sign-line {
+  font-size: 7pt;
+  white-space: nowrap;
+  color: #000000;
+}
+
+.me-50bis-sign-date {
+  font-size: 7pt;
+  margin-top: 2px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.me-50bis-sign-datesub {
+  font-size: 6pt;
+  color: #475569;
+}
+
+.me-50bis-stamp-col {
+  width: 85px;
+  min-height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+}
+
+.me-50bis-stamp-img {
+  max-height: 65px;
+  max-width: 80px;
+  object-fit: contain;
+}
+
+.me-50bis-footnote {
+  font-size: 6pt;
+  line-height: 1.25;
+  color: #334155;
+  margin-top: 2px;
+  padding: 1px 2px;
+}
+
 @media print {
   @page {
     size: A4 portrait;
@@ -980,5 +1390,28 @@
   .me-doc-table, .me-doc-meta, .me-doc-sign, .me-cert-assets {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .me-50bis-paper {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .me-50bis-table,
+  .me-50bis-bottom,
+  .me-50bis-party,
+  .me-50bis-type-row,
+  .me-50bis-baht-row,
+  .me-50bis-funds-row,
+  .me-50bis-payer-row {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }

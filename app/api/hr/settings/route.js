@@ -11,7 +11,14 @@ export async function GET(request) {
 
   const { data } = await supabase.from('work_settings').select('*').eq('id', 1).maybeSingle();
   return NextResponse.json({
-    settings: data || { standard_in: '08:00', standard_out: '17:00', late_grace_min: 15, work_days: '1,2,3,4,5' },
+    settings: data || {
+      standard_in: '08:00',
+      standard_out: '17:00',
+      late_grace_min: 15,
+      work_days: '1,2,3,4,5',
+      tax_cert_signature_asset_id: null,
+      tax_cert_stamp_asset_id: null,
+    },
   });
 }
 
@@ -29,6 +36,8 @@ export async function PUT(request) {
     standard_out: body.standard_out || '17:00',
     late_grace_min: Number(body.late_grace_min) || 0,
     work_days: body.work_days || '1,2,3,4,5',
+    tax_cert_signature_asset_id: body.tax_cert_signature_asset_id ? Number(body.tax_cert_signature_asset_id) : null,
+    tax_cert_stamp_asset_id: body.tax_cert_stamp_asset_id ? Number(body.tax_cert_stamp_asset_id) : null,
     updated_at: new Date().toISOString(),
   };
   const { error: e } = await supabase.from('work_settings').upsert(row);

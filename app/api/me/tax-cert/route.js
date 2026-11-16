@@ -30,6 +30,38 @@ export async function GET(request) {
   const totalTax = sum('tax');
   const totalSso = sum('sso');
 
+  const { data: empRec } = await supabase
+    .from('employee_records')
+    .select('address, national_id, tax_id')
+    .eq('employee_id', user.employeeId)
+    .maybeSingle();
+
+  const { data: settings } = await supabase
+    .from('work_settings')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+
+  const sigId = settings?.tax_cert_signature_asset_id;
+  const stampId = settings?.tax_cert_stamp_asset_id;
+  const assetIds = [sigId, stampId].filter(Boolean);
+
+  let signatureAsset = null;
+  let stampAsset = null;
+
+  if (assetIds.length > 0) {
+    const { data: assets } = await supabase
+      .from('document_assets')
+      .select('*')
+      .in('id', assetIds)
+      .eq('active', true);
+
+    if (assets) {
+      signatureAsset = assets.find((a) => a.id === sigId && a.asset_type === 'signature') || null;
+      stampAsset = assets.find((a) => a.id === stampId && a.asset_type === 'company_stamp') || null;
+    }
+  }
+
   return NextResponse.json({
     year: yearBE,
     months: rows.length,
@@ -37,5 +69,12 @@ export async function GET(request) {
     totalTax,
     totalSso,
     slips: rows,
+    employee: {
+      address: empRec?.address || '',
+      taxId: empRec?.tax_id || '',
+      nationalId: empRec?.national_id || '',
+    },
+    signatureAsset: signatureAsset || null,
+    stampAsset: stampAsset || null,
   });
 }

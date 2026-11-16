@@ -1602,14 +1602,17 @@ export const TaxCertTab = TaxCertSection;
 
 export function TaxCertDocument({ cert, profile, onClose }) {
   const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const incomeRows = [
-    { no: '1.', label: 'เงินเดือน ค่าจ้าง เบี้ยเลี้ยง โบนัส ฯลฯ ตามมาตรา 40 (1)', amount: cert.totalIncome, tax: cert.totalTax },
-    { no: '2.', label: 'ค่าธรรมเนียม ค่านายหน้า ฯลฯ ตามมาตรา 40 (2)', amount: 0, tax: 0 },
-    { no: '3.', label: 'ค่าแห่งลิขสิทธิ์ ฯลฯ ตามมาตรา 40 (3)', amount: 0, tax: 0 },
-    { no: '4.', label: 'ดอกเบี้ย เงินปันผล ฯลฯ ตามมาตรา 40 (4)', amount: 0, tax: 0 },
-    { no: '5.', label: 'เงินได้ตามคำสั่งกรมสรรพากร (รางวัล ส่วนลด ฯลฯ)', amount: 0, tax: 0 },
-    { no: '6.', label: 'อื่น ๆ', amount: 0, tax: 0 },
-  ];
+  const employeeTaxId = cert.employee?.taxId || profile?.taxId || cert.employee?.nationalId || profile?.nationalId || '';
+  const employeeAddress = cert.employee?.address || '-';
+  const employeeName = profile?.name || '-';
+
+  const formatDigits = (val) => {
+    const raw = String(val || '').replace(/\D/g, '').padEnd(13, ' ').slice(0, 13);
+    return raw.split('');
+  };
+
+  const coDigits = formatDigits(COMPANY.taxId);
+  const empDigits = formatDigits(employeeTaxId);
 
   return (
     <div className="me-doc-overlay">
@@ -1630,62 +1633,261 @@ export function TaxCertDocument({ cert, profile, onClose }) {
         </button>
       </div>
       <div className="me-doc-print">
-        <div className="me-doc" style={{ fontSize: 12 }}>
-          <div style={{ textAlign: 'right', fontSize: 10, color: '#64748B' }}>ฉบับที่ 1 (สำหรับผู้ถูกหักภาษี ณ ที่จ่าย)</div>
-          <div className="me-doc-head" style={{ borderBottom: 'none', marginBottom: 8 }}>
-            <div className="me-doc-title" style={{ marginTop: 4 }}>หนังสือรับรองการหักภาษี ณ ที่จ่าย</div>
-            <div style={{ fontSize: 11.5 }}>ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร</div>
+        <div className="me-50bis-paper">
+          {/* Top header */}
+          <div className="me-50bis-head">
+            <div className="me-50bis-head-left">
+              <div>ฉบับที่ 1 (สำหรับผู้ถูกหักภาษี ณ ที่จ่าย ใช้แนบพร้อมกับแบบแสดงรายการภาษี)</div>
+              <div>ฉบับที่ 2 (สำหรับผู้ถูกหักภาษี ณ ที่จ่าย เก็บไว้เป็นหลักฐาน)</div>
+            </div>
+            <div className="me-50bis-head-center">
+              <h2 className="me-50bis-title">หนังสือรับรองการหักภาษี ณ ที่จ่าย</h2>
+              <div className="me-50bis-subtitle">ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร</div>
+            </div>
+            <div className="me-50bis-head-right">
+              <div>เล่มที่ ................</div>
+              <div>เลขที่ ........</div>
+            </div>
           </div>
 
-          <div style={{ border: '1px solid #CBD5E1', padding: '8px 10px', marginBottom: 6, borderRadius: 6 }}>
-            <div style={{ fontWeight: 700 }}>ผู้มีหน้าที่หักภาษี ณ ที่จ่าย :</div>
-            <div>ชื่อ {COMPANY.legalName}</div>
-            <div>ที่อยู่ {COMPANY.address}</div>
-            <div>เลขประจำตัวผู้เสียภาษีอากร {COMPANY.taxId}</div>
-          </div>
-          <div style={{ border: '1px solid #CBD5E1', padding: '8px 10px', marginBottom: 8, borderRadius: 6 }}>
-            <div style={{ fontWeight: 700 }}>ผู้ถูกหักภาษี ณ ที่จ่าย :</div>
-            <div>ชื่อ {profile?.name || '-'}</div>
-            <div>เลขประจำตัวผู้เสียภาษีอากร {profile?.taxId || profile?.nationalId || '-'}</div>
+          {/* Box 1: ผู้มีหน้าที่หักภาษี ณ ที่จ่าย :- */}
+          <div className="me-50bis-party">
+            <div className="me-50bis-party-title"><strong>ผู้มีหน้าที่หักภาษี ณ ที่จ่าย :-</strong></div>
+            <div className="me-50bis-party-grid">
+              <div className="me-50bis-party-name">
+                <span className="me-50bis-field-label">ชื่อ</span>
+                <span className="me-50bis-field-value">{COMPANY.legalName || COMPANY.name}</span>
+              </div>
+              <div className="me-50bis-tax-id-wrap">
+                <span className="me-50bis-field-label">เลขประจำตัวผู้เสียภาษีอากร (13 หลัก)*</span>
+                <div className="me-50bis-tax-boxes">
+                  {coDigits.map((d, i) => (
+                    <span
+                      key={i}
+                      className={`me-50bis-tax-cell${i === 0 || i === 4 || i === 9 || i === 11 ? ' me-50bis-tax-cell-sep' : ''}`}
+                    >
+                      {d !== ' ' ? d : '\u00A0'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="me-50bis-party-addr">
+              <span className="me-50bis-field-label">ที่อยู่</span>
+              <span className="me-50bis-field-value">{COMPANY.address}</span>
+            </div>
           </div>
 
-          <table className="me-doc-table">
+          {/* Box 2: ผู้ถูกหักภาษี ณ ที่จ่าย :- */}
+          <div className="me-50bis-party" style={{ marginTop: 4 }}>
+            <div className="me-50bis-party-title"><strong>ผู้ถูกหักภาษี ณ ที่จ่าย :-</strong></div>
+            <div className="me-50bis-party-grid">
+              <div className="me-50bis-party-name">
+                <span className="me-50bis-field-label">ชื่อ</span>
+                <span className="me-50bis-field-value">{employeeName}</span>
+              </div>
+              <div className="me-50bis-tax-id-wrap">
+                <span className="me-50bis-field-label">เลขประจำตัวผู้เสียภาษีอากร (13 หลัก)*</span>
+                <div className="me-50bis-tax-boxes">
+                  {empDigits.map((d, i) => (
+                    <span
+                      key={i}
+                      className={`me-50bis-tax-cell${i === 0 || i === 4 || i === 9 || i === 11 ? ' me-50bis-tax-cell-sep' : ''}`}
+                    >
+                      {d !== ' ' ? d : '\u00A0'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="me-50bis-party-addr">
+              <span className="me-50bis-field-label">ที่อยู่</span>
+              <span className="me-50bis-field-value">{employeeAddress}</span>
+            </div>
+          </div>
+
+          {/* ลำดับที่ ............ ในแบบ + 7 Checkboxes */}
+          <div className="me-50bis-type-row">
+            <span className="me-50bis-seq">ลำดับที่ ............ ในแบบ</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box checked">✓</span> (1) ภ.ง.ด.1ก</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box"></span> (2) ภ.ง.ด.1ก พิเศษ</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box"></span> (3) ภ.ง.ด.2</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box"></span> (4) ภ.ง.ด.3</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box"></span> (5) ภ.ง.ด.2ก</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box"></span> (6) ภ.ง.ด.3ก</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box"></span> (7) ภ.ง.ด.53</span>
+          </div>
+
+          {/* Full 6-item income table */}
+          <table className="me-50bis-table">
             <thead>
               <tr>
-                <th style={{ width: 24 }}></th>
-                <th>ประเภทเงินได้พึงประเมินที่จ่าย</th>
-                <th className="r" style={{ width: 70 }}>วันเดือนปีภาษี</th>
-                <th className="r" style={{ width: 90 }}>จำนวนเงินที่จ่าย</th>
-                <th className="r" style={{ width: 80 }}>ภาษีที่หักและนำส่ง</th>
+                <th style={{ width: '56%' }}>ประเภทเงินได้พึงประเมินที่จ่าย</th>
+                <th style={{ width: '14%' }} className="c">วัน เดือน หรือปีภาษี ที่จ่าย</th>
+                <th style={{ width: '15%' }} className="r">จำนวนเงินที่จ่าย</th>
+                <th style={{ width: '15%' }} className="r">ภาษีที่หัก และนำส่งไว้</th>
               </tr>
             </thead>
             <tbody>
-              {incomeRows.map((r) => (
-                <tr key={r.no}>
-                  <td>{r.no}</td><td>{r.label}</td>
-                  <td className="r">{r.amount ? cert.year : ''}</td>
-                  <td className="r">{r.amount ? num(r.amount) : ''}</td>
-                  <td className="r">{r.amount ? num(r.tax) : ''}</td>
-                </tr>
-              ))}
+              <tr>
+                <td>1. เงินเดือน ค่าจ้าง เบี้ยเลี้ยง โบนัส ฯลฯ ตามมาตรา 40 (1)</td>
+                <td className="c">{cert.totalIncome ? `31/12/${cert.year}` : ''}</td>
+                <td className="r">{cert.totalIncome ? num(cert.totalIncome) : ''}</td>
+                <td className="r">{cert.totalIncome ? num(cert.totalTax) : ''}</td>
+              </tr>
+              <tr>
+                <td>2. ค่าธรรมเนียม ค่านายหน้า ฯลฯ ตามมาตรา 40 (2)</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td>3. ค่าแห่งลิขสิทธิ์ ฯลฯ ตามมาตรา 40 (3)</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td>4. (ก) ดอกเบี้ย ฯลฯ ตามมาตรา 40 (4) (ก)</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td colSpan={4} className="me-50bis-nested-title">
+                  (ข) เงินปันผล เงินส่วนแบ่งของกำไร ฯลฯ ตามมาตรา 40 (4) (ข)
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={4} className="me-50bis-nested-group">
+                  (1) กรณีผู้รับเงินได้ได้รับเครดิตภาษี โดยจ่ายจากกำไรสุทธิของกิจการที่ต้องเสียภาษีเงินได้นิติบุคคลในอัตราดังนี้
+                </td>
+              </tr>
+              <tr>
+                <td className="me-50bis-nested-item">(1.1) อัตราร้อยละ 30 ของกำไรสุทธิ</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td className="me-50bis-nested-item">(1.2) อัตราร้อยละ 25 ของกำไรสุทธิ</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td className="me-50bis-nested-item">(1.3) อัตราร้อยละ 20 ของกำไรสุทธิ</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td className="me-50bis-nested-item">(1.4) อัตราอื่น ๆ (ระบุ) ร้อยละ ....... ของกำไรสุทธิ</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td colSpan={4} className="me-50bis-nested-group">
+                  (2) กรณีผู้รับเงินได้ไม่ได้รับเครดิตภาษี เนื่องจากจ่ายจาก
+                </td>
+              </tr>
+              <tr>
+                <td className="me-50bis-nested-item">(2.1) กำไรสุทธิของกิจการที่ได้รับยกเว้นภาษีเงินได้นิติบุคคล</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td className="me-50bis-nested-item">(2.2) เงินปันผลหรือเงินส่วนแบ่งของกำไรที่ได้รับยกเว้นไม่ต้องรวมคำนวณเป็นรายได้เพื่อเสียภาษีเงินได้นิติบุคคล</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td className="me-50bis-nested-item">(2.3) กำไรสุทธิส่วนที่ได้หักผลขาดทุนสุทธิยกมาไม่เกิน 5 ปี ก่อนรอบระยะเวลาบัญชีปีปัจจุบัน</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td className="me-50bis-nested-item">(2.4) กำไรที่รับรู้ทางบัญชีโดยวิธีส่วนได้เสีย (equity method)</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td className="me-50bis-nested-item">(2.5) อื่น ๆ (ระบุ)............................................................................</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td style={{ fontSize: '7.5pt', lineHeight: 1.15 }}>
+                  5. การจ่ายเงินได้ที่ต้องหักภาษี ณ ที่จ่าย ตามคำสั่งกรมสรรพากรที่ออกตามมาตรา 3 เตรส เช่น รางวัล ส่วนลดหรือประโยชน์ใดๆ เนื่องจากการส่งเสริมการขาย รางวัลในการประกวด การแข่งขัน การชิงโชค ค่าแสดงของนักแสดงสาธารณะ ค่าจ้างทำของ ค่าโฆษณา ค่าเช่า ค่าขนส่ง ค่าบริการ ค่าเบี้ยประกันวินาศภัย ฯลฯ
+                </td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
+              <tr>
+                <td>6. อื่น ๆ (ระบุ).........................................................................................................</td>
+                <td className="c"></td><td className="r"></td><td className="r"></td>
+              </tr>
             </tbody>
             <tfoot>
               <tr>
-                <td></td><td>รวมเงินภาษีที่หักนำส่ง</td><td></td>
-                <td className="r">{num(cert.totalIncome)}</td>
-                <td className="r">{num(cert.totalTax)}</td>
+                <td style={{ fontWeight: 700 }}>รวมเงินภาษีที่จ่ายและหักนำส่ง</td>
+                <td className="c"></td>
+                <td className="r" style={{ fontWeight: 700 }}>{num(cert.totalIncome)}</td>
+                <td className="r" style={{ fontWeight: 700 }}>{num(cert.totalTax)}</td>
               </tr>
             </tfoot>
           </table>
 
-          <div style={{ margin: '6px 0', fontSize: 11.5 }}>
-            กองทุนประกันสังคม {num(cert.totalSso)} บาท
+          {/* รวมเงินภาษีที่หักนำส่ง (ตัวอักษร) */}
+          <div className="me-50bis-baht-row">
+            <span className="me-50bis-baht-lbl">รวมเงินภาษีที่หักนำส่ง (ตัวอักษร)</span>
+            <span className="me-50bis-baht-val">
+              {Number(cert.totalTax) > 0 ? thaiBahtText(cert.totalTax) : ''}
+            </span>
+            <span className="me-50bis-baht-unit">บาทถ้วน</span>
           </div>
-          <div className="me-doc-sign" style={{ marginTop: 22 }}>
-            <div>ลงชื่อ ......................................... ผู้จ่ายเงิน</div>
-            <div>วันที่ 31 / 12 / {cert.year}</div>
+
+          {/* Funds row */}
+          <div className="me-50bis-funds-row">
+            <span>เงินที่จ่ายเข้า กบข./กสจ./กองทุนสงเคราะห์ครูโรงเรียนเอกชน 0.00 บาท</span>
+            <span>กองทุนประกันสังคม {num(cert.totalSso)} บาท</span>
+            <span>กองทุนสำรองเลี้ยงชีพ 0.00 บาท</span>
           </div>
-          <div className="me-doc-foot">ออกให้เพื่อเป็นหลักฐานในการยื่นแบบแสดงรายการภาษีเงินได้บุคคลธรรมดา</div>
+
+          {/* Payer type row */}
+          <div className="me-50bis-payer-row">
+            <span className="me-50bis-payer-lbl">ผู้จ่ายเงิน</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box checked">✓</span> (1) หัก ณ ที่จ่าย</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box"></span> (2) ออกให้ตลอดไป</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box"></span> (3) ออกให้ครั้งเดียว</span>
+            <span className="me-50bis-chk"><span className="me-50bis-chk-box"></span> (4) อื่น ๆ (ระบุ)........</span>
+          </div>
+
+          {/* Bottom 2-column box */}
+          <div className="me-50bis-bottom">
+            <div className="me-50bis-bottom-left">
+              <div className="me-50bis-warn-title">คำเตือน</div>
+              <div className="me-50bis-warn-body">
+                ผู้มีหน้าที่ออกหนังสือรับรองการหักภาษี ณ ที่จ่าย ฝ่าฝืนไม่ปฏิบัติตาม มาตรา 50 ทวิ แห่งประมวลรัษฎากร ต้องรับโทษทางอาญาตามมาตรา 35 แห่งประมวลรัษฎากร
+              </div>
+            </div>
+            <div className="me-50bis-bottom-right">
+              <div className="me-50bis-certify">
+                ขอรับรองว่าข้อความและตัวเลขดังกล่าวข้างต้นถูกต้องตรงกับความจริงทุกประการ
+              </div>
+              <div className="me-50bis-sign-grid">
+                <div className="me-50bis-sign-col">
+                  <div className="me-50bis-sign-placeholder">
+                    {cert.signatureAsset?.image_url && (
+                      <img
+                        src={storedImage(cert.signatureAsset.image_url)}
+                        className="me-50bis-sig-img"
+                        alt="ลายเซ็นผู้จ่ายเงิน"
+                      />
+                    )}
+                  </div>
+                  <div className="me-50bis-sign-line">ลงชื่อ ................................................................ ผู้จ่ายเงิน</div>
+                  <div className="me-50bis-sign-date">31 / ธันวาคม / {cert.year}</div>
+                  <div className="me-50bis-sign-datesub">(วัน เดือน ปี ที่ออกหนังสือรับรอง)</div>
+                </div>
+                <div className="me-50bis-stamp-col">
+                  {cert.stampAsset?.image_url && (
+                    <img
+                      src={storedImage(cert.stampAsset.image_url)}
+                      className="me-50bis-stamp-img"
+                      alt="ตราปั๊มบริษัท"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footnote */}
+          <div className="me-50bis-footnote">
+            <strong>หมายเหตุ</strong> เลขประจำตัวผู้เสียภาษีอากร (13 หลัก)* หมายถึง 1. เลขประจำตัวประชาชนสำหรับผู้เสียภาษีอากรที่เป็นบุคคลธรรมดาสัญชาติไทย 2. เลขประจำตัวผู้เสียภาษีอากรของกรมสรรพากรสำหรับผู้เสียภาษีอากรที่ไม่ใช่บุคคลธรรมดาสัญชาติไทยหรือนิติบุคคล
+          </div>
         </div>
       </div>
     </div>
