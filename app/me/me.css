@@ -914,30 +914,71 @@
 }
 
 @media print {
-  body * {
-    visibility: hidden !important;
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
   }
-  .me-doc-print, .me-doc-print * {
-    visibility: visible !important;
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  .me-doc-overlay {
-    position: static;
-    background: #FFFFFF;
-    padding: 0;
-    overflow: visible;
-  }
-  .me-doc-print {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    max-width: 100%;
-  }
-  .me-doc {
-    box-shadow: none;
-    border-radius: 0;
-  }
-  .me-doc-actions, .me-tabbar {
+
+  /* ซ่อนทุกส่วนของแอปมือถือ เหลือเฉพาะเอกสารที่เปิดพิมพ์อยู่จริง (ไม่ให้เกิดหน้าเปล่าตามหลัง) */
+  body:has(.me-doc-overlay) .me-header,
+  body:has(.me-doc-overlay) .me-main,
+  body:has(.me-doc-overlay) .me-tabbar,
+  body:has(.me-doc-overlay) .me-shell > *:not(.me-doc-overlay),
+  .me-doc-actions,
+  .me-tabbar {
     display: none !important;
+  }
+
+  .me-shell {
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .me-doc-overlay {
+    position: static !important;
+    inset: auto !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .me-doc-print {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .me-doc {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 8px 12px !important;
+    margin: 0 !important;
+    border: none !important;
+  }
+
+  .me-cert-doc {
+    min-height: auto !important;
+    padding: 16px 24px !important;
+  }
+
+  .me-doc-table, .me-doc-meta, .me-doc-sign, .me-cert-assets {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
