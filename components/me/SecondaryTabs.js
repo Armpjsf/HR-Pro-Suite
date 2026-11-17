@@ -1632,7 +1632,7 @@ export function TaxCertDocument({ cert, profile, onClose }) {
           <AppIcon name="printer" size={15} /> พิมพ์ / บันทึก PDF
         </button>
       </div>
-      <div className="me-doc-print">
+      <div className="me-doc-print me-50bis-scroll">
         <div className="me-50bis-paper">
           {/* Top header */}
           <div className="me-50bis-head">
@@ -1825,7 +1825,7 @@ export function TaxCertDocument({ cert, profile, onClose }) {
             <span className="me-50bis-baht-val">
               {Number(cert.totalTax) > 0 ? thaiBahtText(cert.totalTax) : ''}
             </span>
-            <span className="me-50bis-baht-unit">บาทถ้วน</span>
+            {Number(cert.totalTax) <= 0 && <span className="me-50bis-baht-unit">บาทถ้วน</span>}
           </div>
 
           {/* Funds row */}
