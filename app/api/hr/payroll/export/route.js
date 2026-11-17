@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
+import { isValidPeriod } from '@/lib/payroll';
 
 /**
  * GET /api/hr/payroll/export?period=YYYY-MM&format=bank|pnd1|sso
@@ -13,11 +14,17 @@ export async function GET(request) {
   const url = new URL(request.url);
   const period = url.searchParams.get('period') || new Date().toISOString().slice(0, 7);
   const format = url.searchParams.get('format') || 'bank';
+  if (!isValidPeriod(period) || !['bank', 'pnd1', 'sso'].includes(format)) {
+    return NextResponse.json({ error: 'กรุณาระบุงวด YYYY-MM และรูปแบบไฟล์ให้ถูกต้อง' }, { status: 400 });
+  }
+  let slipQuery = supabase.from('payroll_slips').select('*').eq('period', period);
+  if (format !== 'bank') slipQuery = slipQuery.eq('status', 'paid');
 
-  const [{ data: slips }, { data: emps }] = await Promise.all([
-    supabase.from('payroll_slips').select('*').eq('period', period),
+  const [{ data: slips, error: slipsError }, { data: emps, error: employeesError }] = await Promise.all([
+    slipQuery,
     supabase.from('employee_records').select('employee_id, national_id, bank_name, bank_account'),
   ]);
+  if (slipsError || employeesError) return NextResponse.json({ error: 'อ่านข้อมูลส่งออกไม่ครบ กรุณาลองใหม่ ไม่มีการสร้างไฟล์จากข้อมูลที่ขาดหาย' }, { status: 503 });
 
   const empMap = new Map((emps || []).map((e) => [e.employee_id, e]));
   const rows = slips || [];

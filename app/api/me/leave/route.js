@@ -15,7 +15,7 @@ export async function POST(request) {
   const { data: item, error: dbError } = await supabase.rpc('submit_leave_request', {
     p_employee: user.employeeId, p_type: leave_type, p_start: start_date, p_end: end_date,
     p_session: session, p_reason: String(reason).trim().slice(0, 4000),
-  });
+  }).single();
   if (dbError) return NextResponse.json({ error: dbError.code === 'P0001' ? dbError.message : 'ไม่สามารถยื่นใบลาได้ กรุณาตรวจการเชื่อมต่อและ migration แล้วลองใหม่' }, { status: dbError.code === 'P0001' ? 409 : 503 });
   try {
     await addAuditEntry({ user: user.name, action: `ยื่นใบลา #${item.id} ${leave_type} ${item.days} วัน (${session})`, channel: 'ME' });

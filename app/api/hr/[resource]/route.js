@@ -56,7 +56,7 @@ export async function POST(request, { params }) {
     const { data, error: leaveError } = await supabase.rpc('submit_leave_request', {
       p_employee: body.employee_id, p_type: body.leave_type, p_start: body.start_date, p_end: body.end_date,
       p_session: body.session || 'full', p_reason: String(body.reason || ''),
-    });
+    }).single();
     if (leaveError) return NextResponse.json({ error: leaveError.code === 'P0001' ? leaveError.message : 'ยื่นใบลาไม่สำเร็จ กรุณาตรวจ migration' }, { status: 409 });
     return NextResponse.json({ item: data });
   }

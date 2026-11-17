@@ -10,7 +10,7 @@ export async function POST(request, { params }) {
   const { id } = await params;
   const { action } = await request.json();
   if (!['approve', 'reject'].includes(action)) return NextResponse.json({ error: 'การดำเนินการไม่ถูกต้อง' }, { status: 400 });
-  const { data: item, error: dbError } = await supabase.rpc('review_leave_request', { p_id: id, p_action: action, p_reviewer: user.name });
+  const { data: item, error: dbError } = await supabase.rpc('review_leave_request', { p_id: id, p_action: action, p_reviewer: user.name }).single();
   if (dbError) return NextResponse.json({ error: dbError.code === 'P0001' ? dbError.message : 'ไม่สามารถบันทึกการพิจารณาได้ กรุณาตรวจ migration และลองใหม่' }, { status: dbError.code === 'P0001' ? 409 : 503 });
   try {
     await addAuditEntry({ user: user.name, action: `${action} ใบลา #${id} ${item.employee_id} ${item.days} วัน`, channel: 'HR' });
