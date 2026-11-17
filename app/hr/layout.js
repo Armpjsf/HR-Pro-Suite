@@ -206,7 +206,7 @@ export default function HrLayout({ children }) {
     return access.allowed.includes(m.key);
   });
 
-  const visibleMenus = allowedMenus.filter((m) => !m.hiddenInSidebar);
+  const visibleMenus = allowedMenus.filter((m) => !m.hiddenInSidebar || !Object.values(SUB_NAV_GROUPS).some((group) => group.some((entry) => entry.href === m.href) && group.some((entry) => entry.href !== m.href && allowedMenus.some((parent) => parent.href === entry.href && !parent.hiddenInSidebar))));
 
   const current = allowedMenus.find((m) => m.href === pathname) ||
     allowedMenus.find((m) => m.href !== '/hr' && pathname.startsWith(m.href));
@@ -223,7 +223,9 @@ export default function HrLayout({ children }) {
 
   const activeBranchObj = branches.find((b) => String(b.id) === String(activeBranch));
 
-  function logout() {
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    sessionStorage.clear();
     localStorage.removeItem('hr-token');
     localStorage.removeItem('hr-user');
     document.cookie = 'hr-token=; path=/; max-age=0';
@@ -389,7 +391,7 @@ export default function HrLayout({ children }) {
               </div>
             </div>
           )}
-          {SUB_NAV_GROUPS[pathname] && <SubNavTabs items={SUB_NAV_GROUPS[pathname]} />}
+          {SUB_NAV_GROUPS[pathname] && <SubNavTabs items={SUB_NAV_GROUPS[pathname].filter((item) => allowedMenus.some((m) => m.href === item.href))} />}
           {children}
         </main>
         <nav className="hr-mobile-nav">

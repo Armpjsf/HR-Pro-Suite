@@ -12,7 +12,7 @@ const WORK_HOURS_PER_DAY = 8;
  * GET /api/me/ot — รายการ OT ของตัวเอง
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const { data, error: dbError } = await supabase
@@ -32,7 +32,7 @@ export async function GET(request) {
  * amount ตั้งต้นคำนวณจากเงินเดือนฐาน (เดือน/30วัน/8ชม. × rate) — HR แก้ได้ก่อนอนุมัติ
  */
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();

@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { AppIcon } from '@/components/ui/Icons';
 
 function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  return { 'Content-Type': 'application/json' };
 }
 
 export function renderChatMarkdown(text) {
@@ -251,9 +251,9 @@ export default function ChatTab({ user }) {
                       key={doc.id}
                       type="button"
                       onClick={() => {
-                        const token = localStorage.getItem('hr-token');
+
                         window.open(
-                          `/api/documents/${doc.id}/download?token=${encodeURIComponent(token || '')}`,
+                          `/api/documents/${doc.id}/download`,
                           '_blank'
                         );
                       }}

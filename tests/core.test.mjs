@@ -10,11 +10,11 @@ import {
 import { filterDocumentsByRole } from '../lib/permissions.js';
 import { checkRateLimit } from '../lib/rate-limit.js';
 
-test('calcSso calculates SSO deduction correctly with 750 cap', () => {
+test('calcSso calculates SSO deduction using current contribution cap', () => {
   assert.equal(calcSso(0), 0);
   assert.equal(calcSso(10000), 500);
   assert.equal(calcSso(15000), 750);
-  assert.equal(calcSso(30000), 750);
+  assert.equal(calcSso(30000, '2026-11'), 875);
 });
 
 test('progressiveTax calculates stepped income tax', () => {

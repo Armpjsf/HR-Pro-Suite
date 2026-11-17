@@ -15,7 +15,7 @@ const EVAL_CRITERIA = [
  * GET /api/me/evaluations — ดูรายการที่ต้องประเมิน + ผลที่ถูกประเมิน
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   // รายการที่ฉันต้องประเมิน (เป็น evaluator)
@@ -59,7 +59,7 @@ export async function GET(request) {
  * Body: { target_id, period, scores: { teamwork:5, communication:4, ... }, comments }
  */
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();

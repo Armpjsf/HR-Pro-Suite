@@ -7,7 +7,7 @@ import { writeStoredFile } from '@/lib/db';
  * Multipart form-data: field "file"
  */
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   try {

@@ -1,5 +1,7 @@
 # คู่มือ Deploy บน Oracle Cloud Always Free Tier
 
+> เอกสาร infrastructure รุ่นเดิม: คำอธิบาย JSON storage/backup และค่าใช้จ่ายด้านล่างอาจล้าสมัย ระบบปัจจุบันใช้ Supabase และต้องลง phase21 ก่อน deploy ดู [คู่มือปัจจุบัน](docs/OPERATIONS.md) เป็นหลัก
+
 ใช้เวลาประมาณ 1-2 ชั่วโมง ค่าใช้จ่าย 0 บาท
 
 ---

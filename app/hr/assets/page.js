@@ -11,8 +11,8 @@ const REQ_STATUS = { pending: { c: 'yellow', l: 'รออนุมัติ' },
 const EMPTY = { code: '', name: '', category: '', status: 'available', branch_id: '', assigned_to: '', note: '' };
 
 function imgSrc(file) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return `/api/assets/image?file=${encodeURIComponent(file)}&token=${encodeURIComponent(token || '')}`;
+
+  return `/api/assets/image?file=${encodeURIComponent(file)}`;
 }
 
 export default function AssetsPage() {

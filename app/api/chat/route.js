@@ -5,7 +5,7 @@ import { addAuditEntry } from '@/lib/db';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) {
     return NextResponse.json({ error }, { status });
   }

@@ -14,7 +14,7 @@ const MIME_TYPES = {
  * GET /api/documents/[id]/download — ดาวน์โหลดไฟล์จริง (ตรวจสิทธิ์ก่อน)
  */
 export async function GET(request, { params }) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const { id } = await params;

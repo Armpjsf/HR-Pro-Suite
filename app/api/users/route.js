@@ -12,7 +12,7 @@ function sanitize(user) {
  * GET /api/users — รายชื่อผู้ใช้ (admin/hr)
  */
 export async function GET(request) {
-  const { error, status } = requireRole(request, ['admin', 'hr']);
+  const { error, status } = await requireRole(request, ['admin', 'hr']);
   if (error) return NextResponse.json({ error }, { status });
 
   const users = await getUsers();
@@ -23,7 +23,7 @@ export async function GET(request) {
  * POST /api/users — เพิ่มผู้ใช้ใหม่ (admin)
  */
 export async function POST(request) {
-  const { user: admin, error, status } = requireRole(request, ['admin']);
+  const { user: admin, error, status } = await requireRole(request, ['admin']);
   if (error) return NextResponse.json({ error }, { status });
 
   try {

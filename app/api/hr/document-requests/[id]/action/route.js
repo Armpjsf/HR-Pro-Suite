@@ -3,6 +3,8 @@ import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
 import { createNotification } from '@/lib/notifications';
+import { attachDocumentRequestLookups, createIssuedSnapshot } from '@/lib/document-requests';
+import { COMPANY } from '@/lib/company';
 
 function nullableId(value) {
   if (value === '' || value === undefined || value === null) return null;
@@ -37,9 +39,10 @@ export async function POST(request, { params }) {
 
   const { data: req } = await supabase.from('document_requests').select('*').eq('id', id).maybeSingle();
   if (!req) return NextResponse.json({ error: 'ไม่พบคำขอเอกสาร' }, { status: 404 });
+  if (req.status !== 'pending') return NextResponse.json({ error: 'คำขอนี้พิจารณาแล้ว ไม่สามารถแก้เอกสารย้อนหลังได้ กรุณายื่นคำขอใหม่' }, { status: 409 });
 
   if (action === 'reject') {
-    const { error: updateError } = await supabase
+    const { data: changed, error: updateError } = await supabase
       .from('document_requests')
       .update({
         status: 'rejected',
@@ -53,8 +56,9 @@ export async function POST(request, { params }) {
         logo_asset_id: null,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id).eq('status', 'pending').select('id').maybeSingle();
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (!changed) return NextResponse.json({ error: 'รายการถูกพิจารณาแล้ว กรุณาโหลดใหม่' }, { status: 409 });
   } else {
     const signatureId = nullableId(body.signature_asset_id);
     const stampId = nullableId(body.stamp_asset_id);
@@ -68,10 +72,23 @@ export async function POST(request, { params }) {
     if (!stampOk) return NextResponse.json({ error: 'ตราปั๊มที่เลือกไม่พร้อมใช้งาน' }, { status: 400 });
     if (!logoOk) return NextResponse.json({ error: 'โลโกบริษัทที่เลือกไม่พร้อมใช้งาน' }, { status: 400 });
 
-    const { error: updateError } = await supabase
+    const ids = [signatureId, stampId, logoId].filter(Boolean);
+    const lookup = await Promise.all([
+      supabase.from('users').select('employee_id,name,department,branch_id,avatar').eq('employee_id', req.employee_id),
+      supabase.from('employee_records').select('employee_id,position,start_date,salary,national_id,tax_id').eq('employee_id', req.employee_id),
+      ids.length ? supabase.from('document_assets').select('*').in('id', ids) : Promise.resolve({ data: [] }),
+    ]);
+    if (lookup.some((r) => r.error) || !lookup[0].data?.length || !lookup[1].data?.length) return NextResponse.json({ error: 'ข้อมูลพนักงานไม่ครบ จึงยังไม่ออกเอกสาร กรุณาตรวจข้อมูลก่อน' }, { status: 409 });
+    const [item] = attachDocumentRequestLookups([{ ...req, signature_asset_id: signatureId, stamp_asset_id: stampId, logo_asset_id: logoId }], {
+      users: lookup[0].data, records: lookup[1].data, assets: lookup[2].data,
+    });
+    const snapshot = createIssuedSnapshot(item, COMPANY);
+
+    const { data: changed, error: updateError } = await supabase
       .from('document_requests')
       .update({
         status: 'approved',
+        issued_snapshot: snapshot,
         approved_by: user.name,
         approved_at: new Date().toISOString(),
         rejected_by: null,
@@ -82,8 +99,9 @@ export async function POST(request, { params }) {
         logo_asset_id: logoId,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id).eq('status', 'pending').select('id').maybeSingle();
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (!changed) return NextResponse.json({ error: 'รายการถูกพิจารณาแล้ว กรุณาโหลดใหม่' }, { status: 409 });
   }
 
   await addAuditEntry({

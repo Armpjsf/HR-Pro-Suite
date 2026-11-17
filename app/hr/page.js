@@ -10,6 +10,7 @@ const LEAVE_LABELS = { annual: 'ลาพักร้อน', sick: 'ลาป�
 
 export default function HrDashboardPage() {
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [alerts, setAlerts] = useState(null);
   const [sendingPush, setSendingPush] = useState(false);
   const [toast, setToast] = useState(null);
@@ -31,9 +32,9 @@ export default function HrDashboardPage() {
   const loadDashboard = useCallback((branch) => {
     const q = branch && branch !== 'all' ? `?branchId=${encodeURIComponent(branch)}` : '';
     fetch(`/api/hr/dashboard${q}`, { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((d) => { if (d.stats) setData(d); })
-      .catch(() => {});
+      .then(async (r) => { const d = await r.json(); if (!r.ok || !d.stats) throw new Error(d.error || 'โหลดภาพรวมไม่สำเร็จ'); return d; })
+      .then((d) => { setData(d); setLoadError(''); })
+      .catch((e) => setLoadError(e.message));
     fetch(`/api/hr/alerts${q}`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((d) => { if (d.alerts) setAlerts(d); })
@@ -73,6 +74,7 @@ export default function HrDashboardPage() {
     }
   }
 
+  if (loadError) return <div className="hr-card" role="alert"><p>{loadError}</p><button className="hr-btn" onClick={() => loadDashboard(activeBranch)}>ลองโหลดภาพรวมใหม่</button></div>;
   if (!data) {
     return (
       <div>

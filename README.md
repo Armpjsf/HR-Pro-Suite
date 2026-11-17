@@ -1,81 +1,42 @@
-# HR AI Chatbot
+# HR Pro Suite
 
-ระบบผู้ช่วย HR อัจฉริยะ — ตอบคำถามระเบียบบริษัท แจกเอกสาร/Template ตรวจสอบวันลา ผ่านเว็บ (PWA) และ LINE Bot โดยควบคุมสิทธิ์ตาม role (admin / hr / employee)
+ระบบบริหาร HR และ Employee Self-Service: พนักงาน/องค์กร ลงเวลา GPS กะ การลา เงินเดือน OT เบิกจ่าย เอกสาร/AI ประกาศ และงานพัฒนาองค์กร รองรับเว็บ PWA และ Android ผ่าน Capacitor
 
-## เริ่มใช้งาน
+## เริ่มต้น
 
-```bash
-# 1. ติดตั้ง dependencies
-npm install
-
-# 2. ตั้งค่า environment (คัดลอกแล้วใส่ค่าจริง)
-cp .env.example .env.local
-
-# 3. รัน
+```powershell
+npm ci
+Copy-Item .env.example .env.local
+# ตั้งค่า .env.local และ schema บน staging ตามคู่มือก่อน
+npm test
+npm run lint
+npm run build
 npm run dev
 ```
 
-เปิด [http://localhost:3000](http://localhost:3000)
+เปิด http://localhost:3000 ด้วยบัญชีที่ provision สำหรับ environment นั้น ไม่มีรหัสผ่าน admin เริ่มต้นที่ควรใช้ใน production
 
-**บัญชีเริ่มต้น:** username `admin` / password `admin123` — ⚠️ เปลี่ยนรหัสผ่านทันทีหลัง login ครั้งแรก (จัดการผู้ใช้ → แก้ไข)
+ข้อมูลอยู่ใน **Supabase Postgres + private Storage bucket documents** ไม่ใช่ JSON ใน data/ เว็บใช้ HttpOnly session cookie และตรวจบัญชี active/role ล่าสุดเมื่อเรียก protected API ส่วน service role key ใช้เฉพาะ server
 
-## การตั้งค่า (.env.local)
+**รุ่นแก้ Audit ต้องลง schema-phase21.sql ก่อน deploy โค้ดใหม่** ห้ามคำนวณทับประวัติหรือแปลง notified เป็น paid โดยไม่ตรวจหลักฐาน อ่าน [คู่มือติดตั้งและย้ายข้อมูล](docs/OPERATIONS.md) ก่อนดำเนินการ
 
-| ตัวแปร | จำเป็น | คำอธิบาย |
-|---|---|---|
-| `GEMINI_API_KEY` | แนะนำ | ขอฟรีที่ [aistudio.google.com](https://aistudio.google.com/apikey) — ถ้าไม่ใส่ ระบบตอบจากเนื้อหาเอกสารโดยตรง |
-| `JWT_SECRET` | จำเป็น (production) | ค่าสุ่มยาว ๆ สำหรับเซ็น token |
-| `LINE_CHANNEL_SECRET` | ถ้าใช้ LINE | จาก [LINE Developers Console](https://developers.line.biz/console/) |
-| `LINE_CHANNEL_ACCESS_TOKEN` | ถ้าใช้ LINE | จาก LINE Developers Console |
+## เอกสาร
 
-## ขั้นตอนใช้งานครั้งแรก
+- [คู่มือพนักงาน หัวหน้า HR และ Payroll](docs/USER-GUIDE.md)
+- [ติดตั้ง Migration ส่งออกและกู้คืน](docs/OPERATIONS.md)
+- [สถานะการแก้และงานที่ยังต้องตรวจ](docs/AUDIT-FIX-RELEASE.md)
+- [รายงาน Audit ต้นฉบับ](docs/HR-SYSTEM-AUDIT-2026-11-17.md)
 
-1. Login ด้วยบัญชี admin
-2. **จัดการผู้ใช้** — เพิ่มพนักงาน/HR พร้อมกำหนดรหัสพนักงาน (เช่น EMP001)
-3. **จัดการเอกสาร** — อัพโหลดระเบียบบริษัท, Template, ประกาศ (PDF/Excel/Word/Text) ระบบจะดึงข้อความจาก PDF/Excel/Text ให้ AI ใช้ตอบอัตโนมัติ
-4. ทดสอบถามในหน้าแชท
+## การทดสอบ
 
-## LINE Bot
+`npm test` ทดสอบ logic และ transaction ด้วย PostgreSQL ใน WASM (PGlite) สร้าง schema จากไฟล์จริง ใช้ข้อมูลจำลอง ไม่อ่าน .env และไม่เชื่อม Supabase จริง การผ่านชุดนี้ไม่แทนการทดสอบหน้าจอ มือถือ อุปกรณ์ GPS LINE หรือการตรวจยอดโดย payroll
 
-1. สร้าง Messaging API channel ใน LINE Developers Console
-2. ตั้ง Webhook URL: `https://<โดเมนของคุณ>/api/line/webhook`
-3. ใส่ secret/token ใน `.env.local`
-4. พนักงานแอดเพื่อน แล้วพิมพ์ `ลงทะเบียน EMP001` (รหัสพนักงานต้องมีในระบบ)
+`npm run build` สร้าง production build; `npm start` รัน production server ส่วน Android ใช้ remote server URL จาก capacitor.config.json ต้องตรวจปลายทางก่อน `npm run build:apk`
 
-## โครงสร้างข้อมูล
+## การเชื่อมต่อ
 
-ข้อมูลทั้งหมดเก็บเป็นไฟล์ JSON ในโฟลเดอร์ `data/`:
+AI/LINE/push/TMS เป็นส่วนเสริม ให้ตั้งค่าตาม .env.example และตรวจนโยบายข้อมูลก่อนใช้ OCR ภายนอก รหัสผ่าน LINE ต้องตรวจด้วย bcrypt ลิงก์ดาวน์โหลดจาก LINE จำกัดเอกสารและอายุ 5 นาที
 
-- `users.json` — ผู้ใช้ (รหัสผ่าน hash ด้วย bcrypt)
-- `knowledge-base.json` — เอกสาร + ข้อมูลพนักงาน (วันลา ฯลฯ)
-- `line-mappings.json` — การผูกบัญชี LINE
-- `audit-log.json` — บันทึกกิจกรรม
-- `files/` — ไฟล์เอกสารจริงที่อัพโหลด
+CSV ส่งออกเป็นข้อมูลสำหรับจัดเตรียมและตรวจสอบ ต้องยืนยันรูปแบบธนาคาร/หน่วยงานปลายทางก่อนนำส่งจริง ส่วน logical export ในหน้าตั้งค่ารวมข้อมูลและไฟล์แนบ แต่ไม่แทน database backup แบบ point-in-time
 
-💡 สำรองข้อมูลด้วยการ copy โฟลเดอร์ `data/` ทั้งหมด
-
-## ข้อมูลวันลาพนักงาน
-
-แก้ `knowledge-base.json` ส่วน `employeeData` ตามรูปแบบ:
-
-```json
-{
-  "employeeData": {
-    "EMP001": {
-      "name": "สมชาย ใจดี",
-      "department": "Engineering",
-      "position": "Developer",
-      "startDate": "2023-01-15",
-      "leave": {
-        "annual": { "total": 10, "used": 3, "remaining": 7 },
-        "sick": { "total": 30, "used": 1, "remaining": 29 },
-        "personal": { "total": 5, "used": 0, "remaining": 5 }
-      }
-    }
-  }
-}
-```
-
-## Deploy
-
-ระบบเขียนไฟล์ลงดิสก์ (`data/`) จึงต้อง deploy บนเซิร์ฟเวอร์ที่มี persistent storage เช่น VPS/Docker (`npm run build && npm start`) — **ไม่เหมาะกับ Vercel/serverless** เว้นแต่เปลี่ยนชั้นจัดเก็บข้อมูลเป็นฐานข้อมูลภายนอก
+คู่มือ DEPLOY.md และ DEPLOY-LOCAL.md เก็บขั้นตอน infrastructure รุ่นก่อน การตั้งค่า backend/schema/backup ให้ยึด OPERATIONS.md เป็นหลัก

@@ -150,12 +150,12 @@
 
 /* ── Accessibility: Reduced Motion Support ── */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  html {
     scroll-behavior: auto !important;
   }
+  .ios-skeleton { animation: none; background: #E2E8F0; }
+  .hr-modal, .me-card, .login-card { animation: none; }
+  .hr-btn, .me-btn { transition: color 80ms, background-color 80ms; }
 }
 
 /* ── Accessibility: Focus Rings & Selection ── */

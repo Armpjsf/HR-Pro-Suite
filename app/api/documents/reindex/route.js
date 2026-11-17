@@ -9,7 +9,7 @@ import { indexDocument } from '@/lib/rag';
  * ใช้ตอนตั้งค่าครั้งแรก หรือหลังแก้วิธีตัดชิ้น
  */
 export async function POST(request) {
-  const { error, status } = requireRole(request, ['admin']);
+  const { error, status } = await requireRole(request, ['admin']);
   if (error) return NextResponse.json({ error }, { status });
 
   const docs = await getDocuments();

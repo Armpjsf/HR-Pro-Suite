@@ -40,6 +40,8 @@ export default function LeavePage() {
     <ResourceTable
       config={{
         resource: 'leave',
+        canEdit: false,
+        canDelete: false,
         exportName: 'leave_requests',
         searchPlaceholder: 'ค้นหารหัสพนักงาน/สถานะ...',
         columns: [

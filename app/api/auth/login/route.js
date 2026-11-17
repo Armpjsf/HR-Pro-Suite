@@ -51,7 +51,6 @@ export async function POST(request) {
 
     const response = NextResponse.json({
       success: true,
-      token,
       user: {
         id: user.id,
         name: user.name,
@@ -63,7 +62,7 @@ export async function POST(request) {
     });
 
     response.cookies.set('hr-token', token, {
-      httpOnly: false, // ให้ JS อ่านได้ (ใช้ตรวจสถานะ login ฝั่ง client)
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 8 * 60 * 60,

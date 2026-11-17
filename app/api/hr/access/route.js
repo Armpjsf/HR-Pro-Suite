@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
  * GET /api/hr/access — เมนูที่ผู้ใช้ปัจจุบันเข้าได้ (ใช้กรอง sidebar + กั้นการเข้า /hr)
  */
 export async function GET(request) {
-  const user = getUserFromRequest(request);
+  const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   // ดึง role และ status ล่าสุดจากฐานข้อมูลเสมอ เพื่อให้การเปลี่ยนบทบาทมีผลทันที Real-time

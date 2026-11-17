@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { RESOURCES } from '@/lib/hr-resources';
 import { requireMenu, resourceMenuKey } from '@/lib/hr-access';
 import { createNotification } from '@/lib/notifications';
+import { preparePayrollDraft } from '@/lib/payroll';
 
 /**
  * GET /api/hr/[resource] — list (รองรับ ?q= ค้นหา และ ?eq_<col>= filter)
@@ -50,6 +51,23 @@ export async function POST(request, { params }) {
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();
+  if (resource === 'document-requests') return NextResponse.json({ error: 'กรุณาใช้ขั้นตอนยื่นคำขอเอกสาร' }, { status: 409 });
+  if (resource === 'leave') {
+    const { data, error: leaveError } = await supabase.rpc('submit_leave_request', {
+      p_employee: body.employee_id, p_type: body.leave_type, p_start: body.start_date, p_end: body.end_date,
+      p_session: body.session || 'full', p_reason: String(body.reason || ''),
+    });
+    if (leaveError) return NextResponse.json({ error: leaveError.code === 'P0001' ? leaveError.message : 'ยื่นใบลาไม่สำเร็จ กรุณาตรวจ migration' }, { status: 409 });
+    return NextResponse.json({ item: data });
+  }
+  if (resource === 'payroll') {
+    try {
+      const row = preparePayrollDraft(body);
+      const { data, error: saveError } = await supabase.rpc('save_payroll_draft', { p_row: row, p_overwrite: false });
+      if (saveError || data !== 'created') return NextResponse.json({ error: 'มีสลิปงวดนี้แล้ว หรือบันทึกไม่สำเร็จ กรุณาตรวจข้อมูล' }, { status: 409 });
+      return NextResponse.json({ item: row });
+    } catch (e) { return NextResponse.json({ error: e.message }, { status: 400 }); }
+  }
   const row = {};
   for (const col of def.columns) {
     if (body[col] !== undefined && body[col] !== '') row[col] = body[col];

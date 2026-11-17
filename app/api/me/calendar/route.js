@@ -8,7 +8,7 @@ import { getWorkSettingsForEmployee } from '@/lib/work-calendar';
  * Query: ?month=2026-06
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const url = new URL(request.url);

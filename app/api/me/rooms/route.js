@@ -8,7 +8,7 @@ import { notifyHr, createNotification } from '@/lib/notifications';
  * GET /api/me/rooms?date=YYYY-MM-DD — รายการห้องประชุม + การจองของวันนั้น + การจองของตัวเอง
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const url = new URL(request.url);
@@ -28,7 +28,7 @@ export async function GET(request) {
  * Body: { room_id, book_date, start_time, end_time, title }
  */
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();

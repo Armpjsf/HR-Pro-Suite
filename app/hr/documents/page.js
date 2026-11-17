@@ -162,8 +162,8 @@ export default function HrDocumentsPage() {
   }
 
   function download(doc) {
-    const token = localStorage.getItem('hr-token');
-    window.open(`/api/documents/${doc.id}/download?token=${encodeURIComponent(token || '')}`, '_blank');
+
+    window.open(`/api/documents/${doc.id}/download`, '_blank');
   }
 
   const aiCount = documents.filter((d) => d.hasContent).length;
@@ -194,7 +194,7 @@ export default function HrDocumentsPage() {
         </button>
         {isAdmin && (
           <button className="hr-btn" disabled={reindexing} onClick={reindex}>
-            {reindexing ? '⏳ กำลังสร้างดัชนี...' : '📇 Re-index ดัชนี AI'}
+            {reindexing ? 'กำลังอัปเดตข้อมูลให้ AI...' : 'อัปเดตข้อมูลให้ AI'}
           </button>
         )}
         <input ref={fileRef} type="file" accept=".pdf,.xlsx,.xls,.csv,.docx,.doc,.txt,.md" style={{ display: 'none' }}
@@ -223,7 +223,9 @@ export default function HrDocumentsPage() {
               <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 <span className={`hr-badge hr-badge-${catInfo(doc.category).color}`}>{catInfo(doc.category).name}</span>
                 {aud && <span className={`hr-badge hr-badge-${aud.color}`}>{aud.label}</span>}
-                {doc.hasContent && <span className="hr-badge hr-badge-green">🤖 AI อ่านได้</span>}
+                <span className={`hr-badge hr-badge-${doc.indexingStatus === 'ready' ? 'green' : 'yellow'}`}>
+                  {{ ready: 'พร้อมค้นหาด้วย AI', processing: 'กำลังเตรียมข้อมูล AI', failed: 'เตรียมข้อมูล AI ไม่สำเร็จ — ลองอัปเดตใหม่', unreadable: 'อ่านเนื้อหาไม่ได้', unknown: doc.hasContent ? 'มีข้อความ — ยังไม่ยืนยันดัชนี AI' : 'ยังไม่มีข้อความที่อ่านได้' }[doc.indexingStatus || 'unknown']}
+                </span>
               </div>
               <div className="hr-emp-row"><span className="k">{doc.type === 'video' ? 'แหล่งที่มา' : 'ขนาด'}</span><span className="v">{doc.size}</span></div>
               <div className="hr-emp-row"><span className="k">อัพเดท</span><span className="v">{doc.updatedAt}</span></div>
@@ -231,7 +233,7 @@ export default function HrDocumentsPage() {
                 <button className="hr-btn" style={{ flex: 1 }} onClick={() => download(doc)}>
                   {doc.type === 'video' ? '▶ เปิดดูวิดีโอ' : '⬇️ ดาวน์โหลด'}
                 </button>
-                <button className="hr-btn hr-btn-icon hr-btn-danger" onClick={() => remove(doc.id)}>🗑️</button>
+                <button className="hr-btn hr-btn-icon hr-btn-danger" aria-label={`ลบเอกสาร ${doc.name}`} onClick={() => remove(doc.id)}>🗑️</button>
               </div>
             </div>
           );

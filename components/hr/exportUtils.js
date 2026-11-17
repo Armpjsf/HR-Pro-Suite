@@ -31,9 +31,8 @@ export function printPDF() {
  * Header สำหรับเรียก API พร้อม JWT token
  */
 export function authHeaders(json = false) {
-  const token = localStorage.getItem('hr-token');
+
   return {
-    Authorization: `Bearer ${token}`,
     ...(json ? { 'Content-Type': 'application/json' } : {}),
   };
 }

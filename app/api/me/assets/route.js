@@ -8,7 +8,7 @@ import { notifyHr } from '@/lib/notifications';
  * GET /api/me/assets — รายการทรัพย์สิน (พนักงานดูเพื่อขอเบิก) + คำขอของตัวเอง
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const [{ data: assets }, { data: branches }, { data: myReqs }] = await Promise.all([
@@ -41,7 +41,7 @@ export async function GET(request) {
  * Body: { asset_id, type: 'borrow'|'return'|'replace', target_branch_id?, reason? }
  */
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();

@@ -4,6 +4,7 @@ import { RESOURCES } from '@/lib/hr-resources';
 import { requireMenu, resourceMenuKey } from '@/lib/hr-access';
 import { HR_MENUS } from '@/lib/hr-menus';
 import { createNotification } from '@/lib/notifications';
+import { preparePayrollDraft, isFinalPayroll } from '@/lib/payroll';
 
 const STATUS_TH = { 
   approved: 'อนุมัติแล้ว', 
@@ -48,6 +49,21 @@ export async function PUT(request, { params }) {
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();
+  if (['leave', 'document-requests'].includes(resource)) {
+    return NextResponse.json({ error: 'รายการนี้ต้องดำเนินการผ่านขั้นตอนอนุมัติ ไม่สามารถแก้ไขโดยตรงได้' }, { status: 409 });
+  }
+  if (resource === 'payroll') {
+    const { data: old, error: readError } = await supabase.from('payroll_slips').select('*').eq('id', id).maybeSingle();
+    if (readError || !old) return NextResponse.json({ error: 'ไม่พบสลิปหรืออ่านข้อมูลไม่สำเร็จ' }, { status: 404 });
+    if (isFinalPayroll(old.status) || old.calculation_version !== 2) return NextResponse.json({ error: 'สลิปนี้ล็อกแล้วหรือยังต้องตรวจแยกยอดเดิมก่อนแก้ไข' }, { status: 409 });
+    if ((body.status && body.status !== 'draft') || (body.employee_id && body.employee_id !== old.employee_id) || (body.period && body.period !== old.period)) return NextResponse.json({ error: 'ไม่สามารถเปลี่ยนพนักงาน งวด หรือสถานะผ่านการแก้ไขสลิป' }, { status: 409 });
+    try {
+      const row = preparePayrollDraft({ ...old, ...body });
+      const { data: result, error: saveError } = await supabase.rpc('save_payroll_draft', { p_row: row, p_overwrite: true });
+      if (saveError || result !== 'updated') return NextResponse.json({ error: 'สลิปถูกล็อกหรือเปลี่ยนสถานะแล้ว กรุณาโหลดใหม่' }, { status: 409 });
+      return NextResponse.json({ item: { ...old, ...row } });
+    } catch (e) { return NextResponse.json({ error: e.message }, { status: 400 }); }
+  }
   const updates = {};
   for (const col of def.columns) {
     if (body[col] !== undefined) updates[col] = body[col] === '' ? null : body[col];
@@ -98,18 +114,8 @@ export async function DELETE(request, { params }) {
   const { error, status } = await requireMenu(request, resourceMenuKey(resource));
   if (error) return NextResponse.json({ error }, { status });
 
-  if (def.table === 'leave_requests') {
-    const { data: lv } = await supabase.from('leave_requests').select('*').eq('id', id).maybeSingle();
-    if (lv && lv.status === 'approved') {
-      const year = new Date(lv.start_date).getFullYear();
-      const days = Number(lv.days) || 0;
-      const { data: bal } = await supabase.from('employee_leave_balances').select('*').eq('employee_id', lv.employee_id).eq('year', year).eq('leave_type', lv.leave_type).maybeSingle();
-      if (bal) {
-        const nextUsed = Math.max(0, (Number(bal.used_days) || 0) - days);
-        await supabase.from('employee_leave_balances').update({ used_days: nextUsed, updated_at: new Date().toISOString() }).eq('id', bal.id);
-      }
-      await supabase.from('time_records').delete().eq('employee_id', lv.employee_id).eq('status', 'leave').gte('work_date', lv.start_date).lte('work_date', lv.end_date);
-    }
+  if (['leave', 'payroll', 'document-requests'].includes(resource)) {
+    return NextResponse.json({ error: 'ไม่ลบประวัติธุรกรรม กรุณาใช้ขั้นตอนปฏิเสธหรือยกเลิกพร้อมบันทึกเหตุผล' }, { status: 409 });
   }
   const { error: dbError } = await supabase.from(def.table).delete().eq('id', id);
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });

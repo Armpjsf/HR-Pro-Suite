@@ -26,6 +26,9 @@ export async function POST(request, { params }) {
   if (findErr) return NextResponse.json({ error: findErr.message }, { status: 500 });
   if (!slip) return NextResponse.json({ error: 'ไม่พบสลิปเงินเดือน' }, { status: 404 });
 
+  if (slip.status !== 'paid') return NextResponse.json({ error: 'ส่งได้เฉพาะสลิปที่ยืนยันจ่ายแล้ว สลิปเดิมสถานะ notified ต้องตรวจสอบก่อน' }, { status: 409 });
+  if (!LINE_CHANNEL_ACCESS_TOKEN) return NextResponse.json({ error: 'ยังไม่ได้ตั้งค่า LINE จึงยังไม่ได้ส่งสลิป' }, { status: 503 });
+
   // หา LINE user id ของพนักงานคนนี้
   const mappings = await getLineMappings();
   const lineUserId = Object.keys(mappings).find(
@@ -49,9 +52,7 @@ export async function POST(request, { params }) {
     `━━━━━━━━━━━━\n` +
     `รับสุทธิ: ${fmt(slip.net)} บาท`;
 
-  if (!LINE_CHANNEL_ACCESS_TOKEN) {
-    console.log('[LINE Mock] Push payslip:', text);
-  } else {
+  {
     const res = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
       headers: {
@@ -68,7 +69,7 @@ export async function POST(request, { params }) {
 
   await supabase
     .from('payroll_slips')
-    .update({ status: 'notified', notified_at: new Date().toISOString() })
+    .update({ notification_status: 'sent', notification_error: null, notified_at: new Date().toISOString() })
     .eq('id', id);
 
   await addAuditEntry({

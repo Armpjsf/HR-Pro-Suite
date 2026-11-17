@@ -7,18 +7,18 @@ import { AppIcon } from '@/components/ui/Icons';
 
 /* ─── Shared Helpers & Constants ─── */
 export function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  return { 'Content-Type': 'application/json' };
 }
 
 export function storedImage(file) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return `/api/assets/image?file=${encodeURIComponent(file)}&token=${encodeURIComponent(token || '')}`;
+
+  return `/api/assets/image?file=${encodeURIComponent(file)}`;
 }
 
 export function assetImg(file) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return `/api/assets/image?file=${encodeURIComponent(file)}&token=${encodeURIComponent(token || '')}`;
+
+  return `/api/assets/image?file=${encodeURIComponent(file)}`;
 }
 
 const THAI_MONTHS_FULL = [
@@ -216,7 +216,7 @@ export function PayslipTab({ data }) {
 
 export function SlipDocument({ slip, profile, ytd, deductions, onClose }) {
   const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const income = Number(slip.base_salary) + Number(slip.ot_pay) + Number(slip.bonus);
+  const income = Number(slip.base_salary) + Number(slip.ot_pay) + Number(slip.bonus) + Number(slip.reimbursements || 0);
   const totalDed = Number(slip.tax) + Number(slip.sso) + Number(slip.deduction);
 
   return (
@@ -274,6 +274,7 @@ export function SlipDocument({ slip, profile, ytd, deductions, onClose }) {
               <tr><td>เงินเดือน / ค่าจ้าง</td><td className="r">{num(slip.base_salary)}</td><td>ประกันสังคม</td><td className="r">{num(slip.sso)}</td></tr>
               <tr><td>ค่าล่วงเวลา (OT)</td><td className="r">{num(slip.ot_pay)}</td><td>ภาษี ณ ที่จ่าย</td><td className="r">{num(slip.tax)}</td></tr>
               <tr><td>โบนัส</td><td className="r">{num(slip.bonus)}</td><td>หักอื่นๆ</td><td className="r">{num(slip.deduction)}</td></tr>
+              <tr><td>คืนค่าใช้จ่าย</td><td className="r">{num(slip.reimbursements)}</td><td></td><td></td></tr>
             </tbody>
             <tfoot>
               <tr><td>รวมเงินได้</td><td className="r">{num(income)}</td><td>รวมเงินหัก</td><td className="r">{num(totalDed)}</td></tr>
@@ -350,10 +351,10 @@ export function ExpensesSection({ back, showToast }) {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
+
       const res = await fetch('/api/me/upload', {
         method: 'POST',
-        headers: token ? { Authorization: 'Bearer ' + token } : {},
+        headers: {},
         body: fd,
       });
       const d = await res.json();
@@ -2301,15 +2302,16 @@ export const TeamLeaveTab = TeamLeaveSection;
 /* ═══════════════════ DOCUMENT REQUESTS SUB-SECTION ═══════════════════ */
 export function DocumentRequestsSection({ back, showToast, profile }) {
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [form, setForm] = useState({ document_type: 'salary_certificate', purpose: '' });
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const load = () => {
     fetch('/api/me/document-requests', { headers: authHeaders() })
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => {});
+      .then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.error || 'โหลดคำขอไม่สำเร็จ'); return d; })
+      .then((d) => { setData(d); setLoadError(''); })
+      .catch((e) => setLoadError(e.message));
   };
 
   useEffect(() => {
@@ -2351,6 +2353,7 @@ export function DocumentRequestsSection({ back, showToast, profile }) {
       >
         <AppIcon name="chevron-left" size={14} /> กลับ
       </button>
+      {loadError && <div role="alert">{loadError} <button type="button" onClick={load}>ลองโหลดคำขอใหม่</button></div>}
 
       <div className="me-card">
         <div className="me-section-title">
@@ -2423,9 +2426,11 @@ export function DocumentRequestsSection({ back, showToast, profile }) {
 export const DocumentRequestsTab = DocumentRequestsSection;
 
 export function CertificateDocument({ request, fallbackProfile, onClose }) {
+  const company = request.issued_snapshot?.company || COMPANY;
   const docProfile = request.employeeProfile || fallbackProfile || {};
   const isSalary = request.document_type === 'salary_certificate';
   const title = CERTIFICATE_TYPES[request.document_type] || 'หนังสือรับรอง';
+  if (request.status === 'approved' && !request.issued_snapshot) return <div className="me-card" role="alert"><p>เอกสารเดิมยังไม่มีฉบับข้อมูลที่ยืนยัน ณ วันออก กรุณาติดต่อ HR เพื่อออกฉบับใหม่</p><button type="button" onClick={onClose}>ปิด</button></div>;
   const salary = Number(docProfile.salary) || Number(request.latestPayslip?.base_salary) || 0;
   const issuedDate = thaiDate(request.approved_at || new Date().toISOString());
   const purpose = request.purpose || 'ใช้เป็นหลักฐานตามที่พนักงานร้องขอ';
@@ -2462,10 +2467,10 @@ export function CertificateDocument({ request, fallbackProfile, onClose }) {
         <div className="me-doc me-cert-doc">
           <div className="me-doc-head">
             <img className="me-doc-logo me-cert-logo" src={logoSrc} alt="" />
-            <div className="me-doc-co">{COMPANY.legalName}</div>
-            <div className="me-doc-addr">{COMPANY.nameEn}</div>
-            <div className="me-doc-addr">{COMPANY.address}</div>
-            <div className="me-doc-addr">เลขประจำตัวผู้เสียภาษี {COMPANY.taxId}</div>
+            <div className="me-doc-co">{company.legalName}</div>
+            <div className="me-doc-addr">{company.nameEn}</div>
+            <div className="me-doc-addr">{company.address}</div>
+            <div className="me-doc-addr">เลขประจำตัวผู้เสียภาษี {company.taxId}</div>
           </div>
 
           <div className="me-cert-ref">เลขที่เอกสาร HR-CERT-{String(request.id).padStart(5, '0')}</div>
@@ -2475,14 +2480,14 @@ export function CertificateDocument({ request, fallbackProfile, onClose }) {
           <div className="me-cert-body">
             {isSalary ? (
               <>
-                <p>หนังสือฉบับนี้ออกเพื่อรับรองว่า คุณ{employeeName} รหัสพนักงาน {employeeId} เป็นพนักงานของ {COMPANY.legalName}</p>
+                <p>หนังสือฉบับนี้ออกเพื่อรับรองว่า คุณ{employeeName} รหัสพนักงาน {employeeId} เป็นพนักงานของ {company.legalName}</p>
                 <p>ปฏิบัติงานในตำแหน่ง {position} แผนก/ฝ่าย {department} โดยเริ่มทำงานตั้งแต่วันที่ {startDate} จนถึงปัจจุบัน</p>
                 <p>มีอัตราเงินเดือนประจำเดือนละ {salaryText} บาท ({thaiBahtText(salary)}) ซึ่งอัตรานี้ยังไม่รวมค่าตอบแทนและเงินพิเศษอื่นๆ</p>
                 <p>หนังสือรับรองเงินเดือนฉบับนี้ใช้เพื่อ {purpose} เท่านั้น</p>
               </>
             ) : (
               <>
-                <p>ขอรับรองว่า คุณ{employeeName} รหัสพนักงาน {employeeId} เป็นพนักงานของ {COMPANY.legalName}</p>
+                <p>ขอรับรองว่า คุณ{employeeName} รหัสพนักงาน {employeeId} เป็นพนักงานของ {company.legalName}</p>
                 <p>ปฏิบัติงานในตำแหน่ง {position} แผนก/ฝ่าย {department} เริ่มปฏิบัติงานตั้งแต่วันที่ {startDate} จนถึงปัจจุบัน</p>
                 <p>ตลอดระยะเวลาการปฏิบัติงาน พนักงานดังกล่าวอยู่ในสถานะพนักงานของบริษัทตามข้อมูลที่บริษัทมีอยู่ในระบบ</p>
                 <p>หนังสือรับรองการทำงานฉบับนี้ออกให้เพื่อ {purpose}</p>
@@ -2502,7 +2507,7 @@ export function CertificateDocument({ request, fallbackProfile, onClose }) {
             </div>
           </div>
 
-          <div className="me-cert-contact">สอบถามฝ่ายบุคคล{COMPANY.phone ? ` โทร. ${COMPANY.phone}` : ''}</div>
+          <div className="me-cert-contact">สอบถามฝ่ายบุคคล{company.phone ? ` โทร. ${company.phone}` : ''}</div>
           <div className="me-doc-foot">เอกสารนี้ออกจากระบบ HR Pro Suite ตามคำขอเลขที่ #{request.id}</div>
         </div>
       </div>
@@ -2695,9 +2700,10 @@ export function BenefitsTab({ back }) {
       </button>
       <div className="me-card">
         <div className="me-section-title">
-          <AppIcon name="benefits" size={18} /> สวัสดิการและเงินกู้พนักงาน
+          <AppIcon name="benefits" size={18} /> ข้อมูลสวัสดิการทั่วไป
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p>ข้อมูลนี้เป็นภาพรวม โปรดตรวจสิทธิ์ วงเงิน และเงื่อนไขกับ HR ก่อนยื่นคำขอ</p>
           {benefits.map((b, i) => (
             <div key={i} className="me-row" style={{ alignItems: 'flex-start', padding: '12px 0' }}>
               <span className="k" style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -2719,13 +2725,18 @@ export function BenefitsTab({ back }) {
 
 /* ═══════════════════ ONBOARDING SUB-SECTION ═══════════════════ */
 export function OnboardingTab({ back }) {
-  const steps = [
-    { title: '1. ตรวจสอบข้อมูลส่วนตัวและเอกสารสัญญาจ้าง', done: true },
-    { title: '2. รับมอบบัตรพนักงานและอุปกรณ์ปฏิบัติงาน', done: true },
-    { title: '3. อบรมมาตรฐานความปลอดภัยในการขับขี่และการขนส่ง', done: false },
-    { title: '4. ติดตั้งแอปพลิเคชันและการใช้งานระบบบันทึกเวลา GPS', done: true },
-    { title: '5. แนะนำพี่เลี้ยงประจำสายงานและหัวหน้าสถานี', done: false },
-  ];
+  const [steps, setSteps] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/me/onboarding', { headers: authHeaders() });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'โหลดรายการไม่สำเร็จ');
+      setLoadError('');
+      setSteps(d.items.map((s) => ({ ...s, title: s.item })));
+    } catch (e) { setLoadError(e.message); }
+  }, []);
+  useEffect(() => { Promise.resolve().then(load); }, [load]);
 
   return (
     <>
@@ -2743,7 +2754,10 @@ export function OnboardingTab({ back }) {
         <div style={{ fontSize: 13, color: '#64748B', marginBottom: 14 }}>
           คู่มือและรายการสิ่งที่ต้องดำเนินการสำหรับพนักงานใหม่
         </div>
-        {steps.map((s, i) => (
+        {loadError && <div role="alert">{loadError} <button type="button" onClick={load}>ลองใหม่</button></div>}
+        {!steps && !loadError && <p role="status">กำลังโหลดรายการปฐมนิเทศ...</p>}
+        {steps?.length === 0 && <p>HR ยังไม่ได้มอบหมายรายการปฐมนิเทศ กรุณาติดต่อฝ่ายบุคคล</p>}
+        {steps?.map((s, i) => (
           <div key={i} className="me-row" style={{ padding: '12px 0' }}>
             <span className="k" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ color: s.done ? '#16A34A' : '#64748B' }}>
@@ -3013,8 +3027,8 @@ export function DriverManualsTab({ back }) {
                   type="button"
                   className="me-btn"
                   onClick={() => {
-                    const token = localStorage.getItem('hr-token');
-                    window.open(`/api/documents/${activeVideo.id}/download?token=${encodeURIComponent(token || '')}`, '_blank');
+
+                    window.open(`/api/documents/${activeVideo.id}/download`, '_blank');
                   }}
                 >
                   <AppIcon name="download" size={16} /> {activeVideo.type === 'video' ? 'เปิดดูเต็มจอ (Google Drive / แท็บใหม่)' : 'ดาวน์โหลดเอกสาร'}

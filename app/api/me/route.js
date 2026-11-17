@@ -51,7 +51,7 @@ function buildAttendanceStats({ records, shifts, holidays, approvedLeaves, workS
  * เห็นเฉพาะข้อมูลของตัวเองเท่านั้น
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const employeeId = user.employeeId;

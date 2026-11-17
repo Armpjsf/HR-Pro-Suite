@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
 import { getWorkSettingsForEmployee } from '@/lib/work-calendar';
+import { validateClockInput } from '@/lib/clock-policy';
 
 /**
  * Haversine formula — คำนวณระยะทางระหว่างพิกัด 2 จุด (เมตร)
@@ -22,7 +23,7 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
  * GET /api/me/clock — สถานะเข้างานวันนี้
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
@@ -62,11 +63,13 @@ export async function GET(request) {
  * Body: { action: 'in'|'out', latitude, longitude, check_type: 'office'|'offsite'|'wfh' }
  */
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();
   const { action, latitude, longitude, check_type = 'office' } = body;
+  const inputError = validateClockInput({ action, latitude, longitude, check_type });
+  if (inputError) return NextResponse.json({ error: inputError }, { status: 400 });
 
   if (!['in', 'out'].includes(action)) {
     return NextResponse.json({ error: 'action ต้องเป็น in หรือ out' }, { status: 400 });

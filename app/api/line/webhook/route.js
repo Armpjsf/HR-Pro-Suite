@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { generateResponse } from '@/lib/gemini.js';
 import { getLineMappings, setLineMapping, findUserByEmployeeId, addAuditEntry } from '@/lib/db.js';
-import { createToken } from '@/lib/auth.js';
+import { createDownloadToken } from '@/lib/auth.js';
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || '';
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
@@ -132,7 +134,7 @@ function createHumanEscalationResponse(employeeName = '') {
 /**
  * Flex Message สำหรับการแสดงคำตอบและเอกสารแนบ
  */
-function createFlexResponse(text, documents = [], userName = '', downloadToken = '') {
+function createFlexResponse(text, documents = [], userName = '', downloadUser = null) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hr-ai-chatbot-tawny.vercel.app';
   const contents = {
     type: 'bubble',
@@ -173,7 +175,7 @@ function createFlexResponse(text, documents = [], userName = '', downloadToken =
           weight: 'bold',
         },
         ...documents.slice(0, 5).map((doc) => {
-          const downloadUrl = `${baseUrl}/api/documents/${doc.id}/download${downloadToken ? `?token=${encodeURIComponent(downloadToken)}` : ''}`;
+          const downloadUrl = `${baseUrl}/api/documents/${doc.id}/download${downloadUser ? `?token=${encodeURIComponent(createDownloadToken(downloadUser, doc.id))}` : ''}`;
           const cleanName = (doc.name || 'เอกสาร').replace(/^แบบฟอร์ม|^Template/i, '').trim();
           const label = `📥 โหลด: ${cleanName.slice(0, 11)}`;
           return {
@@ -300,6 +302,11 @@ export async function POST(request) {
 
         // 1. ตรวจสอบคำสั่งลงทะเบียน (รูปแบบ: ลงทะเบียน <รหัสพนักงาน> <รหัสผ่าน>)
         if (/^ลงทะเบียน/i.test(text)) {
+          const limit = checkRateLimit(`line-register:${userId}`, 5, 15 * 60_000);
+          if (!limit.allowed) {
+            await replyMessage(event.replyToken, [{ type: 'text', text: 'พยายามผูกบัญชีบ่อยเกินไป กรุณารอ 15 นาทีแล้วลองใหม่' }]);
+            continue;
+          }
           const parts = text.replace(/^ลงทะเบียน\s*[:=\-]?\s*/i, '').trim().split(/\s+/);
           const empId = parts[0];
           const password = parts.slice(1).join(' ');
@@ -313,7 +320,7 @@ export async function POST(request) {
           }
 
           const employee = await findUserByEmployeeId(empId);
-          if (!employee) {
+          if (!employee || employee.status !== 'active') {
             await replyMessage(event.replyToken, [{
               type: 'text',
               text: `❌ ไม่พบรหัสพนักงาน "${empId}" ในระบบบริษัท\nกรุณาตรวจสอบรหัสพนักงานที่ถูกต้อง หรือติดต่อฝ่ายบุคคลนะคะ`,
@@ -322,7 +329,7 @@ export async function POST(request) {
           }
 
           // ตรวจสอบความถูกต้องของรหัสผ่านเพื่อป้องกันการสวมรอย
-          if (!password || (employee.password && employee.password !== password)) {
+          if (!password || !employee.password || !(await bcrypt.compare(password, employee.password))) {
             await replyMessage(event.replyToken, [{
               type: 'text',
               text: `⚠️ รหัสผ่านไม่ถูกต้อง หรือยังไม่ได้ระบุรหัสผ่าน\nกรุณาพิมพ์: ลงทะเบียน ${empId} <รหัสผ่านระบบ>\n(หากลืมรหัสผ่าน กรุณาติดต่อฝ่ายบุคคล)`,
@@ -355,14 +362,18 @@ export async function POST(request) {
         }
 
         // ดึงข้อมูลผู้ใช้ล่าสุดจากฐานข้อมูลพนักงาน (เพื่อให้ข้อมูลสาขา แผนก ตำแหน่ง และสิทธิ์ตรงกับระบบ 100%)
-        let activeUser = { ...userMapping, id: userId };
+        let activeUser = null;
         try {
           const freshUser = await findUserByEmployeeId(userMapping.employeeId);
-          if (freshUser) {
-            activeUser = { ...userMapping, ...freshUser, id: userId };
+          if (freshUser?.status === 'active') {
+            activeUser = freshUser;
           }
         } catch (err) {
           console.warn('[LINE Webhook] Failed to fetch fresh user:', err.message);
+        }
+        if (!activeUser) {
+          await replyMessage(event.replyToken, [{ type: 'text', text: 'บัญชีไม่พร้อมใช้งาน กรุณาติดต่อ HR' }]);
+          continue;
         }
 
         // 3. ตรวจสอบเคสขอติดต่อคนจริง / Human Escalation / แจ้งเหตุฉุกเฉิน
@@ -398,8 +409,7 @@ export async function POST(request) {
         // 5. ส่งคำตอบกลับ
         const messages = [];
         if (response.documents?.length > 0) {
-          const downloadToken = createToken(activeUser);
-          const flexMsg = createFlexResponse(response.text, response.documents, activeUser.name, downloadToken);
+          const flexMsg = createFlexResponse(response.text, response.documents, activeUser.name, activeUser);
           flexMsg.quickReply = getQuickReply(response.intent);
           messages.push(flexMsg);
         } else if (response.intent === 'leave_submit_guide') {

@@ -7,7 +7,7 @@ import { addAuditEntry } from '@/lib/db';
  * GET /api/me/allowances?year=2569 — ดูแบบลดหย่อนภาษี (ลย.01) ของตัวเอง
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const url = new URL(request.url);
@@ -28,7 +28,7 @@ export async function GET(request) {
  * Body: { year, data: { spouse, children, parents, life_insurance, health_insurance, provident_fund, donation, mortgage, ... } }
  */
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();

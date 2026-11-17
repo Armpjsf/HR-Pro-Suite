@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
  * คืน: อบรม (ทั้งหมดล่าสุด), ทริปบริษัท, OKR ของตัวเอง
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const [{ data: trainings }, { data: trips }, { data: okrs }] = await Promise.all([
@@ -35,7 +35,7 @@ export async function GET(request) {
  * Body: { okrId, progress }
  */
 export async function PATCH(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();

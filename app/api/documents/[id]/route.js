@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth';
+import { requireMenu } from '@/lib/hr-access';
 import { deleteDocument, addAuditEntry } from '@/lib/db';
 
 /**
  * DELETE /api/documents/[id] — ลบเอกสาร (admin/hr)
  */
 export async function DELETE(request, { params }) {
-  const { user, error, status } = requireRole(request, ['admin', 'hr']);
+  const { user, error, status } = await requireMenu(request, 'documents');
   if (error) return NextResponse.json({ error }, { status });
 
   const { id } = await params;

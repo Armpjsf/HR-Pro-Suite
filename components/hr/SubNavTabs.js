@@ -8,15 +8,14 @@ export default function SubNavTabs({ items = [] }) {
 
   return (
     <div className="hr-segmented-wrap">
-      <div className="hr-segmented-control" role="tablist">
+      <div className="hr-segmented-control" role="navigation" aria-label="เมนูย่อย">
         {items.map((it) => {
           const active = pathname === it.href;
           return (
             <Link
               key={it.href}
               href={it.href}
-              role="tab"
-              aria-selected={active}
+              aria-current={active ? 'page' : undefined}
               className={`hr-segmented-item${active ? ' active' : ''}`}
             >
               <span className="hr-segmented-icon">{it.icon}</span>

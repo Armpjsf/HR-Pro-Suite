@@ -17,64 +17,14 @@ export async function POST(request) {
   const body = await request.json();
   const { period, slipId } = body;
 
-  let query = supabase.from('payroll_slips').select('*');
-  if (slipId) {
-    query = query.eq('id', slipId);
-  } else if (period) {
-    query = query.eq('period', period);
-  } else {
-    return NextResponse.json({ error: 'กรุณาระบุงวด (period) หรือ slipId' }, { status: 400 });
-  }
+  const { data: slips, error: payError } = await supabase.rpc('confirm_payroll_payment', {
+    p_period: period || null, p_slip_id: slipId || null,
+  });
+  if (payError) return NextResponse.json({ error: payError.code === 'P0001' && /ยอด OT/.test(payError.message) ? payError.message : 'ยืนยันจ่ายไม่สำเร็จ กรุณาตรวจสลิปเดิมและ migration ก่อนลองใหม่' }, { status: 409 });
+  if (!slips?.length) return NextResponse.json({ success: true, count: 0, inAppSentCount: 0, lineSentCount: 0, message: 'ไม่มีรายการใหม่ที่ต้องยืนยันจ่าย' });
 
-  const { data: slips, error: fetchErr } = await query;
-  if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
-  if (!slips || slips.length === 0) {
-    return NextResponse.json({ error: 'ไม่พบรายการสลิปเงินเดือน' }, { status: 404 });
-  }
-
-  const slipIds = slips.map((s) => s.id);
-  const now = new Date().toISOString();
-
-  // 1. ปรับสถานะเป็น 'paid' (fallback ลองอัปเดต paid_at ถ้ามีคอลัมน์ หรือ notified_at)
-  let updateData = { status: 'paid', notified_at: now };
-  let { error: updateErr } = await supabase
-    .from('payroll_slips')
-    .update({ ...updateData, paid_at: now })
-    .in('id', slipIds);
-
-  if (updateErr) {
-    // ถ้า fail เพราะไม่มีคอลัมน์ paid_at ให้ update เฉพาะ status และ notified_at
-    const resFallback = await supabase
-      .from('payroll_slips')
-      .update(updateData)
-      .in('id', slipIds);
-    if (resFallback.error) return NextResponse.json({ error: resFallback.error.message }, { status: 500 });
-  }
-
-  // 1.1 ปรับสถานะ OT และรายการเบิกค่าใช้จ่าย (Expense Claims) ในงวดที่จ่ายให้เป็น 'paid'
-  for (const s of slips) {
-    const pStart = `${s.period}-01`;
-    const [y, m] = s.period.split('-').map(Number);
-    const pEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
-
-    await supabase
-      .from('ot_records')
-      .update({ status: 'paid' })
-      .eq('employee_id', s.employee_id)
-      .eq('status', 'approved')
-      .gte('ot_date', pStart)
-      .lte('ot_date', pEnd);
-
-    await supabase
-      .from('expense_claims')
-      .update({ status: 'paid' })
-      .eq('employee_id', s.employee_id)
-      .eq('status', 'approved')
-      .gte('claim_date', pStart)
-      .lte('claim_date', pEnd);
-  }
-
-  const lineMappings = await getLineMappings();
+  let lineMappings = {};
+  try { lineMappings = await getLineMappings(); } catch { console.error('[payroll] payment committed; LINE mapping lookup failed'); }
   let lineSentCount = 0;
   let inAppSentCount = 0;
 
@@ -111,6 +61,7 @@ export async function POST(request) {
           `• เงินเดือนฐาน: ${fmt(slip.base_salary)} บาท\n` +
           `• ค่าล่วงเวลา (OT): +${fmt(slip.ot_pay)} บาท\n` +
           `• โบนัส/เบี้ยเลี้ยง: +${fmt(slip.bonus)} บาท\n` +
+          `• คืนค่าใช้จ่าย: +${fmt(slip.reimbursements)} บาท\n` +
           `• หักประกันสังคม: -${fmt(slip.sso)} บาท\n` +
           `• หักภาษี ณ ที่จ่าย: -${fmt(slip.tax)} บาท\n` +
           `• หักอื่นๆ: -${fmt(slip.deduction)} บาท\n` +
@@ -118,7 +69,7 @@ export async function POST(request) {
           `💵 รับสุทธิ: ${netFormatted} บาท\n\n` +
           `📄 สามารถเปิดดูสลิปฉบับเต็มและดาวน์โหลดใบ 50 ทวิ ได้ที่เมนู "เงินเดือน" ในระบบพนักงานได้ทันทีค่ะ`;
 
-        await fetch('https://api.line.me/v2/bot/message/push', {
+        const lineResponse = await fetch('https://api.line.me/v2/bot/message/push', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -126,6 +77,8 @@ export async function POST(request) {
           },
           body: JSON.stringify({ to: lineUserId, messages: [{ type: 'text', text }] }),
         });
+        if (!lineResponse.ok) throw new Error('LINE delivery failed');
+        await supabase.from('payroll_slips').update({ notification_status: 'sent', notified_at: new Date().toISOString() }).eq('id', slip.id);
         lineSentCount++;
       } catch (err) {
         console.warn('Failed LINE push for:', slip.employee_id, err);
@@ -145,6 +98,6 @@ export async function POST(request) {
     count: slips.length,
     inAppSentCount,
     lineSentCount,
-    message: `ยืนยันจ่ายเงินเดือนเรียบร้อยแล้ว (${slips.length} รายการ) ระบบได้ส่งสลิปและแจ้งเตือนพนักงานอัตโนมัติแล้วค่ะ`,
+    message: `ยืนยันจ่าย ${slips.length} รายการ แจ้งในแอพ ${inAppSentCount} รายการ ส่ง LINE ${lineSentCount} รายการ`,
   });
 }

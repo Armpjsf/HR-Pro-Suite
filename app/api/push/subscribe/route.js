@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();

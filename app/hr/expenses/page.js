@@ -24,8 +24,8 @@ function parseExpenseDescription(raw) {
 }
 
 function receiptViewerUrl(file) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') || '' : '';
-  return `/api/assets/image?file=${encodeURIComponent(file)}&token=${encodeURIComponent(token)}`;
+
+  return `/api/assets/image?file=${encodeURIComponent(file)}`;
 }
 
 export default function ExpensesPage() {

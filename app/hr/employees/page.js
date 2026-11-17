@@ -49,8 +49,8 @@ const STATUS_LABELS = {
 const HISTORY_LABELS = { salary: 'เงินเดือน', position: 'ตำแหน่ง', status: 'สถานะ' };
 
 function photoSrc(photoUrl) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return `/api/assets/image?file=${encodeURIComponent(photoUrl)}&token=${encodeURIComponent(token || '')}`;
+
+  return `/api/assets/image?file=${encodeURIComponent(photoUrl)}`;
 }
 
 export default function EmployeesPage() {

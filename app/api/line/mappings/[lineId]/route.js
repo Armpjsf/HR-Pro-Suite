@@ -6,7 +6,7 @@ import { deleteLineMapping, addAuditEntry } from '@/lib/db';
  * DELETE /api/line/mappings/[lineId] — ยกเลิกการผูกบัญชี LINE (admin)
  */
 export async function DELETE(request, { params }) {
-  const { user, error, status } = requireRole(request, ['admin']);
+  const { user, error, status } = await requireRole(request, ['admin']);
   if (error) return NextResponse.json({ error }, { status });
 
   const { lineId } = await params;

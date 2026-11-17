@@ -10,7 +10,7 @@ const CATEGORIES = ['travel', 'fuel', 'meal', 'allowance', 'accommodation', 'mai
  * GET /api/me/expenses — รายการเบิกค่าใช้จ่ายของตัวเอง
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const { data, error: dbError } = await supabase
@@ -30,7 +30,7 @@ export async function GET(request) {
  * Body: { category, amount, description, claim_date, receiptUrl }
  */
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json();

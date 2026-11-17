@@ -77,7 +77,7 @@ export default function SettingsPage() {
 
   const selectedSig = signatures.find((a) => a.id === Number(s.tax_cert_signature_asset_id));
   const selectedStamp = stamps.find((a) => a.id === Number(s.tax_cert_stamp_asset_id));
-  const token = typeof window !== 'undefined' ? (localStorage.getItem('hr-token') || '') : '';
+
 
   return (
     <div style={{ maxWidth: 680 }}>
@@ -134,7 +134,7 @@ export default function SettingsPage() {
           {selectedSig?.image_url && (
             <div style={{ marginTop: 8, padding: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <img
-                src={`/api/assets/image?file=${encodeURIComponent(selectedSig.image_url)}&token=${encodeURIComponent(token)}`}
+                src={`/api/assets/image?file=${encodeURIComponent(selectedSig.image_url)}`}
                 alt="Signature preview"
                 style={{ maxHeight: 44, maxWidth: 160, objectFit: 'contain' }}
               />
@@ -160,7 +160,7 @@ export default function SettingsPage() {
           {selectedStamp?.image_url && (
             <div style={{ marginTop: 8, padding: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <img
-                src={`/api/assets/image?file=${encodeURIComponent(selectedStamp.image_url)}&token=${encodeURIComponent(token)}`}
+                src={`/api/assets/image?file=${encodeURIComponent(selectedStamp.image_url)}`}
                 alt="Stamp preview"
                 style={{ maxHeight: 44, maxWidth: 160, objectFit: 'contain' }}
               />
@@ -181,9 +181,9 @@ export default function SettingsPage() {
 
       {/* สำรองข้อมูลระบบ (Backup) */}
       <div className="hr-card" style={{ marginTop: 16 }}>
-        <h3 className="hr-section-title">📦 สำรองข้อมูลระบบ (Backup)</h3>
+        <h3 className="hr-section-title">ส่งออกข้อมูลและไฟล์แนบสำหรับผู้ดูแลระบบ</h3>
         <p style={{ fontSize: 13, color: '#5b6478', marginTop: 4, marginBottom: 14, lineHeight: 1.6 }}>
-          ดาวน์โหลดไฟล์สำรองข้อมูลของระบบ HR ทั้งหมด (ข้อมูลพนักงาน, ข้อมูลเงินเดือน, การลา, เอกสาร, ประกาศ, ประวัติ audit logs) ในรูปแบบ JSON เพื่อความปลอดภัยและการกู้คืนข้อมูล
+          ส่งออกตารางข้อมูลและไฟล์ใน Storage พร้อมค่าตรวจสอบไฟล์ ควรหยุดการแก้ไขข้อมูลชั่วคราวขณะส่งออก ไฟล์นี้มีข้อมูลส่วนบุคคลและข้อมูลยืนยันตัวตน ต้องเก็บในที่จำกัดสิทธิ์ การกู้คืนยังต้องใช้ schema และทดสอบในระบบแยกก่อน
         </p>
         <button
           type="button"
@@ -193,7 +193,7 @@ export default function SettingsPage() {
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', fontWeight: 600 }}
         >
           <span>{backingUp ? '⏳' : '📥'}</span>
-          <span>{backingUp ? 'กำลังเตรียมไฟล์สำรอง...' : 'ดาวน์โหลดไฟล์สำรองข้อมูล (.json)'}</span>
+          <span>{backingUp ? 'กำลังเตรียมข้อมูลและไฟล์แนบ...' : 'ส่งออกข้อมูลและไฟล์แนบ (.json)'}</span>
         </button>
       </div>
 

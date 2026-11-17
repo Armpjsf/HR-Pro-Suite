@@ -4,16 +4,10 @@ import { useState } from 'react';
 import ResourceTable from '@/components/hr/ResourceTable';
 import { authHeaders } from '@/components/hr/exportUtils';
 import { confirmDialog } from '@/components/ui/ConfirmDialog';
+import { COMPANY } from '@/lib/company';
 
 const baht = (v) => Number(v || 0).toLocaleString('th-TH') + ' ฿';
 const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const COMPANY = {
-  name: 'บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด',
-  legalName: 'DD SERVICE & TRANSPORT CO., LTD.',
-  address: 'เลขที่ 88/8 หมู่ 5 ต.คลองหนึ่ง อ.คลองหลวง จ.ปทุมธานี 12120',
-  taxId: '0105560012345',
-};
 
 export default function PayrollPage() {
   const [viewSlip, setViewSlip] = useState(null);
@@ -21,6 +15,7 @@ export default function PayrollPage() {
   const [genPeriod, setGenPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [genOverwrite, setGenOverwrite] = useState(false);
   const [genLoading, setGenLoading] = useState(false);
+  const [genFailures, setGenFailures] = useState([]);
 
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [batchPeriod, setBatchPeriod] = useState(new Date().toISOString().slice(0, 7));
@@ -85,6 +80,7 @@ export default function PayrollPage() {
 
   async function handleGeneratePayroll(e) {
     e.preventDefault();
+    setGenFailures([]);
     setGenLoading(true);
     try {
       const res = await fetch('/api/hr/payroll/generate', {
@@ -93,6 +89,7 @@ export default function PayrollPage() {
         body: JSON.stringify({ period: genPeriod, overwrite: genOverwrite }),
       });
       const d = await res.json();
+      setGenFailures(d.failed || []);
       if (res.ok) {
         showToast(`คำนวณสลิปงวด ${d.period} สำเร็จ (ใหม่ ${d.created} · อัปเดต ${d.updated} · ข้าม ${d.skipped})`);
         setShowGenModal(false);
@@ -209,6 +206,7 @@ export default function PayrollPage() {
       <ResourceTable
         config={{
           resource: 'payroll',
+        canDelete: false,
           exportName: 'payroll_slips',
           searchPlaceholder: 'ค้นหารหัส/ชื่อพนักงาน/งวด...',
           onItemsChange: handleItemsChange,
@@ -262,6 +260,7 @@ export default function PayrollPage() {
             { key: 'base_salary', label: 'ฐาน', format: baht },
             { key: 'ot_pay', label: 'OT', format: (v) => '+' + baht(v) },
             { key: 'bonus', label: 'โบนัส', format: (v) => '+' + baht(v) },
+            { key: 'reimbursements', label: 'คืนค่าใช้จ่าย', format: (v) => '+' + baht(v) },
             { key: 'tax', label: 'ภาษี', format: (v) => '-' + baht(v) },
             { key: 'sso', label: 'ปกส.', format: (v) => '-' + baht(v) },
             { key: 'deduction', label: 'หักอื่นๆ', format: (v) => '-' + baht(v) },
@@ -287,6 +286,7 @@ export default function PayrollPage() {
             { key: 'base_salary', label: 'เงินเดือนฐาน (บาท)', type: 'number', default: 0 },
             { key: 'ot_pay', label: 'ค่าล่วงเวลา OT (บาท)', type: 'number', default: 0 },
             { key: 'bonus', label: 'โบนัส (บาท)', type: 'number', default: 0 },
+            { key: 'reimbursements', label: 'คืนค่าใช้จ่าย (บาท)', type: 'number', default: 0 },
             {
               key: 'tax',
               label: 'หักภาษี ณ ที่จ่าย (เลือก % หรือระบุยอดบาท)',
@@ -309,7 +309,7 @@ export default function PayrollPage() {
             net:
               (Number(form.base_salary) || 0) +
               (Number(form.ot_pay) || 0) +
-              (Number(form.bonus) || 0) -
+              (Number(form.bonus) || 0) + (Number(form.reimbursements) || 0) -
               (Number(form.tax) || 0) -
               (Number(form.sso) || 0) -
               (Number(form.deduction) || 0),
@@ -323,7 +323,7 @@ export default function PayrollPage() {
               >
                 📄
               </button>
-              {row.status !== 'paid' && (
+              {row.status === 'draft' && (
                 <button
                   className="hr-btn hr-btn-icon"
                   title="ยืนยันจ่ายเงินเดือน (ออกสลิป & แจ้งเตือน Auto)"
@@ -354,6 +354,7 @@ export default function PayrollPage() {
               <button className="hr-modal-close" onClick={() => setShowGenModal(false)}>✕</button>
             </div>
             <form onSubmit={handleGeneratePayroll}>
+              {genFailures.length > 0 && <div role="alert"><p>รายการต่อไปนี้ยังคำนวณไม่สำเร็จ</p><ul>{genFailures.map((f) => <li key={f.employeeId}>{f.employeeId}: {f.error}</li>)}</ul></div>}
               <div className="hr-field">
                 <label>ประจำงวด (เดือน/ปี) *</label>
                 <input
@@ -592,7 +593,7 @@ export default function PayrollPage() {
 }
 
 function SlipViewModal({ slip, onClose }) {
-  const income = Number(slip.base_salary || 0) + Number(slip.ot_pay || 0) + Number(slip.bonus || 0);
+  const income = Number(slip.base_salary || 0) + Number(slip.ot_pay || 0) + Number(slip.bonus || 0) + Number(slip.reimbursements || 0);
   const totalDed = Number(slip.tax || 0) + Number(slip.sso || 0) + Number(slip.deduction || 0);
 
   return (
@@ -667,6 +668,7 @@ function SlipViewModal({ slip, onClose }) {
                 <td>หักขาดงาน / ค่าปรับ / อื่นๆ</td>
                 <td style={{ textAlign: 'right', color: 'var(--hr-red)' }}>{num(slip.deduction)}</td>
               </tr>
+              <tr><td>คืนค่าใช้จ่าย</td><td style={{ textAlign: 'right' }}>{num(slip.reimbursements)}</td><td></td><td></td></tr>
             </tbody>
             <tfoot>
               <tr style={{ background: '#FAFAFC', fontWeight: 700 }}>

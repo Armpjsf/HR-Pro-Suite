@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { requireAuth, requireRole } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
+import { requireMenu } from '@/lib/hr-access';
 import { filterDocumentsByRole } from '@/lib/permissions';
 import { getDocuments, addDocument, writeStoredFile, addAuditEntry } from '@/lib/db';
 import { detectFileType, extractText } from '@/lib/extract';
@@ -24,7 +25,7 @@ const DEFAULT_ACCESS_ROLES = {
  * GET /api/documents — รายการเอกสาร (กรองตามสิทธิ์)
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const categoryFilter = request.nextUrl?.searchParams?.get('category');
@@ -45,7 +46,7 @@ export async function GET(request) {
  * POST /api/documents — อัพโหลดเอกสารจริง หรือเพิ่มลิงก์คลิปวิดีโอ (admin/hr)
  */
 export async function POST(request) {
-  const { user, error, status } = requireRole(request, ['admin', 'hr']);
+  const { user, error, status } = await requireMenu(request, 'documents');
   if (error) return NextResponse.json({ error }, { status });
 
   try {

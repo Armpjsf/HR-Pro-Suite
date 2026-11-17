@@ -1,4 +1,5 @@
 const BASE_URL = 'http://localhost:3000';
+if (process.env.RUN_LEGACY_E2E !== '1') throw new Error('Legacy E2E script is disabled: it writes business data and expects the old login token response. Use npm test for isolated PostgreSQL regression tests.');
 
 let passed = 0;
 let failed = 0;

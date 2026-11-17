@@ -12,7 +12,7 @@ function sanitize(user) {
  * PUT /api/users/[id] — แก้ไขผู้ใช้ (admin)
  */
 export async function PUT(request, { params }) {
-  const { user: admin, error, status } = requireRole(request, ['admin']);
+  const { user: admin, error, status } = await requireRole(request, ['admin']);
   if (error) return NextResponse.json({ error }, { status });
 
   try {
@@ -70,7 +70,7 @@ export async function PUT(request, { params }) {
  * DELETE /api/users/[id] — ลบผู้ใช้ (admin)
  */
 export async function DELETE(request, { params }) {
-  const { user: admin, error, status } = requireRole(request, ['admin']);
+  const { user: admin, error, status } = await requireRole(request, ['admin']);
   if (error) return NextResponse.json({ error }, { status });
 
   const { id } = await params;

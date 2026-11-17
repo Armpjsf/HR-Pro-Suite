@@ -139,11 +139,10 @@ export default function EmployeePage() {
   const [loadError, setLoadError] = useState(false);
 
   const refreshMeData = useCallback(async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-    if (!token) return;
+
     try {
       const res = await fetch('/api/me', {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
       });
       if (res.ok) {
         const d = await res.json();
@@ -212,6 +211,7 @@ export default function EmployeePage() {
       }
     };
 
+    handlePopState({ state: null });
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [refreshMeData]);
@@ -219,8 +219,8 @@ export default function EmployeePage() {
   /* ─── Auth & Initial Data Load ─── */
   useEffect(() => {
     const stored = localStorage.getItem('hr-user');
-    const token = localStorage.getItem('hr-token');
-    if (!stored || !token) {
+
+    if (!stored) {
       router.replace('/');
       return;
     }
@@ -234,7 +234,7 @@ export default function EmployeePage() {
       return;
     }
 
-    fetch('/api/me', { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
+    fetch('/api/me', { headers: { 'Content-Type': 'application/json' } })
       .then(async (r) => {
         if (r.status === 401) {
           localStorage.removeItem('hr-user');
@@ -260,7 +260,9 @@ export default function EmployeePage() {
       .catch(() => setLoadError(true));
   }, [router]);
 
-  function handleLogout() {
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    sessionStorage.clear();
     localStorage.removeItem('hr-user');
     localStorage.removeItem('hr-token');
     document.cookie = 'hr-token=; path=/; max-age=0';
@@ -280,14 +282,15 @@ export default function EmployeePage() {
             <AppIcon name="alert-triangle" size={44} />
           </div>
           <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8, color: '#0F172A' }}>
-            เซสชันหมดอายุ หรือไม่สามารถโหลดข้อมูลได้
+            ไม่สามารถโหลดข้อมูลได้
           </div>
           <div style={{ fontSize: 13, color: '#64748B', marginBottom: 24 }}>
-            กรุณาเข้าสู่ระบบใหม่อีกครั้งเพื่อความปลอดภัยของข้อมูล
+            ตรวจการเชื่อมต่อแล้วลองใหม่ หากบัญชีใช้งานไม่ได้ กรุณาติดต่อ HR
           </div>
           <button className="me-btn" onClick={handleLogout} style={{ maxWidth: 220, margin: '0 auto' }}>
             <AppIcon name="logout" size={16} /> เข้าสู่ระบบใหม่
           </button>
+          <button type="button" className="me-btn" onClick={() => window.location.reload()} style={{ maxWidth: 220, margin: '12px auto' }}>ลองโหลดใหม่</button>
         </div>
       </div>
     );
@@ -381,8 +384,7 @@ export default function EmployeePage() {
             type="button"
             className={`me-tab${tab === t.id ? ' active' : ''}`}
             onClick={() => navigateToTab(t.id)}
-            aria-selected={tab === t.id}
-            role="tab"
+            aria-current={tab === t.id ? 'page' : undefined}
           >
             <span className="ico">
               <AppIcon name={t.icon} size={20} />
@@ -421,9 +423,9 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
     let cancelled = false;
     (async () => {
       try {
-        const token = localStorage.getItem('hr-token');
+
         const res = await fetch('/api/me/read-receipts', {
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json' },
         });
         if (res.ok) {
           const d = await res.json();
@@ -478,7 +480,8 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
       showToast(
         err.code === 1
           ? 'กรุณาอนุญาตการเข้าถึงพิกัด GPS บนอุปกรณ์ของท่าน'
-          : 'ไม่สามารถระบุพิกัดดาวเทียม GPS ได้',
+          : [2, 3].includes(err.code) ? 'ยังหาพิกัด GPS ไม่ได้ กรุณาเปิดตำแหน่งและลองใหม่'
+          : 'เชื่อมต่อเพื่อบันทึกเวลาไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตและตรวจสถานะก่อนลองอีกครั้ง',
         true
       );
     } finally {
@@ -519,6 +522,7 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
   return (
     <>
       {/* ── 1. Attendance GPS Clock Station Widget ── */}
+      {data.isManager && <button type="button" className="me-btn" style={{ marginBottom: 12 }} onClick={() => onNavigateSubTab('teamleave')}><AppIcon name="check-circle" size={18} /> ตรวจคำขออนุมัติของลูกทีม</button>}
       <section className="me-clock-widget" aria-label="สถานีลงเวลาทำงาน GPS">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
@@ -809,9 +813,9 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
                     type="button"
                     className="me-btn"
                     onClick={() => {
-                      const token = localStorage.getItem('hr-token');
+
                       window.open(
-                        `/api/documents/${selectedAnnouncement.docId}/download?token=${encodeURIComponent(token || '')}`,
+                        `/api/documents/${selectedAnnouncement.docId}/download`,
                         '_blank'
                       );
                     }}
@@ -833,10 +837,10 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
                       setAckingAnn(true);
                       try {
                         const ref = `ann:${selectedAnnouncement.id}`;
-                        const token = localStorage.getItem('hr-token');
+
                         const res = await fetch('/api/me/read-receipts', {
                           method: 'POST',
-                          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                          headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ refId: ref, title: selectedAnnouncement.title }),
                         });
                         if (res.ok) {
@@ -876,14 +880,40 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
         ];
   const firstLeaveType = leaveOptions[0]?.code || 'annual';
 
-  const [form, setForm] = useState({
+  const draftKey = `hr-leave-draft:${data.profile?.employeeId || 'self'}`;
+  const [savedDraft] = useState(() => {
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+      return draft && Date.now() - draft.savedAt < 86400000 ? draft : null;
+    } catch { return null; }
+  });
+  const [form, setForm] = useState(savedDraft?.form || {
     leave_type: firstLeaveType,
     start_date: '',
     end_date: '',
     days: 1,
     reason: '',
   });
-  const [durationMode, setDurationMode] = useState('full'); // 'full' | 'morning' | 'afternoon' | 'custom'
+  const [durationMode, setDurationMode] = useState(savedDraft?.session || 'full');
+  useEffect(() => {
+    try {
+      if (!form.start_date && !form.end_date && !form.reason) sessionStorage.removeItem(draftKey);
+      else sessionStorage.setItem(draftKey, JSON.stringify({ form, session: durationMode, savedAt: Date.now() }));
+    } catch { /* Storage can be disabled; the form still works in memory. */ }
+  }, [draftKey, form, durationMode]);
+  const [preview, setPreview] = useState(null);
+  const previewKey = `${form.start_date}/${form.end_date}/${durationMode}`;
+  useEffect(() => {
+    if (!form.start_date || !form.end_date) return;
+    const controller = new AbortController();
+    const key = `${form.start_date}/${form.end_date}/${durationMode}`;
+    fetch('/api/me/leave/preview', { method: 'POST', headers: authHeaders(), signal: controller.signal,
+      body: JSON.stringify({ start_date: form.start_date, end_date: form.end_date, session: durationMode }) })
+      .then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.error || 'ตรวจจำนวนวันไม่สำเร็จ'); return d; })
+      .then((d) => setPreview({ ...d, key }))
+      .catch((e) => { if (e.name !== 'AbortError') setPreview({ key, error: e.message }); });
+    return () => controller.abort();
+  }, [form.start_date, form.end_date, durationMode]);
   const [loading, setLoading] = useState(false);
   const leaves = data.leaves || [];
 
@@ -894,14 +924,14 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
       const res = await fetch('/api/me/leave', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, session: durationMode }),
       });
       const d = await res.json();
       if (!res.ok) {
         showToast(d.error || 'ยื่นใบลาไม่สำเร็จ', true);
         return;
       }
-      showToast('ยื่นใบลาเรียบร้อยแล้ว');
+      showToast(`ยื่นใบลาเรียบร้อย ${d.item.days} วัน ตามปฏิทินงาน`);
       if (setData) {
         setData((prev) => ({
           ...prev,
@@ -943,8 +973,9 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
         </div>
         <form onSubmit={handleSubmit}>
           <div className="me-field">
-            <label>ประเภทการลา</label>
+            <label htmlFor="leave-type">ประเภทการลา</label>
             <select
+              id="leave-type"
               value={form.leave_type}
               onChange={(e) => setForm({ ...form, leave_type: e.target.value })}
               required
@@ -964,8 +995,9 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
 
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="me-field" style={{ flex: 1 }}>
-              <label>วันที่เริ่มลา</label>
+              <label htmlFor="leave-start">วันที่เริ่มลา</label>
               <input
+                id="leave-start"
                 type="date"
                 className="me-input"
                 value={form.start_date}
@@ -979,8 +1011,9 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
               />
             </div>
             <div className="me-field" style={{ flex: 1 }}>
-              <label>วันที่สิ้นสุด</label>
+              <label htmlFor="leave-end">วันที่สิ้นสุด</label>
               <input
+                id="leave-end"
                 type="date"
                 className="me-input"
                 min={form.start_date}
@@ -1001,7 +1034,7 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
             <label>ช่วงเวลา / ระยะเวลาการลา</label>
             <div className="me-segmented-picker" role="radiogroup" aria-label="ช่วงเวลาการลา">
               {[
-                { id: 'full', label: 'เต็มวัน (1.0)', days: 1 },
+                { id: 'full', label: 'เต็มวันตามช่วงวันที่', days: 1 },
                 { id: 'half_morning', label: 'ครึ่งเช้า (0.5)', days: 0.5 },
                 { id: 'half_afternoon', label: 'ครึ่งบ่าย (0.5)', days: 0.5 },
               ].map((opt) => (
@@ -1013,7 +1046,7 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
                   className={`me-segmented-opt${durationMode === opt.id ? ' active' : ''}`}
                   onClick={() => {
                     setDurationMode(opt.id);
-                    setForm({ ...form, days: opt.days });
+                    setForm({ ...form, ...(opt.id !== 'full' ? { end_date: form.start_date } : {}) });
                   }}
                 >
                   {opt.label}
@@ -1023,31 +1056,22 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
           </div>
 
           <div className="me-field">
-            <label>จำนวนวันลา (วัน)</label>
-            <input
-              type="number"
-              className="me-input"
-              min="0.5"
-              step="0.5"
-              value={form.days}
-              onChange={(e) => {
-                setDurationMode('custom');
-                setForm({ ...form, days: e.target.value });
-              }}
-              required
-            />
+            <div role="status" aria-live="polite">
+              {!form.start_date || !form.end_date ? 'เลือกวันที่เพื่อคำนวณจำนวนวันลา' : preview?.key !== previewKey ? 'กำลังตรวจปฏิทินงาน...' : preview.error || `จำนวนวันลา ${preview.days} วัน (หักวันหยุดตามปฏิทินงานแล้ว)`}
+            </div>
           </div>
 
           <div className="me-field">
-            <label>เหตุผลการลา</label>
+            <label htmlFor="leave-reason">เหตุผลการลา</label>
             <textarea
+              id="leave-reason"
               value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
               placeholder="ระบุเหตุผลการลา เช่น ธุระครอบครัว หรือลาป่วย..."
             />
           </div>
 
-          <button className="me-btn" disabled={loading}>
+          <button className="me-btn" disabled={loading || preview?.key !== previewKey || !preview?.days || !!preview?.error}>
             <AppIcon name="calendar" size={16} />
             <span>{loading ? 'กำลังส่งคำขอ...' : 'ส่งใบลา'}</span>
           </button>
@@ -1083,6 +1107,7 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
    MORE TAB (Logistics 3 Clear Operational Groups)
    ═══════════════════════════════════════════════════════════════ */
 function MoreTab({ user, data, subTab, onOpenSubTab, onCloseSubTab, showToast, onLogout }) {
+  const [menuQuery, setMenuQuery] = useState('');
   // Render active sub-view if selected
   if (subTab === 'payslip') return <DynamicPayslipTab data={data} back={onCloseSubTab} />;
   if (subTab === 'expenses') return <DynamicExpensesSection back={onCloseSubTab} showToast={showToast} />;
@@ -1124,7 +1149,7 @@ function MoreTab({ user, data, subTab, onOpenSubTab, onCloseSubTab, showToast, o
       icon: 'truck',
       items: [
         { id: 'calendar', icon: 'calendar', label: 'ตารางกะและปฏิทินงาน', desc: 'ดูตารางเวร วันหยุด และวันทำงาน' },
-        { id: 'shiftswap', icon: 'refresh', label: 'การขอสลับกะงาน', desc: 'ยื่นเรื่องขอเปลี่ยนกะหรือสลับเวร' },
+        { id: 'shiftswap', icon: 'refresh', label: 'การขอสลับกะงาน', desc: 'ดูวิธีประสานหัวหน้าเพื่อเปลี่ยนกะหรือสลับเวร' },
         { id: 'attendance', icon: 'clock', label: 'ประวัติเข้า-ออกงาน', desc: 'ดูสถิติเวลาและพิกัดลงเวลาย้อนหลัง' },
         { id: 'assets', icon: 'package', label: 'รถและทรัพย์สินที่เบิกใช้', desc: 'ขอเบิก คืน หรือเปลี่ยนยานพาหนะ/อุปกรณ์' },
         { id: 'manuals', icon: 'rocket', label: 'คู่มือ & คลิปอบรมพนักงานขับรถ', desc: 'วิดีโอสอนการใช้งานและขั้นตอนการทำงาน' },
@@ -1156,16 +1181,18 @@ function MoreTab({ user, data, subTab, onOpenSubTab, onCloseSubTab, showToast, o
 
   return (
     <>
-      {MENU_GROUPS.map((group, gIdx) => (
+      <div className="me-field"><label htmlFor="employee-menu-search">ค้นหาเมนู</label><input id="employee-menu-search" className="me-input" type="search" value={menuQuery} onChange={(e) => setMenuQuery(e.target.value)} placeholder="เช่น ใบลา สลิป เอกสาร" /></div>
+      {MENU_GROUPS.filter((group) => group.items.some((m) => `${m.label} ${m.desc}`.includes(menuQuery.trim()))).map((group, gIdx) => (
         <div key={gIdx} className="me-card">
           <div className="me-section-title">
             <AppIcon name={group.icon} size={18} /> {group.groupTitle}
           </div>
-          {group.items.map((m) => (
-            <div
+          {group.items.filter((m) => `${m.label} ${m.desc}`.includes(menuQuery.trim())).map((m) => (
+            <button
+              type="button"
               key={m.id}
               className="me-row"
-              style={{ cursor: 'pointer', padding: '12px 0' }}
+              style={{ cursor: 'pointer', padding: '12px 0', width: '100%', border: 'none', background: 'transparent', textAlign: 'left', font: 'inherit' }}
               onClick={() => onOpenSubTab(m.id)}
             >
               <span className="k" style={{ display: 'flex', alignItems: 'center' }}>
@@ -1180,10 +1207,12 @@ function MoreTab({ user, data, subTab, onOpenSubTab, onCloseSubTab, showToast, o
               <span className="v" style={{ color: '#94A3B8' }}>
                 <AppIcon name="chevron-right" size={16} />
               </span>
-            </div>
+            </button>
           ))}
         </div>
       ))}
+
+      {!MENU_GROUPS.some((group) => group.items.some((m) => `${m.label} ${m.desc}`.includes(menuQuery.trim()))) && <p role="status">ไม่พบเมนูที่ค้นหา ลองใช้คำสั้นลง</p>}
 
       {/* Logout Action */}
       <button

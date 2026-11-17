@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
  * รวมรายได้ทั้งปี + ภาษีหัก + ปกส. จาก payroll_slips ในปีนั้น
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const url = new URL(request.url);

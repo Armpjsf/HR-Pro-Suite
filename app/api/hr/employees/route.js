@@ -15,7 +15,7 @@ const SENSITIVE = ['salary', 'nationalId', 'bankName', 'bankAccount', 'taxId', '
  * - มีสิทธิ์ HR เมนูอื่น (เช่น accounting) → เห็นเฉพาะชื่อ/แผนก/ตำแหน่ง (ไว้ทำ dropdown/รายงาน) ไม่เห็นข้อมูลอ่อนไหว
  */
 export async function GET(request) {
-  const u = getUserFromRequest(request);
+  const u = await getUserFromRequest(request);
   if (!u) return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   if (!(await canAccessHr(u.role))) return NextResponse.json({ error: 'คุณไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   const allowed = await getAllowedMenus(u.role);

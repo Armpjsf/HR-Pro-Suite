@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { exportExcel, printPDF, authHeaders } from './exportUtils';
 import { AppIcon } from '@/components/ui/Icons';
 import { confirmDialog } from '@/components/ui/ConfirmDialog';
+import useDialogFocus from '@/components/ui/useDialogFocus';
 
 const WEEKDAY_OPTIONS = [
   { value: '1', label: 'จันทร์' },
@@ -50,14 +51,23 @@ export default function ResourceTable({ config }) {
   const [employees, setEmployees] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkFailures, setBulkFailures] = useState([]);
   const searchTimer = useRef(null);
+  const modalRef = useRef(null);
+  const initialForm = useRef('');
+  const requestClose = useCallback(async () => {
+    if (saving) return;
+    if (JSON.stringify(form) !== initialForm.current && !(await confirmDialog({ title: 'ยังไม่ได้บันทึกข้อมูล', message: 'ต้องการปิดและทิ้งการแก้ไขหรือไม่?', confirmLabel: 'ทิ้งการแก้ไข', destructive: true }))) return;
+    setShowModal(false);
+  }, [saving, form]);
+  useDialogFocus(modalRef, showModal, requestClose);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3200);
   }, []);
 
-  const load = useCallback(async (q = '') => {
+  const load = useCallback(async (q = '', preserveSelection = false) => {
     setLoading(true);
     try {
       const url = `/api/hr/${resource}${q ? `?q=${encodeURIComponent(q)}` : ''}`;
@@ -65,7 +75,7 @@ export default function ResourceTable({ config }) {
       const data = await res.json();
       if (res.ok) {
         setItems(data.items || []);
-        setSelectedIds(new Set());
+        if (!preserveSelection) setSelectedIds(new Set());
       }
       else showToast(data.error || 'โหลดข้อมูลไม่สำเร็จ', 'error');
     } catch {
@@ -143,6 +153,7 @@ export default function ResourceTable({ config }) {
     const initial = {};
     for (const f of fields || []) initial[f.key] = f.default ?? (f.type === 'checkbox' ? false : '');
     setForm(initial);
+    initialForm.current = JSON.stringify(initial);
     setShowModal(true);
   }
 
@@ -151,6 +162,7 @@ export default function ResourceTable({ config }) {
     const initial = {};
     for (const f of fields || []) initial[f.key] = row[f.key] ?? (f.type === 'checkbox' ? false : '');
     setForm(initial);
+    initialForm.current = JSON.stringify(initial);
     setShowModal(true);
   }
 
@@ -243,7 +255,7 @@ export default function ResourceTable({ config }) {
 
     if (f.type === 'select') {
       return (
-        <select value={value} onChange={(e) => set(e.target.value)} required={f.required}>
+        <select aria-labelledby={`field-label-${f.key}`} value={value} onChange={(e) => set(e.target.value)} required={f.required}>
           <option value="">— เลือก —</option>
           {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -251,7 +263,7 @@ export default function ResourceTable({ config }) {
     }
     if (f.type === 'employee') {
       return (
-        <select value={value} onChange={(e) => set(e.target.value)} required={f.required}>
+        <select aria-labelledby={`field-label-${f.key}`} value={value} onChange={(e) => set(e.target.value)} required={f.required}>
           <option value="">— เลือกพนักงาน —</option>
           {employees.map((emp) => (
             <option key={emp.employeeId} value={emp.employeeId}>
@@ -263,7 +275,7 @@ export default function ResourceTable({ config }) {
     }
     if (f.type === 'department') {
       return (
-        <select value={value || ''} onChange={(e) => set(e.target.value)} required={f.required}>
+        <select aria-labelledby={`field-label-${f.key}`} value={value || ''} onChange={(e) => set(e.target.value)} required={f.required}>
           <option value="">— เลือกแผนก —</option>
           {departments.map((d) => (
             <option key={d.code || d.name} value={d.name}>{d.name} {d.code ? `(${d.code})` : ''}</option>
@@ -279,7 +291,7 @@ export default function ResourceTable({ config }) {
       const isCustomMode = value !== undefined && value !== null && value !== '' && !isKnown;
       return (
         <div>
-          <select
+          <select aria-labelledby={`field-label-${f.key}`}
             value={isCustomMode ? '__custom__' : (value || '')}
             onChange={(e) => {
               if (e.target.value === '__custom__') {
@@ -297,7 +309,7 @@ export default function ResourceTable({ config }) {
             <option value="__custom__">ระบุตำแหน่งอื่น (พิมพ์ชื่อเอง)...</option>
           </select>
           {(isCustomMode || value === ' ') && (
-            <input
+            <input aria-labelledby={`field-label-${f.key}`}
               type="text"
               className="hr-input"
               style={{ marginTop: 6 }}
@@ -313,7 +325,7 @@ export default function ResourceTable({ config }) {
     }
     if (f.type === 'branch') {
       return (
-        <select value={value ?? ''} onChange={(e) => set(e.target.value === '' ? '' : Number(e.target.value))} required={f.required}>
+        <select aria-labelledby={`field-label-${f.key}`} value={value ?? ''} onChange={(e) => set(e.target.value === '' ? '' : Number(e.target.value))} required={f.required}>
           <option value="">{f.allLabel || '— ทุกสาขา —'}</option>
           {branches.map((b) => (
             <option key={b.id} value={b.id}>{b.code} · {b.name}</option>
@@ -322,11 +334,11 @@ export default function ResourceTable({ config }) {
       );
     }
     if (f.type === 'textarea') {
-      return <textarea value={value} onChange={(e) => set(e.target.value)} required={f.required} />;
+      return <textarea aria-labelledby={`field-label-${f.key}`} value={value} onChange={(e) => set(e.target.value)} required={f.required} />;
     }
     if (f.type === 'checkbox') {
       return (
-        <input
+        <input aria-labelledby={`field-label-${f.key}`}
           type="checkbox"
           checked={!!value}
           onChange={(e) => set(e.target.checked)}
@@ -361,7 +373,7 @@ export default function ResourceTable({ config }) {
       );
     }
     return (
-      <input
+      <input aria-labelledby={`field-label-${f.key}`}
         className="hr-input"
         type={f.type || 'text'}
         value={value}
@@ -450,65 +462,36 @@ export default function ResourceTable({ config }) {
     setSelectedIds(next);
   }
 
-  async function handleBulkStatus(newStatus) {
-    const statusThai = newStatus === 'approved' ? 'อนุมัติ' : newStatus === 'rejected' ? 'ไม่อนุมัติ' : newStatus;
-    const ok = await confirmDialog({
-      title: `ยืนยัน${statusThai}รายการที่เลือก?`,
-      message: `คุณกำลังจะปรับสถานะ ${selectedIds.size} รายการ เป็น "${statusThai}" ต้องการดำเนินการต่อหรือไม่?`,
-      confirmLabel: `ยืนยัน${statusThai}`,
-    });
-    if (!ok) return;
-
+  async function runBulk(method, newStatus) {
+    const failed = [];
     setBulkProcessing(true);
-    let successCount = 0;
-    try {
-      for (const id of selectedIds) {
-        const res = await fetch(`/api/hr/${resource}/${id}`, {
-          method: 'PUT',
-          headers: authHeaders(true),
-          body: JSON.stringify({ status: newStatus }),
+    for (const id of selectedIds) {
+      try {
+        const approval = resource === 'leave' && method === 'PUT';
+        const res = await fetch(approval ? `/api/hr/leave/${id}/approve` : `/api/hr/${resource}/${id}`, {
+          method: approval ? 'POST' : method, headers: authHeaders(true),
+          ...(method === 'PUT' ? { body: JSON.stringify(approval ? { action: newStatus === 'approved' ? 'approve' : 'reject' } : { status: newStatus }) } : {}),
         });
-        if (res.ok) successCount++;
-      }
-      showToast(`${statusThai}สำเร็จ ${successCount} รายการ`);
-      setSelectedIds(new Set());
-      load(search);
-    } catch {
-      showToast(`เกิดข้อผิดพลาดในการ${statusThai}`, 'error');
+        if (!res.ok) { const d = await res.json().catch(() => ({})); failed.push({ id, error: d.error || 'ดำเนินการไม่สำเร็จ' }); }
+      } catch { failed.push({ id, error: 'เชื่อมต่อไม่สำเร็จ' }); }
     }
+    const done = selectedIds.size - failed.length;
+    setBulkFailures(failed);
+    await load(search, true);
+    setSelectedIds(new Set(failed.map((f) => f.id)));
+    showToast(`สำเร็จ ${done} รายการ · ไม่สำเร็จ ${failed.length} รายการ${failed.length ? ' — เลือกรายการที่ผิดไว้ให้แล้ว: ' + failed.map((f) => '#' + f.id + ' ' + f.error).join('; ') : ''}`, failed.length ? 'error' : 'success');
     setBulkProcessing(false);
   }
-
+  async function handleBulkStatus(newStatus) {
+    if (await confirmDialog({ title: 'เปลี่ยนสถานะรายการที่เลือก?', message: `จำนวน ${selectedIds.size} รายการ`, confirmLabel: 'ยืนยัน' })) await runBulk('PUT', newStatus);
+  }
   async function handleBulkDelete() {
-    const ok = await confirmDialog({
-      title: 'ยืนยันลบรายการที่เลือก?',
-      message: `คุณต้องการลบข้อมูล ${selectedIds.size} รายการนี้ใช่หรือไม่ การดำเนินการนี้ไม่สามารถเรียกคืนได้`,
-      confirmLabel: 'ลบรายการที่เลือก',
-      destructive: true,
-    });
-    if (!ok) return;
-
-    setBulkProcessing(true);
-    let successCount = 0;
-    try {
-      for (const id of selectedIds) {
-        const res = await fetch(`/api/hr/${resource}/${id}`, {
-          method: 'DELETE',
-          headers: authHeaders(),
-        });
-        if (res.ok) successCount++;
-      }
-      showToast(`ลบรายการสำเร็จ ${successCount} รายการ`);
-      setSelectedIds(new Set());
-      load(search);
-    } catch {
-      showToast('เกิดข้อผิดพลาดในการลบรายการ', 'error');
-    }
-    setBulkProcessing(false);
+    if (await confirmDialog({ title: 'ลบรายการที่เลือก?', message: `จำนวน ${selectedIds.size} รายการ การลบไม่สามารถเรียกคืนได้`, confirmLabel: 'ลบรายการ', destructive: true })) await runBulk('DELETE');
   }
 
   return (
     <div>
+      {bulkFailures.length > 0 && <div className="hr-card" role="alert"><p>มี {bulkFailures.length} รายการไม่สำเร็จ เลือกรายการเหล่านี้ไว้ให้แล้วเพื่อให้ลองใหม่ได้</p><ul>{bulkFailures.map((f) => <li key={f.id}>#{f.id}: {f.error}</li>)}</ul></div>}
       {/* Branch filtering subtle alert banner */}
       {activeBranch !== 'all' && (
         <div
@@ -834,21 +817,21 @@ export default function ResourceTable({ config }) {
 
       {/* Form Sheet Modal */}
       {showModal && (
-        <div className="hr-modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="hr-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="hr-modal-overlay" onClick={requestClose}>
+          <div className="hr-modal" ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="resource-dialog-title" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <div className="hr-modal-header">
-              <div className="hr-modal-title">{editing ? 'แก้ไขข้อมูล' : 'เพิ่มข้อมูลใหม่'}</div>
-              <button className="hr-modal-close" onClick={() => setShowModal(false)} aria-label="ปิดหน้าต่าง">✕</button>
+              <div className="hr-modal-title" id="resource-dialog-title">{editing ? 'แก้ไขข้อมูล' : 'เพิ่มข้อมูลใหม่'}</div>
+              <button className="hr-modal-close" disabled={saving} onClick={requestClose} aria-label="ปิดหน้าต่าง">✕</button>
             </div>
             <form onSubmit={save}>
               {(fields || []).map((f) => (
                 <div className="hr-field" key={f.key}>
-                  <label>{f.label}{f.required ? ' *' : ''}</label>
+                  <label id={`field-label-${f.key}`}>{f.label}{f.required ? ' *' : ''}</label>
                   {renderField(f)}
                 </div>
               ))}
               <div className="hr-modal-actions">
-                <button type="button" className="hr-btn" onClick={() => setShowModal(false)}>ยกเลิก</button>
+                <button type="button" className="hr-btn" disabled={saving} onClick={requestClose}>ยกเลิก</button>
                 <button type="submit" className="hr-btn hr-btn-primary" disabled={saving}>
                   {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
                 </button>
@@ -858,7 +841,7 @@ export default function ResourceTable({ config }) {
         </div>
       )}
 
-      {toast && <div className={`hr-toast ${toast.type}`}>{toast.message}</div>}
+      {toast && <div role="status" className={`hr-toast ${toast.type}`}>{toast.message}</div>}
     </div>
   );
 }

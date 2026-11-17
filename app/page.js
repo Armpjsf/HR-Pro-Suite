@@ -13,18 +13,12 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
-  function getCookie(name) {
-    if (typeof document === 'undefined') return null;
-    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-    return match ? match[2] : null;
-  }
-
   const redirectByAccess = useCallback(async () => {
-    const token = localStorage.getItem('hr-token') || getCookie('hr-token');
+
     const storedUser = localStorage.getItem('hr-user');
     const u = storedUser ? JSON.parse(storedUser) : null;
-    if (token) {
-      const res = await fetch('/api/hr/access', { headers: { Authorization: `Bearer ${token}` } });
+    if (storedUser) {
+      const res = await fetch('/api/hr/access', { headers: { } });
       if (res.ok) {
         const d = await res.json();
         if (u && d.role && u.role !== d.role) {
@@ -42,8 +36,7 @@ export default function LoginPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    const token = getCookie('hr-token');
-    if (token) {
+    if (localStorage.getItem('hr-user')) {
       redirectByAccess().catch(() => router.push('/me'));
     }
     if ('serviceWorker' in navigator) {
@@ -68,7 +61,7 @@ export default function LoginPage() {
         return;
       }
       localStorage.setItem('hr-user', JSON.stringify(data.user));
-      localStorage.setItem('hr-token', data.token);
+      localStorage.removeItem('hr-token');
       await redirectByAccess();
     } catch {
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง');

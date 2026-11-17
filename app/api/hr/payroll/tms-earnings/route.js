@@ -27,7 +27,7 @@ function normalizeName(str) {
 }
 
 export async function GET(request) {
-  const { error, status } = requireRole(request, ['admin', 'hr']);
+  const { error, status } = await requireRole(request, ['admin', 'hr']);
   if (error) return NextResponse.json({ error }, { status });
 
   const url = new URL(request.url);

@@ -5,9 +5,8 @@ import Link from 'next/link';
 import AppIcon from '@/components/ui/Icons';
 
 function authHeaders(json = false) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
+
   return {
-    Authorization: `Bearer ${token}`,
     ...(json ? { 'Content-Type': 'application/json' } : {}),
   };
 }

@@ -1,9 +1,5 @@
-const CACHE_NAME = 'hr-pro-v3';
+const CACHE_NAME = 'hr-pro-v4';
 const STATIC_ASSETS = [
-  '/',
-  '/me',
-  '/hr',
-  '/chat',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -33,6 +29,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request).catch(() => 
         new Response(JSON.stringify({ error: 'ออฟไลน์ — กรุณาเชื่อมต่ออินเทอร์เน็ต' }), {
+          status: 503,
           headers: { 'Content-Type': 'application/json' },
         })
       )
@@ -43,7 +40,7 @@ self.addEventListener('fetch', (event) => {
   // Network-first for page navigations (กันหน้าเก่าค้าง cache)
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request).catch(() => new Response('ออฟไลน์ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }))
     );
     return;
   }

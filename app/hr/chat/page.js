@@ -14,8 +14,8 @@ const SUGGESTIONS = [
 ];
 
 function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hr-token') : '';
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  return { 'Content-Type': 'application/json' };
 }
 
 export default function HrChatPage() {
@@ -149,7 +149,7 @@ export default function HrChatPage() {
               {m.documents?.length > 0 && (
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {m.documents.map((doc) => (
-                    <a key={doc.id} href={`/api/documents/${doc.id}/download?token=${localStorage.getItem('hr-token')}`}
+                    <a key={doc.id} href={`/api/documents/${doc.id}/download`}
                       target="_blank" rel="noreferrer"
                       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: 'rgba(2, 132, 199, 0.08)', textDecoration: 'none', color: '#0284C7', fontSize: 13 }}>
                       <AppIcon name="download" size={14} />

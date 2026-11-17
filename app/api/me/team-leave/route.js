@@ -8,7 +8,7 @@ import { createNotification, notifyHr } from '@/lib/notifications';
  * GET /api/me/team-leave — คำขอของลูกทีม (ใบลา, OT, เบิกค่าใช้จ่าย) ที่รออนุมัติจากหัวหน้า
  */
 export async function GET(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const { data: subordinates } = await supabase
@@ -17,7 +17,7 @@ export async function GET(request) {
     .eq('manager_id', user.employeeId);
 
   let subIds = (subordinates || []).map((u) => u.employee_id);
-  const isHrOrAdmin = ['admin', 'hr', 'manager'].includes(user.role);
+  const isHrOrAdmin = false; // Self-service always scopes to the caller's team.
 
   let leavesQuery = supabase.from('leave_requests').select('*').order('created_at', { ascending: false }).limit(50);
   if (subIds.length > 0) {
@@ -66,13 +66,20 @@ export async function GET(request) {
  * Body: { id, action: 'approve'|'reject', type?: 'leave'|'ot'|'expense' }
  */
 export async function POST(request) {
-  const { user, error, status } = requireAuth(request);
+  const { user, error, status } = await requireAuth(request);
   if (error) return NextResponse.json({ error }, { status });
 
   const { id, action, type = 'leave' } = await request.json();
   if (action !== 'approve' && action !== 'reject') {
     return NextResponse.json({ error: 'action ไม่ถูกต้อง' }, { status: 400 });
   }
+  const table = { leave: 'leave_requests', ot: 'ot_records', expense: 'expense_claims' }[type];
+  if (!table) return NextResponse.json({ error: 'ประเภทคำขอไม่ถูกต้อง' }, { status: 400 });
+  const { data: target, error: targetError } = await supabase.from(table).select('employee_id').eq('id', id).maybeSingle();
+  if (targetError || !target) return NextResponse.json({ error: 'ไม่พบคำขอ' }, { status: 404 });
+  const { data: subordinate, error: teamError } = await supabase.from('users').select('employee_id')
+    .eq('employee_id', target.employee_id).eq('manager_id', user.employeeId).maybeSingle();
+  if (teamError || !subordinate || target.employee_id === user.employeeId) return NextResponse.json({ error: 'คุณไม่มีสิทธิ์อนุมัติคำขอของพนักงานคนนี้' }, { status: 403 });
 
   if (type === 'ot') {
     const { data: ot } = await supabase.from('ot_records').select('*').eq('id', id).maybeSingle();
@@ -153,7 +160,7 @@ export async function POST(request) {
   // Default: leave_requests
   const { data: leave } = await supabase.from('leave_requests').select('*').eq('id', id).maybeSingle();
   if (!leave) return NextResponse.json({ error: 'ไม่พบใบลา' }, { status: 404 });
-  const isHrOrAdmin = ['admin', 'hr', 'manager'].includes(user.role);
+  const isHrOrAdmin = false;
   if (leave.manager_id && leave.manager_id !== user.employeeId && !isHrOrAdmin) {
     return NextResponse.json({ error: 'คุณไม่ใช่หัวหน้าของใบลานี้' }, { status: 403 });
   }

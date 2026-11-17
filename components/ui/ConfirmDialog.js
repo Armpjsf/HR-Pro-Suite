@@ -1,5 +1,6 @@
 'use client';
 
+import useDialogFocus from './useDialogFocus';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AppIcon from './Icons';
 
@@ -103,6 +104,7 @@ export function alertDialog(optionsOrMessage) {
 export function DialogProvider({ children }) {
   const [activeDialog, setActiveDialog] = useState(null);
   const confirmBtnRef = useRef(null);
+  const dialogRef = useRef(null);
 
   useEffect(() => {
     dialogHandler = {
@@ -133,25 +135,7 @@ export function DialogProvider({ children }) {
     [activeDialog]
   );
 
-  // Focus confirm button when opened
-  useEffect(() => {
-    if (activeDialog && confirmBtnRef.current) {
-      confirmBtnRef.current.focus();
-    }
-  }, [activeDialog]);
-
-  // Keyboard accessibility: Escape to cancel/close
-  useEffect(() => {
-    if (!activeDialog) return;
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeDialog(false);
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeDialog, closeDialog]);
+  useDialogFocus(dialogRef, Boolean(activeDialog), useCallback(() => closeDialog(false), [closeDialog]));
 
   // Determine dialog visual scheme
   let iconName = 'info';
@@ -201,7 +185,7 @@ export function DialogProvider({ children }) {
           }}
         >
           <div
-            role="alertdialog"
+            ref={dialogRef} tabIndex={-1} role="alertdialog"
             aria-modal="true"
             aria-labelledby="dialog-title"
             aria-describedby={activeDialog.message ? 'dialog-desc' : undefined}

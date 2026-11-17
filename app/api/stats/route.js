@@ -6,7 +6,7 @@ import { getDocuments, getUsers, getLineMappings, getAuditLog } from '@/lib/db';
  * GET /api/stats — สถิติจริงสำหรับแดชบอร์ด (admin/hr)
  */
 export async function GET(request) {
-  const { error, status } = requireRole(request, ['admin', 'hr']);
+  const { error, status } = await requireRole(request, ['admin', 'hr']);
   if (error) return NextResponse.json({ error }, { status });
 
   const [log, documents, users, lineMappings] = await Promise.all([
