@@ -20,7 +20,7 @@ export async function POST(request) {
   const { data: slips, error: payError } = await supabase.rpc('confirm_payroll_payment', {
     p_period: period || null, p_slip_id: slipId || null,
   });
-  if (payError) return NextResponse.json({ error: payError.code === 'P0001' && /ยอด OT/.test(payError.message) ? payError.message : 'ยืนยันจ่ายไม่สำเร็จ กรุณาตรวจสลิปเดิมและ migration ก่อนลองใหม่' }, { status: 409 });
+  if (payError) return NextResponse.json({ error: payError.code === 'P0001' && /ยอด OT|RECALCULATION_REQUIRED/.test(payError.message) ? payError.message : 'ยืนยันจ่ายไม่สำเร็จ กรุณาตรวจสลิปเดิมและ migration ก่อนลองใหม่' }, { status: 409 });
   if (!slips?.length) return NextResponse.json({ success: true, count: 0, inAppSentCount: 0, lineSentCount: 0, message: 'ไม่มีรายการใหม่ที่ต้องยืนยันจ่าย' });
 
   let lineMappings = {};
@@ -61,6 +61,7 @@ export async function POST(request) {
           `• เงินเดือนฐาน: ${fmt(slip.base_salary)} บาท\n` +
           `• ค่าล่วงเวลา (OT): +${fmt(slip.ot_pay)} บาท\n` +
           `• โบนัส/เบี้ยเลี้ยง: +${fmt(slip.bonus)} บาท\n` +
+          `• ค่าขับรถ/ค่าเที่ยว (TMS): +${fmt(slip.driving_pay)} บาท\n` +
           `• คืนค่าใช้จ่าย: +${fmt(slip.reimbursements)} บาท\n` +
           `• หักประกันสังคม: -${fmt(slip.sso)} บาท\n` +
           `• หักภาษี ณ ที่จ่าย: -${fmt(slip.tax)} บาท\n` +

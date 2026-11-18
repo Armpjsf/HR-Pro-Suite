@@ -58,7 +58,7 @@ export async function PUT(request, { params }) {
     if (isFinalPayroll(old.status) || old.calculation_version !== 2) return NextResponse.json({ error: 'สลิปนี้ล็อกแล้วหรือยังต้องตรวจแยกยอดเดิมก่อนแก้ไข' }, { status: 409 });
     if ((body.status && body.status !== 'draft') || (body.employee_id && body.employee_id !== old.employee_id) || (body.period && body.period !== old.period)) return NextResponse.json({ error: 'ไม่สามารถเปลี่ยนพนักงาน งวด หรือสถานะผ่านการแก้ไขสลิป' }, { status: 409 });
     try {
-      const row = preparePayrollDraft({ ...old, ...body });
+      const row = { ...preparePayrollDraft({ ...old, ...body, driving_pay: old.driving_pay }), recalculation_required: old.recalculation_required };
       const { data: result, error: saveError } = await supabase.rpc('save_payroll_draft', { p_row: row, p_overwrite: true });
       if (saveError || result !== 'updated') return NextResponse.json({ error: 'สลิปถูกล็อกหรือเปลี่ยนสถานะแล้ว กรุณาโหลดใหม่' }, { status: 409 });
       return NextResponse.json({ item: { ...old, ...row } });

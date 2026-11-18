@@ -31,7 +31,7 @@ class Query {
   insert(rows) { this.action='insert';this.rows=Array.isArray(rows)?rows:[rows];return this; }
   update(row) { this.action='update';this.rows=[row];return this; }
   delete() { this.action='delete';return this; }
-  upsert(rows,options={}) { this.insert(rows);this.conflict=options.onConflict||'id';return this; }
+  upsert(rows,options={}) { this.insert(rows);this.conflict=options.onConflict||'id';this.ignoreDuplicates=Boolean(options.ignoreDuplicates);return this; }
   then(resolve,reject) { return this.execute().then(resolve,reject); }
   async execute() {
     try {
@@ -43,7 +43,12 @@ class Query {
       if(this.action==='insert') {
         const keys=[...new Set(this.rows.flatMap(Object.keys))];
         sql=`insert into ${this.table} (${keys.map(identifier).join(',')}) values ${this.rows.map(row=>'('+keys.map(k=>k in row?this.value(typeof row[k]==='object'&&row[k]!==null&&!Array.isArray(row[k])?JSON.stringify(row[k]):row[k]):'default').join(',')+')').join(',')}`;
-        if(this.conflict)sql+=` on conflict (${this.conflict.split(',').map(identifier).join(',')}) do update set ${keys.filter(k=>!this.conflict.split(',').includes(k)).map(k=>`${identifier(k)}=excluded.${identifier(k)}`).join(',')}`;
+        if(this.conflict) {
+          const target=this.conflict.split(',').map(identifier).join(',');
+          sql+=this.ignoreDuplicates
+            ?` on conflict (${target}) do nothing`
+            :` on conflict (${target}) do update set ${keys.filter(k=>!this.conflict.split(',').includes(k)).map(k=>`${identifier(k)}=excluded.${identifier(k)}`).join(',')}`;
+        }
         sql+=' returning *';
       }
       const result=await database.query(sql,this.parameters);
@@ -56,14 +61,16 @@ class Query {
 
 export const supabase = {
   from: (table) => new Query(table),
-  rpc(name,args) {
+  rpc(name,args={}) {
     let singular=false;
     const execute=async()=>{try {
-      const values=Object.values(args).map(v=>v&&typeof v==='object'&&!Array.isArray(v)?JSON.stringify(v):v);
-      const parameters=Object.keys(args).map((key,index)=>`${identifier(key)} => $${index+1}`).join(',');
+      const entries=Object.entries(args||{}).filter(([,v])=>v!==undefined);
+      const values=entries.map(([,v])=>v&&typeof v==='object'&&!Array.isArray(v)?JSON.stringify(v):v);
+      const parameters=entries.map(([key],index)=>`${identifier(key)} => $${index+1}`).join(',');
       const result=await database.query(`select * from ${identifier(name)}(${parameters})`,values);
       if(singular&&result.rows.length!==1)return {data:null,error:{code:'PGRST116',message:'Expected one RPC row'}};
-      return { data:name==='save_payroll_draft'?result.rows[0]?.save_payroll_draft:singular?json(result.rows[0]):json(result.rows),error:null };
+      const isScalar=result.rows.length===1&&result.rows[0]&&Object.keys(result.rows[0]).length===1&&name in result.rows[0];
+      return { data:isScalar?json(result.rows[0][name]):singular?json(result.rows[0]):json(result.rows),error:null };
     } catch(e) { return { data:null,error:{code:e.code,message:e.message} }; }};
     const query={single(){singular=true;return query;},then(resolve,reject){return execute().then(resolve,reject);}};
     return query;

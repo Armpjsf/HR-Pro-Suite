@@ -133,7 +133,7 @@ export function PayslipTab({ data }) {
     const upTo = slips.filter((s) => s.period.slice(0, 4) === yr && s.period <= slip.period);
     const sum = (k) => upTo.reduce((a, s) => a + (Number(s[k]) || 0), 0);
     return {
-      income: sum('base_salary') + sum('ot_pay') + sum('bonus'),
+      income: sum('base_salary') + sum('ot_pay') + sum('bonus') + sum('driving_pay'),
       tax: sum('tax'),
       sso: sum('sso'),
     };
@@ -158,6 +158,7 @@ export function PayslipTab({ data }) {
             <span className="k">โบนัส</span>
             <span className="v">{num(selected.bonus)} ฿</span>
           </div>
+          <div className="me-row"><span className="k">ค่าขับรถ/ค่าเที่ยว (TMS)</span><span className="v">{num(selected.driving_pay)} ฿</span></div>
           <div className="me-row">
             <span className="k">หักภาษี ณ ที่จ่าย</span>
             <span className="v" style={{ color: '#DC2626' }}>-{num(selected.tax)} ฿</span>
@@ -216,7 +217,7 @@ export function PayslipTab({ data }) {
 
 export function SlipDocument({ slip, profile, ytd, deductions, onClose }) {
   const num = (v) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const income = Number(slip.base_salary) + Number(slip.ot_pay) + Number(slip.bonus) + Number(slip.reimbursements || 0);
+  const income = Number(slip.base_salary) + Number(slip.ot_pay) + Number(slip.bonus) + Number(slip.driving_pay || 0) + Number(slip.reimbursements || 0);
   const totalDed = Number(slip.tax) + Number(slip.sso) + Number(slip.deduction);
 
   return (
@@ -273,6 +274,7 @@ export function SlipDocument({ slip, profile, ytd, deductions, onClose }) {
             <tbody>
               <tr><td>เงินเดือน / ค่าจ้าง</td><td className="r">{num(slip.base_salary)}</td><td>ประกันสังคม</td><td className="r">{num(slip.sso)}</td></tr>
               <tr><td>ค่าล่วงเวลา (OT)</td><td className="r">{num(slip.ot_pay)}</td><td>ภาษี ณ ที่จ่าย</td><td className="r">{num(slip.tax)}</td></tr>
+              <tr><td>ค่าขับรถ/ค่าเที่ยว (TMS)</td><td className="r">{num(slip.driving_pay)}</td><td></td><td></td></tr>
               <tr><td>โบนัส</td><td className="r">{num(slip.bonus)}</td><td>หักอื่นๆ</td><td className="r">{num(slip.deduction)}</td></tr>
               <tr><td>คืนค่าใช้จ่าย</td><td className="r">{num(slip.reimbursements)}</td><td></td><td></td></tr>
             </tbody>

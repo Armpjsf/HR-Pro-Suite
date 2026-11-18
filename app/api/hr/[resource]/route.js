@@ -62,7 +62,7 @@ export async function POST(request, { params }) {
   }
   if (resource === 'payroll') {
     try {
-      const row = preparePayrollDraft(body);
+      const row = preparePayrollDraft({ ...body, driving_pay: 0 });
       const { data, error: saveError } = await supabase.rpc('save_payroll_draft', { p_row: row, p_overwrite: false });
       if (saveError || data !== 'created') return NextResponse.json({ error: 'มีสลิปงวดนี้แล้ว หรือบันทึกไม่สำเร็จ กรุณาตรวจข้อมูล' }, { status: 409 });
       return NextResponse.json({ item: row });

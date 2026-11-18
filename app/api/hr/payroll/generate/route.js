@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase';
 import { computeSlip, isValidPeriod } from '@/lib/payroll';
 import { unpaidDaysByEmployee } from '@/lib/leave-policy';
 import { addAuditEntry } from '@/lib/db';
+import { getDeploymentTenantId } from '@/lib/tenantContext';
+import { requireModule, EntitlementError } from '@/lib/entitlements';
+import { isPeriodLocked, PayrollImportError } from '@/lib/payroll-tms-import';
 
 /**
  * POST /api/hr/payroll/generate — สร้างสลิปอัตโนมัติทั้งงวด
@@ -24,9 +27,33 @@ export async function POST(request) {
   const { user, error, status } = await requireMenu(request, 'payroll');
   if (error) return NextResponse.json({ error }, { status });
 
+  const tenantId = user?.tenantId || getDeploymentTenantId();
+  try {
+    await requireModule({ tenantId, userId: user?.id, role: user?.role }, 'hr', 'create');
+  } catch (err) {
+    if (err instanceof EntitlementError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
+    throw err;
+  }
+
   const { period, overwrite } = await request.json();
   if (!isValidPeriod(period)) {
     return NextResponse.json({ error: 'กรุณาระบุงวดในรูปแบบ YYYY-MM' }, { status: 400 });
+  }
+
+  try {
+    if (await isPeriodLocked(tenantId, period, supabase, { ignoreMissingTable: true })) {
+      return NextResponse.json(
+        { error: `PERIOD_LOCKED: งวดเงินเดือน ${period} ถูกล็อก/ปิดงวดแล้ว`, code: 'PERIOD_LOCKED' },
+        { status: 409 }
+      );
+    }
+  } catch (err) {
+    if (err instanceof PayrollImportError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
+    throw err;
   }
   const yearBE = Number(period.slice(0, 4)) + 543;
 
@@ -36,7 +63,7 @@ export async function POST(request) {
   const results = await Promise.all([
     supabase.from('employee_records').select('employee_id, salary, employment_type').gt('salary', 0),
     supabase.from('users').select('employee_id, status'),
-    supabase.from('payroll_slips').select('id, employee_id, status, bonus, calculation_version').eq('period', period),
+    supabase.from('payroll_slips').select('id, employee_id, status, bonus, driving_pay, calculation_version').eq('period', period),
     supabase.from('tax_allowances').select('employee_id, data').eq('year', yearBE),
     supabase.from('ot_records').select('employee_id, amount').eq('status', 'approved').gte('ot_date', periodStart).lte('ot_date', periodEnd),
     supabase.from('benefits_loans').select('employee_id, amount, start_date, end_date').eq('type', 'loan').eq('status', 'active'),
@@ -165,13 +192,14 @@ export async function POST(request) {
       monthlySalary: baseSalary,
       otMonthly: otMap.get(rec.employee_id) || 0,
       bonusMonthly: prevBonus,
+      drivingPay: Number(prev?.driving_pay || 0),
       reimbursements: approvedExpenses,
       otherDeduction: totalDeduction,
       allowances: allowMap.get(rec.employee_id) || {},
       ssoCustom: ssoMap.has(rec.employee_id) ? ssoMap.get(rec.employee_id) : null,
       period,
     });
-    const row = { employee_id: rec.employee_id, period, status: 'draft', calculation_version: 2, ...slipData };
+    const row = { employee_id: rec.employee_id, period, status: 'draft', calculation_version: 2, recalculation_required: false, ...slipData };
     const { data: result, error: saveError } = await supabase.rpc('save_payroll_draft', { p_row: row, p_overwrite: !!overwrite });
     if (saveError) failed.push({ employeeId: rec.employee_id, error: 'บันทึกสลิปไม่สำเร็จ กรุณาลองใหม่หลังตรวจสอบข้อมูล' });
     else if (result === 'created') created++;

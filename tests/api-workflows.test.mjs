@@ -22,6 +22,7 @@ test('real API handlers with cookies and isolated PostgreSQL', async (t)=>{
   try {
     await db.exec('create role anon;create role authenticated;create role service_role;');
     for(const file of ['schema.sql','schema-hr.sql',...[1,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21].map(n=>`schema-phase${n}.sql`)])await db.exec(await fs.readFile(new URL('supabase/'+file,root),'utf8'));
+    for (const file of ['007_integration_links_outbox_inbox.sql','008_payroll_import_batches.sql','010_driving_income.sql']) await db.exec(await fs.readFile(new URL('supabase/migrations/'+file,root),'utf8'));
     const password='test-password-only';const hash=await bcrypt.hash(password,4);
     for(const [id,role,manager] of [['ADMIN','admin',null],['HR','hr',null],['MANAGER','manager',null],['EMP','employee','MANAGER'],['OTHER','employee',null]]) {
       await db.query('insert into users(id,username,password,name,role,employee_id,manager_id) values($1,$1,$2,$1,$3,$1,$4)',[id,hash,role,manager]);

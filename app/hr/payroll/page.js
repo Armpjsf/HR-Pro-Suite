@@ -1,5 +1,7 @@
 'use client';
 
+import TmsPayrollPanel from '@/components/hr/TmsPayrollPanel';
+
 import { useState } from 'react';
 import ResourceTable from '@/components/hr/ResourceTable';
 import { authHeaders } from '@/components/hr/exportUtils';
@@ -21,49 +23,13 @@ export default function PayrollPage() {
   const [batchPeriod, setBatchPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [batchLoading, setBatchLoading] = useState(false);
 
-  const [showTmsModal, setShowTmsModal] = useState(false);
-  const [tmsFrom, setTmsFrom] = useState(`${new Date().toISOString().slice(0, 7)}-01`);
-  const [tmsTo, setTmsTo] = useState(() => {
-    const period = new Date().toISOString().slice(0, 7);
-    const [y, m] = period.split('-').map(Number);
-    const lastDay = new Date(y, m, 0).getDate();
-    return `${period}-${String(lastDay).padStart(2, '0')}`;
-  });
-  const [tmsLoading, setTmsLoading] = useState(false);
-  const [tmsResult, setTmsResult] = useState(null);
-
+  const [payrollRevision, setPayrollRevision] = useState(0);
   const [toast, setToast] = useState(null);
   const [payrollStats, setPayrollStats] = useState({ totalNet: 0, totalTax: 0, totalSso: 0, count: 0, paidCount: 0 });
 
   function showToast(message, type = 'success') {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
-  }
-
-  async function fetchTmsEarnings(fromDate = tmsFrom, toDate = tmsTo) {
-    setTmsLoading(true);
-    try {
-      const res = await fetch(`/api/hr/payroll/tms-earnings?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`, {
-        headers: authHeaders(),
-      });
-      const d = await res.json();
-      setTmsResult(d);
-    } catch (err) {
-      setTmsResult({
-        configured: false,
-        error: `เชื่อมต่อกับ API ภายในไม่สำเร็จ: ${err.message}`,
-        earnings: [],
-      });
-    } finally {
-      setTmsLoading(false);
-    }
-  }
-
-  function handleOpenTmsModal() {
-    setShowTmsModal(true);
-    if (!tmsResult) {
-      fetchTmsEarnings(tmsFrom, tmsTo);
-    }
   }
 
   const handleItemsChange = (items) => {
@@ -203,7 +169,8 @@ export default function PayrollPage() {
         </div>
       </div>
 
-      <ResourceTable
+      <TmsPayrollPanel onPayrollChange={() => setPayrollRevision(value => value + 1)} />
+      <ResourceTable key={payrollRevision}
         config={{
           resource: 'payroll',
         canDelete: false,
@@ -221,14 +188,6 @@ export default function PayrollPage() {
                 onClick={() => setShowBatchModal(true)}
               >
                 <span>💳</span> ยืนยันจ่ายเงินเดือนทั้งงวด (ออกสลิป & แจ้งเตือน Auto)
-              </button>
-              <button
-                className="hr-btn"
-                onClick={handleOpenTmsModal}
-                style={{ borderColor: '#007aff', color: '#007aff' }}
-                title="ดึงยอดค่าเที่ยวคนขับจาก Nexus TMS เพื่อใช้อ้างอิงทำเงินเดือน"
-              >
-                <span>🔄</span> ดึงยอดค่าเที่ยวจาก Nexus TMS
               </button>
               <button
                 className="hr-btn"
@@ -259,6 +218,8 @@ export default function PayrollPage() {
             { key: 'employee_id', label: 'พนักงาน' },
             { key: 'base_salary', label: 'ฐาน', format: baht },
             { key: 'ot_pay', label: 'OT', format: (v) => '+' + baht(v) },
+            { key: 'driving_pay', label: 'ค่าเที่ยว TMS', format: (v) => '+' + baht(v) },
+            { key: 'recalculation_required', label: 'การคำนวณ', format: (v) => v ? 'ต้องคำนวณใหม่ก่อนจ่าย' : 'พร้อมตรวจ' },
             { key: 'bonus', label: 'โบนัส', format: (v) => '+' + baht(v) },
             { key: 'reimbursements', label: 'คืนค่าใช้จ่าย', format: (v) => '+' + baht(v) },
             { key: 'tax', label: 'ภาษี', format: (v) => '-' + baht(v) },
@@ -286,6 +247,7 @@ export default function PayrollPage() {
             { key: 'base_salary', label: 'เงินเดือนฐาน (บาท)', type: 'number', default: 0 },
             { key: 'ot_pay', label: 'ค่าล่วงเวลา OT (บาท)', type: 'number', default: 0 },
             { key: 'bonus', label: 'โบนัส (บาท)', type: 'number', default: 0 },
+            { key: 'driving_pay', label: 'ค่าขับรถ/ค่าเที่ยว TMS (แก้ผ่านชุดนำเข้า)', default: 0, render: ({ value }) => <input className="hr-input" value={num(value)} readOnly aria-label="ค่าเที่ยวจาก TMS" /> },
             { key: 'reimbursements', label: 'คืนค่าใช้จ่าย (บาท)', type: 'number', default: 0 },
             {
               key: 'tax',
@@ -309,7 +271,7 @@ export default function PayrollPage() {
             net:
               (Number(form.base_salary) || 0) +
               (Number(form.ot_pay) || 0) +
-              (Number(form.bonus) || 0) + (Number(form.reimbursements) || 0) -
+              (Number(form.bonus) || 0) + (Number(form.driving_pay) || 0) + (Number(form.reimbursements) || 0) -
               (Number(form.tax) || 0) -
               (Number(form.sso) || 0) -
               (Number(form.deduction) || 0),
@@ -439,149 +401,6 @@ export default function PayrollPage() {
         </div>
       )}
 
-      {/* Modal ดึงยอดค่าเที่ยวจาก Nexus TMS */}
-      {showTmsModal && (
-        <div className="hr-modal-overlay" onClick={() => setShowTmsModal(false)}>
-          <div className="hr-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 840, width: '95%' }}>
-            <div className="hr-modal-header">
-              <div className="hr-modal-title">🔄 ข้อมูลค่าเที่ยวคนขับจาก Nexus TMS</div>
-              <button className="hr-modal-close" onClick={() => setShowTmsModal(false)}>✕</button>
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14 }}>
-              <div className="hr-field" style={{ margin: 0 }}>
-                <label>จากวันที่</label>
-                <input
-                  type="date"
-                  className="hr-input"
-                  value={tmsFrom}
-                  onChange={(e) => setTmsFrom(e.target.value)}
-                />
-              </div>
-              <div className="hr-field" style={{ margin: 0 }}>
-                <label>ถึงวันที่</label>
-                <input
-                  type="date"
-                  className="hr-input"
-                  value={tmsTo}
-                  onChange={(e) => setTmsTo(e.target.value)}
-                />
-              </div>
-              <button
-                type="button"
-                className="hr-btn hr-btn-primary"
-                disabled={tmsLoading}
-                onClick={() => fetchTmsEarnings(tmsFrom, tmsTo)}
-                style={{ height: 38 }}
-              >
-                {tmsLoading ? '⏳ กำลังดึง...' : '🔄 ดึงข้อมูลใหม่'}
-              </button>
-            </div>
-
-            {tmsResult && !tmsResult.configured && (
-              <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', color: '#92400E', padding: 16, borderRadius: 12, marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>⚙️ ยังไม่ได้ตั้งค่าการเชื่อมต่อ Nexus TMS</div>
-                <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-                  {tmsResult.error || 'ยังไม่ได้ตั้งค่า NEXUS_TMS_URL หรือ NEXUS_TMS_API_KEY ในระบบ'}
-                </div>
-                <div style={{ fontSize: 12, marginTop: 8, opacity: 0.85 }}>
-                  กรุณาตรวจสอบการตั้งค่าตัวแปรสภาพแวดล้อม (Environment Variables) บน Server ให้เรียบร้อย
-                </div>
-              </div>
-            )}
-
-            {tmsResult && tmsResult.configured && tmsResult.error && (
-              <div style={{ background: '#FEE2E2', border: '1px solid #EF4444', color: '#991B1B', padding: 14, borderRadius: 10, marginBottom: 14, fontSize: 13 }}>
-                ⚠️ {tmsResult.error}
-              </div>
-            )}
-
-            {tmsResult && tmsResult.configured && (
-              <>
-                <div className="hr-stat-row" style={{ marginBottom: 14 }}>
-                  <div className="hr-stat-card">
-                    <div className="hr-stat-icon" style={{ '--sq': '#007AFF' }}>🚛</div>
-                    <div>
-                      <div className="hr-stat-value">{(tmsResult.earnings || []).length} <small style={{ fontSize: 13 }}>คน</small></div>
-                      <div className="hr-stat-label">พนักงานขับรถ</div>
-                    </div>
-                  </div>
-                  <div className="hr-stat-card">
-                    <div className="hr-stat-icon" style={{ '--sq': '#34C759' }}>📦</div>
-                    <div>
-                      <div className="hr-stat-value">
-                        {num((tmsResult.earnings || []).reduce((sum, item) => sum + (Number(item.tripCount) || 0), 0))}
-                      </div>
-                      <div className="hr-stat-label">เที่ยววิ่งรวม</div>
-                    </div>
-                  </div>
-                  <div className="hr-stat-card">
-                    <div className="hr-stat-icon" style={{ '--sq': '#FF9500' }}>💵</div>
-                    <div>
-                      <div className="hr-stat-value">
-                        {baht((tmsResult.earnings || []).reduce((sum, item) => sum + (Number(item.driverCost) || 0), 0))}
-                      </div>
-                      <div className="hr-stat-label">ค่าเที่ยวรวม (Driver Cost)</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ maxHeight: 360, overflowY: 'auto', border: '1px solid var(--hr-border, #e2e8f0)', borderRadius: 10 }}>
-                  <table className="hr-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: 'var(--hr-bg-2, #f8fafc)', textAlign: 'left' }}>
-                        <th style={{ padding: '8px 12px' }}>รหัสพนักงาน</th>
-                        <th style={{ padding: '8px 12px' }}>ชื่อคนขับ (TMS)</th>
-                        <th style={{ padding: '8px 12px' }}>สถานะในระบบ HR</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>จำนวนเที่ยว</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>ค่าเที่ยวรวม</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(tmsResult.earnings || []).length === 0 ? (
-                        <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', padding: 24, color: '#64748b' }}>
-                            ไม่พบรายการค่าเที่ยวในช่วงเวลาที่เลือก
-                          </td>
-                        </tr>
-                      ) : (
-                        (tmsResult.earnings || []).map((row, idx) => (
-                          <tr key={idx} style={{ borderTop: '1px solid var(--hr-border, #e2e8f0)' }}>
-                            <td style={{ padding: '8px 12px', fontWeight: 600 }}>{row.employeeId || '-'}</td>
-                            <td style={{ padding: '8px 12px' }}>{row.driverName || '-'}</td>
-                            <td style={{ padding: '8px 12px' }}>
-                              {row.matched ? (
-                                <span style={{ color: '#16a34a', fontWeight: 600, fontSize: 12 }}>
-                                  ✅ จับคู่แล้ว {row.department ? `(${row.department})` : ''}
-                                </span>
-                              ) : (
-                                <span style={{ color: '#ca8a04', fontSize: 12 }}>
-                                  ⚠️ ไม่พบรหัสใน HR
-                                </span>
-                              )}
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>{row.tripCount} เที่ยว</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--hr-green, #16a34a)' }}>
-                              {baht(row.driverCost)}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-
-            <div className="hr-modal-actions" style={{ marginTop: 16 }}>
-              <button type="button" className="hr-btn" onClick={() => setShowTmsModal(false)}>
-                ปิดหน้าต่าง
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Official Pay Slip Modal */}
       {viewSlip && (
         <SlipViewModal slip={viewSlip} onClose={() => setViewSlip(null)} />
@@ -593,7 +412,7 @@ export default function PayrollPage() {
 }
 
 function SlipViewModal({ slip, onClose }) {
-  const income = Number(slip.base_salary || 0) + Number(slip.ot_pay || 0) + Number(slip.bonus || 0) + Number(slip.reimbursements || 0);
+  const income = Number(slip.base_salary || 0) + Number(slip.ot_pay || 0) + Number(slip.bonus || 0) + Number(slip.driving_pay || 0) + Number(slip.reimbursements || 0);
   const totalDed = Number(slip.tax || 0) + Number(slip.sso || 0) + Number(slip.deduction || 0);
 
   return (
@@ -668,6 +487,7 @@ function SlipViewModal({ slip, onClose }) {
                 <td>หักขาดงาน / ค่าปรับ / อื่นๆ</td>
                 <td style={{ textAlign: 'right', color: 'var(--hr-red)' }}>{num(slip.deduction)}</td>
               </tr>
+              <tr><td>ค่าขับรถ/ค่าเที่ยว (TMS)</td><td style={{ textAlign: 'right' }}>{num(slip.driving_pay)}</td><td></td><td></td></tr>
               <tr><td>คืนค่าใช้จ่าย</td><td style={{ textAlign: 'right' }}>{num(slip.reimbursements)}</td><td></td><td></td></tr>
             </tbody>
             <tfoot>
@@ -703,7 +523,7 @@ function TaxWithholdingField({ value, set, form }) {
   const [customPct, setCustomPct] = useState('');
 
   // เงินได้รวม = ฐานเงินเดือน + OT + โบนัส
-  const grossIncome = (Number(form.base_salary) || 0) + (Number(form.ot_pay) || 0) + (Number(form.bonus) || 0);
+  const grossIncome = (Number(form.base_salary) || 0) + (Number(form.ot_pay) || 0) + (Number(form.bonus) || 0) + (Number(form.driving_pay) || 0);
 
   const applyPercent = (pct) => {
     setActivePct(pct);
@@ -792,7 +612,7 @@ function TaxWithholdingField({ value, set, form }) {
       {/* Realtime calculation summary */}
       <div style={{ marginTop: 8, fontSize: 12, color: '#3C3C43', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
         <span>
-          เงินได้รวม (ฐาน + OT + โบนัส): <strong>{grossIncome.toLocaleString()} ฿</strong>
+          เงินได้รวม (ฐาน + OT + โบนัส + ค่าเที่ยว): <strong>{grossIncome.toLocaleString()} ฿</strong>
         </span>
         {grossIncome > 0 && Number(value) > 0 && (
           <span style={{ color: '#007AFF', fontWeight: 600 }}>

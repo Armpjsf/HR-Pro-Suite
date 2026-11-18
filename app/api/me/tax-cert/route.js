@@ -26,7 +26,7 @@ export async function GET(request) {
 
   const rows = slips || [];
   const sum = (k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
-  const totalIncome = sum('base_salary') + sum('ot_pay') + sum('bonus');
+  const totalIncome = sum('base_salary') + sum('ot_pay') + sum('bonus') + sum('driving_pay');
   const totalTax = sum('tax');
   const totalSso = sum('sso');
 

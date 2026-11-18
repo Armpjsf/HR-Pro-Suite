@@ -48,6 +48,7 @@ export async function POST(request, { params }) {
     `เงินเดือนฐาน: ${fmt(slip.base_salary)} บาท\n` +
     `ค่าล่วงเวลา (OT): +${fmt(slip.ot_pay)} บาท\n` +
     `โบนัส: +${fmt(slip.bonus)} บาท\n` +
+    `ค่าขับรถ/ค่าเที่ยว (TMS): +${fmt(slip.driving_pay)} บาท\n` +
     `หัก: -${fmt(slip.deduction)} บาท\n` +
     `━━━━━━━━━━━━\n` +
     `รับสุทธิ: ${fmt(slip.net)} บาท`;

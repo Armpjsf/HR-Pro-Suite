@@ -50,7 +50,7 @@ export async function GET(request) {
     const header = 'ลำดับ,รหัสพนักงาน,เลขประจำตัวประชาชน,เงินได้พึงประเมิน,ภาษีที่หักและนำส่ง\n';
     const body = rows.map((s, idx) => {
       const e = empMap.get(s.employee_id);
-      const income = (Number(s.base_salary) || 0) + (Number(s.ot_pay) || 0) + (Number(s.bonus) || 0);
+      const income = (Number(s.base_salary) || 0) + (Number(s.ot_pay) || 0) + (Number(s.bonus) || 0) + (Number(s.driving_pay) || 0);
       return `${idx + 1},"${s.employee_id}","${e?.national_id || ''}",${income},${s.tax}`;
     }).join('\n');
 

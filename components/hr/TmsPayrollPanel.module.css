@@ -1,0 +1,23 @@
+.panel { margin: 24px 0; padding: 24px; background: var(--hr-surface, #fff); border: 1px solid var(--hr-border, #d5dae2); border-radius: 12px; color: var(--hr-text, #172033); }
+.panel h2 { margin: 0 0 8px; font-size: 20px; }
+.panel h3 { margin: 24px 0 4px; }
+.panel p { max-width: 75ch; line-height: 1.65; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
+.panel label { display: grid; gap: 6px; font-size: 14px; }
+.panel input, .panel select { padding: 10px; min-height: 44px; max-width: 100%; border: 1px solid #9ca6b7; border-radius: 6px; background: #fff; color: #172033; font: inherit; }
+.panel button { min-height: 44px; }
+.panel :is(button,input,select):focus-visible { outline: 2px solid #075ec4; outline-offset: 3px; }
+.panel button:disabled { opacity: .55; cursor: not-allowed; }
+.scroll { overflow: auto; margin: 16px 0; }
+.panel table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.panel caption { text-align: left; font-weight: 600; padding: 8px 0; }
+.panel th, .panel td { text-align: left; padding: 12px; border-bottom: 1px solid #d5dae2; vertical-align: top; }
+.panel th { background: #f3f5f8; white-space: nowrap; }
+.panel small { display: block; color: #465267; margin-top: 4px; max-width: 40ch; overflow-wrap: anywhere; }
+.panel .number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.totals { display: flex; flex-wrap: wrap; gap: 16px 32px; padding: 16px 0; border-block: 1px solid #d5dae2; }
+.totals dt { color: #465267; font-size: 14px; }
+.totals dd { margin: 4px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.error { color: #a41919; background: #fff1f1; padding: 12px; border: 1px solid #dca5a5; border-radius: 6px; }
+.reference { overflow-wrap: anywhere; color: #465267; font-size: 13px; }
+@media (max-width: 640px) { .panel { padding: 16px; } .toolbar { align-items: stretch; } .toolbar > * { width: 100%; min-width: 0; } .panel select { width: 100%; } }
