@@ -27,6 +27,16 @@ export default function TmsPayrollPanel({ onPayrollChange }) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [reason, setReason] = useState('');
+  const [syncEvents, setSyncEvents] = useState([]);
+  const [syncError, setSyncError] = useState('');
+  useEffect(() => {
+    let live = true;
+    const load = () => api(`/api/hr/payroll/tms-sync?period=${encodeURIComponent(period)}`)
+      .then(result => { if (live) { setSyncEvents(result.events || []); setSyncError(''); } })
+      .catch(() => { if (live) setSyncError('อ่านสถานะส่งกลับ TMS ไม่สำเร็จ'); });
+    load(); const timer = setInterval(load, 15000);
+    return () => { live = false; clearInterval(timer); };
+  }, [period]);
 
   useEffect(() => {
     let live = true;
@@ -54,6 +64,17 @@ export default function TmsPayrollPanel({ onPayrollChange }) {
   return <section className={styles.panel} aria-labelledby="tms-payroll-title" aria-busy={busy}>
     <h2 id="tms-payroll-title">ค่าเที่ยวจาก Nexus TMS</h2>
     <p>เงินเดือนงานประจำและค่าเที่ยวอยู่ในสลิปพนักงานคนเดิม ค่าเที่ยวจะแยกจากโบนัส โดยนับตามวันที่ตรวจรับงานใน TMS</p>
+    <div aria-live="polite">
+      <p>แจ้งสถานะจ่ายกลับ TMS: {syncEvents.length ? `ส่งแล้ว ${syncEvents.filter(e => e.status === 'delivered').length} / ${syncEvents.length} สลิป` : 'ยังไม่มีรายการยืนยันจ่ายในงวดนี้'}</p>
+      {syncEvents.map(event => <p key={event.id}>สลิป {event.slipId} · {event.status === 'delivered' ? 'TMS รับสถานะจ่ายแล้ว' : event.status === 'pending' || event.status === 'processing' ? 'รอซิงก์ไป TMS' : 'ซิงก์ไม่สำเร็จ — ส่งซ้ำได้'}</p>)}
+      {syncError && <p role="alert">{syncError}</p>}
+      {syncEvents.some(e => e.status !== 'delivered') && <p>มีรายการรอซิงก์หรือส่งไม่สำเร็จ ระบบจะลองใหม่ตามรอบ</p>}
+      <button className="hr-btn" disabled={busy} onClick={() => run(async () => {
+        await api('/api/hr/payroll/tms-sync', {});
+        setSyncEvents((await api(`/api/hr/payroll/tms-sync?period=${encodeURIComponent(period)}`)).events || []);
+        setMessage('ตรวจและส่งสถานะจ่ายกลับ TMS แล้ว');
+      })}>ส่งสถานะจ่ายกลับ TMS อีกครั้ง</button>
+    </div>
     <div className={styles.toolbar}>
       <label>งวดค่าเที่ยว<input type="month" value={period} disabled={busy} onChange={e => { setPeriod(e.target.value); setPreview(null); setBatch(null); }} /></label>
       <button className="hr-btn" disabled={busy || !period} onClick={() => run(async () => { setPreview(await api(`/api/hr/payroll/tms-import?period=${encodeURIComponent(period)}`)); setBatch(null); })}>{busy ? 'กำลังดำเนินการ…' : 'ดึงรายเที่ยวเพื่อตรวจสอบ'}</button>

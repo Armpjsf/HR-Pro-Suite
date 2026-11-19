@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { runIntegrationOutbox } from '@/lib/integration-outbox-worker';
+import { after, NextResponse } from 'next/server';
 import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { getLineMappings, findUserByEmployeeId, addAuditEntry } from '@/lib/db';
@@ -21,6 +22,7 @@ export async function POST(request) {
     p_period: period || null, p_slip_id: slipId || null,
   });
   if (payError) return NextResponse.json({ error: payError.code === 'P0001' && /ยอด OT|RECALCULATION_REQUIRED/.test(payError.message) ? payError.message : 'ยืนยันจ่ายไม่สำเร็จ กรุณาตรวจสลิปเดิมและ migration ก่อนลองใหม่' }, { status: 409 });
+  try { after(async () => { try { await runIntegrationOutbox(); } catch { console.error('[payroll] TMS sync queued for retry'); } }); } catch { /* Test environments may not provide request lifecycle hooks. */ }
   if (!slips?.length) return NextResponse.json({ success: true, count: 0, inAppSentCount: 0, lineSentCount: 0, message: 'ไม่มีรายการใหม่ที่ต้องยืนยันจ่าย' });
 
   let lineMappings = {};
