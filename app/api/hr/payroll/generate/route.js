@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { computeSlip, isValidPeriod } from '@/lib/payroll';
+import { selectPayrollRecords } from '@/lib/payroll-generation';
 import { unpaidDaysByEmployee } from '@/lib/leave-policy';
 import { addAuditEntry } from '@/lib/db';
 import { getDeploymentTenantId } from '@/lib/tenantContext';
@@ -61,7 +62,7 @@ export async function POST(request) {
   const periodEnd = lastDayOfPeriod(period);
 
   const results = await Promise.all([
-    supabase.from('employee_records').select('employee_id, salary, employment_type').gt('salary', 0),
+    supabase.from('employee_records').select('employee_id, salary, employment_type'),
     supabase.from('users').select('employee_id, status'),
     supabase.from('payroll_slips').select('id, employee_id, status, bonus, driving_pay, calculation_version').eq('period', period),
     supabase.from('tax_allowances').select('employee_id, data').eq('year', yearBE),
@@ -91,10 +92,7 @@ export async function POST(request) {
   ] = results;
 
   // ตัดพนักงานที่พ้นสภาพ/ถูกระงับออกจากงวด
-  const activeSet = new Set(
-    (activeUsers || []).filter((u) => !u.status || u.status === 'active').map((u) => u.employee_id),
-  );
-  const records = (allRecords || []).filter((r) => activeSet.has(r.employee_id));
+  const records = selectPayrollRecords(allRecords, activeUsers, existing);
 
   const existMap = new Map((existing || []).map((s) => [s.employee_id, s]));
   const allowMap = new Map((allowances || []).map((a) => [a.employee_id, a.data || {}]));
