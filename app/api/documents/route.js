@@ -79,10 +79,10 @@ export async function POST(request) {
 
       const audienceLabel =
         targetGroup === 'company'
-          ? 'พนักงานบริษัทดีดี (Employee)'
+          ? 'พนักงานบริษัท (Employee)'
           : targetGroup === 'partner'
             ? 'พนักงานขับรถร่วม (Partner Driver)'
-            : 'พนักงานบริษัทดีดี และ พนักงานขับรถร่วม (ทั้งหมด)';
+            : 'พนักงานบริษัท และ พนักงานขับรถร่วม (ทั้งหมด)';
 
       const ragContent = [
         `ชื่อวิดีโอคู่มือ: ${name}`,

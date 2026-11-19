@@ -4,7 +4,9 @@ import { supabase } from '@/lib/supabase';
 import { addAuditEntry } from '@/lib/db';
 import { createNotification } from '@/lib/notifications';
 import { attachDocumentRequestLookups, createIssuedSnapshot } from '@/lib/document-requests';
-import { COMPANY } from '@/lib/company';
+import { getTenantCompanyProfile, getDocumentIssuerProfile } from '@/lib/company';
+import { createDocumentSnapshot } from '@/lib/document-snapshot';
+import { getDeploymentTenantId } from '@/lib/tenantContext';
 
 function nullableId(value) {
   if (value === '' || value === undefined || value === null) return null;
@@ -82,7 +84,32 @@ export async function POST(request, { params }) {
     const [item] = attachDocumentRequestLookups([{ ...req, signature_asset_id: signatureId, stamp_asset_id: stampId, logo_asset_id: logoId }], {
       users: lookup[0].data, records: lookup[1].data, assets: lookup[2].data,
     });
-    const snapshot = createIssuedSnapshot(item, COMPANY);
+    const tenantId = user.tenantId || getDeploymentTenantId();
+    const companyProfile = await getTenantCompanyProfile(tenantId);
+    const issuerProfile = getDocumentIssuerProfile(companyProfile);
+    if (!issuerProfile.setupComplete) {
+      return NextResponse.json(
+        {
+          error: 'SETUP_REQUIRED: กรุณาตั้งค่าข้อมูลนิติบุคคล (ชื่อบริษัท, เลขผู้เสียภาษี, ที่อยู่) ก่อนอนุมัติเอกสารรับรอง',
+          code: 'SETUP_REQUIRED',
+        },
+        { status: 400 },
+      );
+    }
+
+    const docSnapshotMeta = createDocumentSnapshot({
+      tenantId,
+      legalEntityId: issuerProfile.legalEntityId,
+      documentType: req.document_type,
+      documentNo: `DOC-${req.id}`,
+      issuerProfile,
+      templateVersion: issuerProfile.version,
+      payload: { requestId: req.id, employeeId: req.employee_id },
+    });
+    const snapshot = {
+      ...createIssuedSnapshot(item, issuerProfile),
+      ...docSnapshotMeta,
+    };
 
     const { data: changed, error: updateError } = await supabase
       .from('document_requests')

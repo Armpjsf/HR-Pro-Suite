@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { filterDocumentsByRole } from '@/lib/permissions';
 import { getDocuments, readStoredFile, addAuditEntry } from '@/lib/db';
+import { getDeploymentTenantId } from '@/lib/tenantContext';
+import { verifyPublicDocumentToken } from '@/lib/document-snapshot';
 
 const MIME_TYPES = {
   pdf: 'application/pdf',
@@ -14,10 +16,32 @@ const MIME_TYPES = {
  * GET /api/documents/[id]/download — ดาวน์โหลดไฟล์จริง (ตรวจสิทธิ์ก่อน)
  */
 export async function GET(request, { params }) {
-  const { user, error, status } = await requireAuth(request);
-  if (error) return NextResponse.json({ error }, { status });
-
   const { id } = await params;
+  const queryToken = new URL(request.url).searchParams.get('token');
+  const tenantId = getDeploymentTenantId();
+
+  let scopedManualAccess = false;
+  let actorName = 'TMS Driver';
+
+  if (queryToken) {
+    const tokenRes = verifyPublicDocumentToken(queryToken, {
+      expectedTenantId: tenantId,
+      expectedDocumentType: 'driver-manual',
+      expectedDocumentId: id,
+    });
+    if (tokenRes.valid) {
+      scopedManualAccess = true;
+    }
+  }
+
+  let user = null;
+  if (!scopedManualAccess) {
+    const auth = await requireAuth(request);
+    if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    user = auth.user;
+    actorName = user.name;
+  }
+
   const docs = await getDocuments();
   const doc = docs.find((d) => d.id === id);
 
@@ -25,14 +49,20 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'ไม่พบเอกสาร' }, { status: 404 });
   }
 
-  // ตรวจสิทธิ์เข้าถึงเอกสารนี้ตาม role
-  const accessible = filterDocumentsByRole([doc], user.role, user.employeeId);
-  if (accessible.length === 0) {
-    return NextResponse.json({ error: 'คุณไม่มีสิทธิ์เข้าถึงเอกสารนี้' }, { status: 403 });
+  if (scopedManualAccess) {
+    if (doc.category !== 'driver-manuals') {
+      return NextResponse.json({ error: 'คุณไม่มีสิทธิ์เข้าถึงเอกสารนี้' }, { status: 403 });
+    }
+  } else {
+    // ตรวจสิทธิ์เข้าถึงเอกสารนี้ตาม role
+    const accessible = filterDocumentsByRole([doc], user.role, user.employeeId);
+    if (accessible.length === 0) {
+      return NextResponse.json({ error: 'คุณไม่มีสิทธิ์เข้าถึงเอกสารนี้' }, { status: 403 });
+    }
   }
 
   if (doc.type === 'video' && doc.fileName && /^https?:\/\//i.test(doc.fileName)) {
-    await addAuditEntry({ user: user.name, action: `เปิดดูวิดีโอ "${doc.name}"`, channel: 'PWA' });
+    await addAuditEntry({ user: actorName, action: `เปิดดูวิดีโอ "${doc.name}"`, channel: 'PWA' });
     return NextResponse.redirect(doc.fileName);
   }
 
@@ -45,7 +75,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'ไฟล์หายไปจากระบบ' }, { status: 404 });
   }
 
-  await addAuditEntry({ user: user.name, action: `ดาวน์โหลด "${doc.name}"`, channel: 'PWA' });
+  await addAuditEntry({ user: actorName, action: `ดาวน์โหลด "${doc.name}"`, channel: 'PWA' });
 
   return new NextResponse(buffer, {
     headers: {

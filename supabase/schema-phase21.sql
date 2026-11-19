@@ -139,9 +139,10 @@ begin
   if n<=0 then raise exception 'ช่วงที่เลือกไม่มีวันทำงาน กรุณาตรวจตารางกะและวันหยุด'; end if;
   leave_year := extract(year from p_start)::integer;
   if t.deduct_balance then
-    insert into employee_leave_balances(employee_id,leave_type,year,total_days,used_days)
-      values(p_employee,p_type,leave_year,coalesce(t.days_per_year,0),0) on conflict(employee_id,leave_type,year) do nothing;
     select * into b from employee_leave_balances where employee_id=p_employee and leave_type=p_type and year=leave_year for update;
+    if not found or coalesce(b.total_days, 0) <= 0 then
+      raise exception 'ยังไม่ได้รับสิทธิ์การลาประเภทนี้ กรุณาติดต่อ HR';
+    end if;
     select coalesce(sum(days),0) into pending_days from leave_requests where employee_id=p_employee and leave_type=p_type and status='pending' and extract(year from start_date)=leave_year;
     if b.used_days+pending_days+n>b.total_days then raise exception 'สิทธิ์ลาไม่พอเมื่อรวมใบลาที่รออนุมัติ'; end if;
   end if;

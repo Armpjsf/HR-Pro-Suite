@@ -701,17 +701,21 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
       </section>
 
       {/* ── 4. Leave Balance Quotas ── */}
-      <section className="me-leave-grid me-balance-grid" aria-label="โควตาวันลาคงเหลือ">
-        {Object.entries(data.leaveBalance || {}).map(([key, val]) => (
-          <div key={key} className="me-leave-card">
-            <div className="me-leave-icon">
-              <AppIcon name={LEAVE_ICON_NAMES[key] || 'calendar'} size={20} />
-            </div>
-            <div className="me-leave-remain">{val.remaining}</div>
-            <div className="me-leave-label">{leaveLabel(key, val, data.leaveTypes)}</div>
-          </div>
-        ))}
-      </section>
+      {Object.entries(data.leaveBalance || {}).some(([, val]) => (Number(val?.total) || 0) > 0) && (
+        <section className="me-leave-grid me-balance-grid" aria-label="โควตาวันลาคงเหลือ">
+          {Object.entries(data.leaveBalance || {})
+            .filter(([, val]) => (Number(val?.total) || 0) > 0)
+            .map(([key, val]) => (
+              <div key={key} className="me-leave-card">
+                <div className="me-leave-icon">
+                  <AppIcon name={LEAVE_ICON_NAMES[key] || 'calendar'} size={20} />
+                </div>
+                <div className="me-leave-remain">{val.remaining}</div>
+                <div className="me-leave-label">{leaveLabel(key, val, data.leaveTypes)}</div>
+              </div>
+            ))}
+        </section>
+      )}
 
       {/* ── 5. Recent Leave Requests ── */}
       {(data.leaves || []).length > 0 && (
@@ -870,7 +874,7 @@ function HomeTab({ data, setData, showToast, onNavigateTab, onNavigateSubTab }) 
    LEAVE TAB (Accessible radiogroup, segmented duration, balance)
    ═══════════════════════════════════════════════════════════════ */
 function LeaveTab({ data, setData, showToast, refreshData }) {
-  const leaveOptions =
+  const rawLeaveTypes =
     data.leaveTypes && data.leaveTypes.length > 0
       ? data.leaveTypes
       : [
@@ -878,7 +882,11 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
           { code: 'sick', name: 'ลาป่วย' },
           { code: 'personal', name: 'ลากิจ' },
         ];
-  const firstLeaveType = leaveOptions[0]?.code || 'annual';
+  const leaveOptions = rawLeaveTypes.filter((t) => {
+    if (t.deduct_balance === false) return true;
+    return (Number(data.leaveBalance?.[t.code]?.total) || 0) > 0;
+  });
+  const firstLeaveType = leaveOptions[0]?.code || '';
 
   const draftKey = `hr-leave-draft:${data.profile?.employeeId || 'self'}`;
   const [savedDraft] = useState(() => {
@@ -894,6 +902,9 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
     days: 1,
     reason: '',
   });
+  const selectedLeaveType = leaveOptions.some((t) => t.code === form.leave_type)
+    ? form.leave_type
+    : firstLeaveType;
   const [durationMode, setDurationMode] = useState(savedDraft?.session || 'full');
   useEffect(() => {
     try {
@@ -919,12 +930,16 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (leaveOptions.length === 0 || !selectedLeaveType) {
+      showToast('ยังไม่ได้รับสิทธิ์วันลา กรุณาติดต่อ HR', true);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/me/leave', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ ...form, session: durationMode }),
+        body: JSON.stringify({ ...form, leave_type: selectedLeaveType, session: durationMode }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -951,45 +966,59 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
   return (
     <>
       {/* Leave Balance Quotas */}
-      <div className="me-leave-grid" style={{ marginTop: 0, padding: 0 }}>
-        {Object.entries(data.leaveBalance || {}).map(([key, val]) => (
-          <div key={key} className="me-leave-card">
-            <div className="me-leave-icon">
-              <AppIcon name={LEAVE_ICON_NAMES[key] || 'calendar'} size={20} />
-            </div>
-            <div className="me-leave-remain">
-              {val.remaining}
-              <span style={{ fontSize: 11, fontWeight: 500, color: '#64748B' }}>/{val.total}</span>
-            </div>
-            <div className="me-leave-label">{leaveLabel(key, val, data.leaveTypes)}</div>
-          </div>
-        ))}
-      </div>
+      {Object.entries(data.leaveBalance || {}).some(([, val]) => (Number(val?.total) || 0) > 0) && (
+        <div className="me-leave-grid" style={{ marginTop: 0, padding: 0 }}>
+          {Object.entries(data.leaveBalance || {})
+            .filter(([, val]) => (Number(val?.total) || 0) > 0)
+            .map(([key, val]) => (
+              <div key={key} className="me-leave-card">
+                <div className="me-leave-icon">
+                  <AppIcon name={LEAVE_ICON_NAMES[key] || 'calendar'} size={20} />
+                </div>
+                <div className="me-leave-remain">
+                  {val.remaining}
+                  <span style={{ fontSize: 11, fontWeight: 500, color: '#64748B' }}>/{val.total}</span>
+                </div>
+                <div className="me-leave-label">{leaveLabel(key, val, data.leaveTypes)}</div>
+              </div>
+            ))}
+        </div>
+      )}
 
       {/* Leave Form */}
       <div className="me-card" style={{ marginTop: 14 }}>
         <div className="me-section-title">
           <AppIcon name="file-text" size={18} /> ยื่นใบลาออนไลน์
         </div>
+        {leaveOptions.length === 0 && (
+          <div role="alert" className="me-empty" style={{ marginBottom: 12, color: '#DC2626', fontWeight: 600 }}>
+            ยังไม่ได้รับสิทธิ์วันลา กรุณาติดต่อ HR
+          </div>
+        )}
         <form onSubmit={handleSubmit}>
           <div className="me-field">
             <label htmlFor="leave-type">ประเภทการลา</label>
             <select
               id="leave-type"
-              value={form.leave_type}
+              value={selectedLeaveType}
               onChange={(e) => setForm({ ...form, leave_type: e.target.value })}
+              disabled={leaveOptions.length === 0}
               required
             >
-              {leaveOptions.map((t) => {
-                const bal = data.leaveBalance?.[t.code];
-                const remainText = bal ? ` (คงเหลือ ${bal.remaining} วัน)` : '';
-                return (
-                  <option key={t.code} value={t.code}>
-                    {t.name}
-                    {remainText}
-                  </option>
-                );
-              })}
+              {leaveOptions.length === 0 ? (
+                <option value="">ยังไม่ได้รับสิทธิ์วันลา กรุณาติดต่อ HR</option>
+              ) : (
+                leaveOptions.map((t) => {
+                  const bal = data.leaveBalance?.[t.code];
+                  const remainText = bal ? ` (คงเหลือ ${bal.remaining} วัน)` : '';
+                  return (
+                    <option key={t.code} value={t.code}>
+                      {t.name}
+                      {remainText}
+                    </option>
+                  );
+                })
+              )}
             </select>
           </div>
 
@@ -1071,7 +1100,7 @@ function LeaveTab({ data, setData, showToast, refreshData }) {
             />
           </div>
 
-          <button className="me-btn" disabled={loading || preview?.key !== previewKey || !preview?.days || !!preview?.error}>
+          <button className="me-btn" disabled={leaveOptions.length === 0 || loading || preview?.key !== previewKey || !preview?.days || !!preview?.error}>
             <AppIcon name="calendar" size={16} />
             <span>{loading ? 'กำลังส่งคำขอ...' : 'ส่งใบลา'}</span>
           </button>

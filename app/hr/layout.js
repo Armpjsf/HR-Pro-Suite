@@ -129,6 +129,7 @@ export default function HrLayout({ children }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     typeof window !== 'undefined' ? localStorage.getItem('hr-sidebar-collapsed') === '1' : false
   );
+  const [brand, setBrand] = useState({ displayName: 'HR Pro Suite', logoLightUrl: '/brand/hr-pro-logo.svg', productLabel: 'HR Pro Suite' });
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -141,6 +142,10 @@ export default function HrLayout({ children }) {
   };
 
   useEffect(() => {
+    fetch('/api/company/public', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => { if (b?.displayName) setBrand((prev) => ({ ...prev, ...b })); })
+      .catch(() => {});
     fetch('/api/hr/branches', { headers: authHeaders() })
       .then((r) => r.json())
       .then((d) => setBranches(d.items || []))
@@ -236,13 +241,13 @@ export default function HrLayout({ children }) {
     <div className="hr-root">
       <aside className={`hr-sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="hr-logo">
-          <div className="hr-logo-icon" title="HR Pro Suite">
-            <img src="/brand/hr-pro-logo.svg" alt="HR Pro Suite" />
+          <div className="hr-logo-icon" title={brand.productLabel || 'HR Pro Suite'}>
+            <img src={brand.logoLightUrl || '/brand/hr-pro-logo.svg'} alt={brand.productLabel || 'HR Pro Suite'} />
           </div>
           {!sidebarCollapsed && (
             <div className="hr-logo-text">
-              <div className="hr-logo-title">HR Pro Suite</div>
-              <div className="hr-logo-sub">บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต</div>
+              <div className="hr-logo-title">{brand.productLabel || 'HR Pro Suite'}</div>
+              <div className="hr-logo-sub">{brand.displayName || 'HR Pro Suite'}</div>
             </div>
           )}
           <button

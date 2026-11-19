@@ -4,6 +4,11 @@ import { fetchNexusPayrollLines, claimNexusPayrollBatch } from '@/lib/nexus-payr
 import { NextResponse } from 'next/server';
 import { requireTenantContext, TenantContextError } from '@/lib/tenantContext';
 import { requireModule, isOperationAllowedInState, EntitlementError } from '@/lib/entitlements';
+import { supabase } from '@/lib/supabase';
+import {
+  receiveAndApplyInboxEvent,
+  SupabaseOutboxInboxRepository,
+} from '@/lib/integration-outbox-inbox';
 import {
   createPayrollImportBatch,
   reviewPayrollImportBatch,
@@ -117,16 +122,81 @@ export async function POST(request) {
     }
 
     if (action === 'post') {
-      const pending = await getImportBatch(ctx.tenantId, body.batchId);
-      for (const line of pending?.lines || []) {
-        if (!['imported_payable', 'imported_revision_delta'].includes(line.disposition)) continue;
-        const link = await getVerifiedDriverEmployeeLink({ tenantId: ctx.tenantId, connectionId: pending.connectionId, tmsDriverId: line.tmsDriverId, asOfDate: line.recognitionDate });
-        if (!link?.verifiedBy || link.hrEmployeeId !== line.hrEmployeeId || link.employmentClassification === 'subcontractor') {
-          throw new PayrollImportError('การจับคู่พนักงานเปลี่ยนหลังตรวจยอด กรุณาสร้างชุดใหม่', 'RECIPIENT_CHANGED', 409);
+      const eventId =
+        body?.event_id || request.headers.get('x-nexus-event-id') || request.headers.get('idempotency-key');
+      const connectionId = body?.connection_id || request.headers.get('x-nexus-connection-id');
+
+      const executePost = async (inboxCtx = null) => {
+        const pending = await getImportBatch(ctx.tenantId, body.batchId);
+        const receiptKey = `payroll_post:${body.batchId}`;
+        const hasPriorReceipt = Boolean(inboxCtx?.committedReceipts && inboxCtx.committedReceipts[receiptKey]);
+        if (!hasPriorReceipt && !(inboxCtx && pending?.status === 'posted')) {
+          for (const line of pending?.lines || []) {
+            if (!['imported_payable', 'imported_revision_delta'].includes(line.disposition)) continue;
+            const link = await getVerifiedDriverEmployeeLink({
+              tenantId: ctx.tenantId,
+              connectionId: pending.connectionId,
+              tmsDriverId: line.tmsDriverId,
+              asOfDate: line.recognitionDate,
+            });
+            if (!link?.verifiedBy || link.hrEmployeeId !== line.hrEmployeeId || link.employmentClassification === 'subcontractor') {
+              throw new PayrollImportError('การจับคู่พนักงานเปลี่ยนหลังตรวจยอด กรุณาสร้างชุดใหม่', 'RECIPIENT_CHANGED', 409);
+            }
+          }
+          await claimNexusPayrollBatch(ctx.tenantId, pending);
         }
+        return postImportBatchToPayroll({
+          tenantId: ctx.tenantId,
+          batchId: body.batchId,
+          actorId,
+          ...(inboxCtx
+            ? {
+                eventId: inboxCtx.eventId,
+                connectionId: inboxCtx.connectionId,
+                inboxId: inboxCtx.inboxId,
+                workerId: inboxCtx.workerId,
+                fencingToken: inboxCtx.fencingToken,
+              }
+            : {}),
+        });
+      };
+
+      if (eventId) {
+        const inboxRes = await receiveAndApplyInboxEvent(
+          {
+            connectionId: String(connectionId || `conn-tms-hr-${ctx.tenantId}`),
+            tenantId: ctx.tenantId,
+            eventId: String(eventId),
+            aggregateId: String(body?.aggregate_id || body.batchId || 'payroll-batch'),
+            aggregateVersion: Number(body?.aggregate_version) || 1,
+            eventType: String(body?.event_type || 'hr.payroll.post'),
+            schemaVersion: String(body?.schema_version || '2.0.0'),
+            payload: { action: 'post', batchId: body.batchId },
+            applyFn: async (inboxCtx) => executePost(inboxCtx),
+          },
+          new SupabaseOutboxInboxRepository(supabase),
+        );
+
+        if (inboxRes.httpStatus !== 200) {
+          return NextResponse.json(
+            { success: false, status: inboxRes.status, error: inboxRes.error },
+            { status: inboxRes.httpStatus },
+          );
+        }
+
+        if (inboxRes.status === 'duplicate_ignored' || inboxRes.status === 'rejected_stale_version') {
+          return NextResponse.json({
+            success: true,
+            idempotent: true,
+            inboxStatus: inboxRes.status,
+            batch: inboxRes.result ?? null,
+          });
+        }
+
+        return NextResponse.json({ success: true, inboxStatus: inboxRes.status, batch: inboxRes.result });
       }
-      await claimNexusPayrollBatch(ctx.tenantId, pending);
-      const batch = await postImportBatchToPayroll({ tenantId: ctx.tenantId, batchId: body.batchId, actorId });
+
+      const batch = await executePost();
       return NextResponse.json({ success: true, batch });
     }
 

@@ -14,7 +14,8 @@ test('phase21 transactional workflows on an isolated PostgreSQL database', async
     await db.exec(await fs.readFile(new URL('../supabase/schema-phase21.sql', import.meta.url),'utf8'));
     await db.exec(`insert into users(id,username,password,name,employee_id) values('test','test','fake','Test','TEST');
       insert into employee_records(employee_id) values('TEST');
-      update leave_types set days_per_year=10,deduct_balance=true where code='annual';`);
+      update leave_types set days_per_year=10,deduct_balance=true where code='annual';
+      insert into employee_leave_balances(employee_id,leave_type,year,total_days,used_days) values('TEST','annual',2026,10,0);`);
     const draft = { employee_id: 'TEST', period: '2026-11', base_salary: 20000, ot_pay: 0, bonus: 500, reimbursements: 1000, tax: 0, sso: 875, deduction: 0, net: 20625 };
     await db.exec("insert into expense_claims(employee_id,category,amount,claim_date,status) values('TEST','other',1000,'2026-11-17','approved')");
     const save = () => db.query('select save_payroll_draft($1::jsonb,true) as result', [JSON.stringify(draft)]);

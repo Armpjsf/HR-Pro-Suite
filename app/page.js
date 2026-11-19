@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [brand, setBrand] = useState({ displayName: 'HR Pro Suite', logoLightUrl: '/brand/hr-pro-logo.svg', productLabel: 'HR Pro Suite' });
   const router = useRouter();
 
   const redirectByAccess = useCallback(async () => {
@@ -36,6 +37,10 @@ export default function LoginPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
+    fetch('/api/company/public', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => { if (b?.displayName) setBrand((prev) => ({ ...prev, ...b })); })
+      .catch(() => {});
     if (localStorage.getItem('hr-user')) {
       redirectByAccess().catch(() => router.push('/me'));
     }
@@ -79,8 +84,8 @@ export default function LoginPage() {
           <div className="login-logo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/brand/hr-pro-logo.svg"
-              alt="ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต"
+              src={brand.logoLightUrl || '/brand/hr-pro-logo.svg'}
+              alt={brand.displayName || 'HR Pro Suite'}
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
                 if (e.currentTarget.nextElementSibling) {
@@ -93,8 +98,8 @@ export default function LoginPage() {
             </div>
           </div>
           <div className="login-brand-text">
-            <div className="login-company">บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด</div>
-            <div className="login-system">ระบบบริหารทรัพยากรบุคคลและปฏิบัติการขนส่ง</div>
+            <div className="login-company">{brand.displayName || 'HR Pro Suite'}</div>
+            <div className="login-system">ระบบบริหารทรัพยากรบุคคลและเอกสารองค์กร</div>
           </div>
         </div>
 
@@ -172,7 +177,7 @@ export default function LoginPage() {
 
         <div className="login-card-footer">
           <AppIcon name="shield" size={14} style={{ color: '#64748B' }} />
-          <span>ระบบรักษาความปลอดภัยมาตรฐานองค์กร · DD Service & Transport</span>
+          <span>ระบบรักษาความปลอดภัยมาตรฐานองค์กร · {brand.productLabel || 'HR Pro Suite'}</span>
         </div>
       </div>
 

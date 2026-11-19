@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireMenu } from '@/lib/hr-access';
 import { chatComplete } from '@/lib/llm';
+import { getTenantCompanyProfile } from '@/lib/company';
+import { getDeploymentTenantId } from '@/lib/tenantContext';
 
 // POST /api/hr/interviews/question-sets/generate — ให้ AI ช่วยออกแบบชุดคำถามสัมภาษณ์ตามตำแหน่งงาน
 export async function POST(request) {
@@ -11,6 +13,9 @@ export async function POST(request) {
     if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
+  const companyProfile = await getTenantCompanyProfile(auth.user?.tenantId || getDeploymentTenantId());
+  const companyName = companyProfile?.legalName || companyProfile?.displayName || companyProfile?.name || 'บริษัทผู้เช่าระบบ';
+
   const body = await request.json();
   const position = (body.position || '').trim();
   const department = (body.department || '').trim();
@@ -20,7 +25,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'กรุณาระบุตำแหน่งงานที่ต้องการให้ AI ออกแบบคำถาม' }, { status: 400 });
   }
 
-  const prompt = `คุณเป็นผู้เชี่ยวชาญด้านการสรรหาและคัดเลือกบุคลากร (Senior Talent Acquisition Specialist) ของบริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด
+  const prompt = `คุณเป็นผู้เชี่ยวชาญด้านการสรรหาและคัดเลือกบุคลากร (Senior Talent Acquisition Specialist) ของ${companyName}
 กรุณาออกแบบชุดคำถามสำหรับใช้ในการ "สัมภาษณ์งานเบื้องต้นด้วยระบบ AI (Voice Interview)" สำหรับตำแหน่งงานต่อไปนี้:
 
 ตำแหน่ง: ${position}

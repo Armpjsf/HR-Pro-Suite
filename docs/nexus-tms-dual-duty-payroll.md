@@ -51,5 +51,3 @@
 ผลตรวจในเครื่องวันที่ 18 พฤศจิกายน 2026: HR `npm test` ผ่าน 54 รายการ, production build ผ่าน, lint ไม่มี error (มีคำเตือนรูปภาพเดิม 15 รายการ) ฝั่ง TMS `npm run typecheck` ผ่าน และ `npx vitest run --maxWorkers=2 --testTimeout=15000` ผ่าน 38 รายการ
 
 `tests/ui/tms-payroll.browser.mjs` ทดสอบหน้า production บน Edge headless ด้วย API จำลองทั้งหมด ผ่านการจับคู่ ตรวจยอด อนุมัติ ลงสลิป คำนวณใหม่ การเชื่อมต่อล้มเหลว การลองใหม่ และงวดไม่มีรายการ ตรวจหน้าจอ 1440 และ 390 พิกเซล สามารถตั้ง `PLAYWRIGHT_MODULE` เป็น file URL ของ Playwright ที่ติดตั้งภายนอกโปรเจกต์ แล้วรันขณะเปิด HR ที่ `localhost:3137` จึงไม่จำเป็นต้องเพิ่ม dependency เพื่อใช้แอปจริง
-
-ชุดเผยแพร่ที่แยกจากงานพัฒนาอื่น: ทดสอบ HR 35 รายการผ่าน รวม API นำเข้าและจ่ายจริงในฐานข้อมูลทดสอบ พร้อม production build และ browser workflow ที่ใช้ API จำลอง ฝั่ง TMS มี unit test เฉพาะ API รายเที่ยวและการตรวจ key 6 รายการผ่าน และ TypeScript ผ่าน

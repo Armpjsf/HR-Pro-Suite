@@ -2428,7 +2428,7 @@ export function DocumentRequestsSection({ back, showToast, profile }) {
 export const DocumentRequestsTab = DocumentRequestsSection;
 
 export function CertificateDocument({ request, fallbackProfile, onClose }) {
-  const company = request.issued_snapshot?.company || COMPANY;
+  const company = request.issued_snapshot?.issuer || request.issued_snapshot?.company || COMPANY;
   const docProfile = request.employeeProfile || fallbackProfile || {};
   const isSalary = request.document_type === 'salary_certificate';
   const title = CERTIFICATE_TYPES[request.document_type] || 'หนังสือรับรอง';
@@ -2957,7 +2957,7 @@ export function DriverManualsTab({ back }) {
 
   const audienceText = (doc) => {
     const roles = Array.isArray(doc.accessRoles) ? doc.accessRoles : [];
-    if (roles.includes('employee') && !roles.includes('partner_driver')) return 'สำหรับพนักงานบริษัทดีดี';
+    if (roles.includes('employee') && !roles.includes('partner_driver')) return 'สำหรับพนักงานบริษัท';
     if (!roles.includes('employee') && roles.includes('partner_driver')) return 'สำหรับพนักงานขับรถร่วม';
     return 'คู่มือทั่วไป (ทุกกลุ่ม)';
   };

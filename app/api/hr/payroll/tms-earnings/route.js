@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth';
+import { requireTenantContext, TenantContextError } from '@/lib/tenantContext';
 import { supabase } from '@/lib/supabase';
+import { mapTmsEarningsToHr, validateTmsUrl } from '@/lib/tms-earnings-mapper';
+import {
+  requireModule,
+  isOperationAllowedInState,
+  EntitlementError,
+} from '@/lib/entitlements';
+
+export { mapTmsEarningsToHr };
 
 async function getEmployees() {
   const { data, error } = await supabase
@@ -21,14 +29,50 @@ async function getEmployees() {
   }));
 }
 
-function normalizeName(str) {
-  if (!str) return '';
-  return String(str).trim().replace(/\s+/g, ' ').toLowerCase();
+async function getExplicitDriverLinks() {
+  try {
+    const { data, error } = await supabase
+      .from('driver_employee_links')
+      .select('tms_driver_id, hr_employee_id, active');
+    if (error || !Array.isArray(data)) return [];
+    return data;
+  } catch {
+    return [];
+  }
 }
 
 export async function GET(request) {
-  const { error, status } = await requireRole(request, ['admin', 'hr']);
-  if (error) return NextResponse.json({ error }, { status });
+  let tenantCtx;
+  try {
+    tenantCtx = await requireTenantContext(request, { allowedRoles: ['admin', 'hr'] });
+  } catch (err) {
+    if (err instanceof TenantContextError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    throw err;
+  }
+
+  let entitlement;
+  try {
+    entitlement = await requireModule(tenantCtx, 'hr', 'read');
+  } catch (err) {
+    if (err instanceof EntitlementError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
+    throw err;
+  }
+
+  if (!entitlement.modules.includes('tms') || !isOperationAllowedInState(entitlement.state, 'integration')) {
+    return NextResponse.json(
+      {
+        configured: false,
+        moduleDisabled: true,
+        earnings: [],
+        autoImportEnabled: false,
+      },
+      { status: 200 }
+    );
+  }
 
   const url = new URL(request.url);
   const from = url.searchParams.get('from') || '';
@@ -43,12 +87,26 @@ export async function GET(request) {
         configured: false,
         error: 'ยังไม่ได้ตั้งค่า NEXUS_TMS_URL หรือ NEXUS_TMS_API_KEY ในระบบ',
         earnings: [],
+        autoImportEnabled: false,
       },
       { status: 200 }
     );
   }
 
-  const endpoint = `${tmsUrl.replace(/\/$/, '')}/api/external/v1/driver-earnings?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+  const urlCheck = validateTmsUrl(tmsUrl);
+  if (!urlCheck.valid || !urlCheck.url) {
+    return NextResponse.json(
+      {
+        configured: false,
+        error: urlCheck.error || 'NEXUS_TMS_URL ไม่ปลอดภัยหรือรูปแบบไม่ถูกต้อง',
+        earnings: [],
+        autoImportEnabled: false,
+      },
+      { status: 200 }
+    );
+  }
+
+  const endpoint = `${urlCheck.url}/api/external/v1/driver-earnings?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
 
   let res;
   try {
@@ -57,6 +115,7 @@ export async function GET(request) {
         Authorization: `Bearer ${tmsKey}`,
         Accept: 'application/json',
       },
+      redirect: 'error',
     });
   } catch (fetchErr) {
     return NextResponse.json(
@@ -64,6 +123,7 @@ export async function GET(request) {
         configured: true,
         error: `เชื่อมต่อกับ Nexus TMS ไม่สำเร็จ: ${fetchErr.message}`,
         earnings: [],
+        autoImportEnabled: false,
       },
       { status: 200 }
     );
@@ -76,6 +136,7 @@ export async function GET(request) {
         configured: true,
         error: `Nexus TMS ตอบกลับรหัส ${res.status}: ${errText.slice(0, 150)}`,
         earnings: [],
+        autoImportEnabled: false,
       },
       { status: 200 }
     );
@@ -90,6 +151,7 @@ export async function GET(request) {
         configured: true,
         error: 'ข้อมูลตอบกลับจาก Nexus TMS ไม่ใช่รูปแบบ JSON ที่ถูกต้อง',
         earnings: [],
+        autoImportEnabled: false,
       },
       { status: 200 }
     );
@@ -99,27 +161,15 @@ export async function GET(request) {
     ? tmsData
     : tmsData?.earnings || tmsData?.data || tmsData?.drivers || [];
 
-  const employees = await getEmployees();
+  const [employees, explicitLinks] = await Promise.all([
+    getEmployees(),
+    getExplicitDriverLinks(),
+  ]);
 
-  const earnings = rawList.map((item) => {
-    const rawName = item.driver_name || item.driverName || item.name || '';
-    const normName = normalizeName(rawName);
+  const result = mapTmsEarningsToHr(rawList, employees, explicitLinks);
 
-    const matched = employees.find((e) => {
-      const eNorm = normalizeName(e.name);
-      return eNorm && (eNorm === normName || eNorm.includes(normName) || normName.includes(eNorm));
-    });
-
-    return {
-      ...item,
-      driverName: rawName,
-      employeeId: matched ? matched.employeeId : item.employee_id || item.employeeId || null,
-      department: matched?.department || null,
-      matched: !!matched,
-      tripCount: Number(item.trip_count ?? item.trips ?? item.tripCount ?? 0),
-      driverCost: Number(item.driver_cost ?? item.driverCost ?? item.amount ?? item.earnings ?? 0),
-    };
+  return NextResponse.json({
+    configured: true,
+    ...result,
   });
-
-  return NextResponse.json({ configured: true, earnings });
 }

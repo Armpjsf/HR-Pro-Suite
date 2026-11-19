@@ -5,6 +5,8 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { generateResponse } from '@/lib/gemini.js';
 import { getLineMappings, setLineMapping, findUserByEmployeeId, addAuditEntry } from '@/lib/db.js';
 import { createDownloadToken } from '@/lib/auth.js';
+import { getTenantCompanyProfile } from '@/lib/company.js';
+import { getDeploymentTenantId } from '@/lib/tenantContext.js';
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || '';
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
@@ -61,7 +63,29 @@ async function replyMessage(replyToken, messages) {
 /**
  * Flex Message สำหรับการติดต่อ HR ตัวจริง (Human Escalation)
  */
-function createHumanEscalationResponse(employeeName = '') {
+function createHumanEscalationResponse(employeeName = '', companyProfile = null) {
+  const companyName = companyProfile?.legalName || companyProfile?.displayName || companyProfile?.name || 'ฝ่ายทรัพยากรบุคคล';
+  const companyPhone = companyProfile?.phone || companyProfile?.supportPhone || 'ติดต่อผ่านระบบ HR';
+  const companyEmail = companyProfile?.email || companyProfile?.supportEmail || 'ติดต่อฝ่ายบุคคลผ่านระบบ HR';
+  const telUri = companyProfile?.phone ? `tel:${String(companyProfile.phone).replace(/[^+\d]/g, '')}` : null;
+
+  const footerButtons = [];
+  if (telUri) {
+    footerButtons.push({
+      type: 'button',
+      action: { type: 'uri', label: '📞 โทรหาฝ่ายบุคคล', uri: telUri },
+      style: 'primary',
+      color: '#7c3aed',
+      height: 'sm',
+    });
+  }
+  footerButtons.push({
+    type: 'button',
+    action: { type: 'message', label: 'แจ้งให้ HR โทรกลับ', text: 'ต้องการให้เจ้าหน้าที่ HR ติดต่อกลับด่วน' },
+    style: 'secondary',
+    height: 'sm',
+  });
+
   return {
     type: 'flex',
     altText: 'ช่องทางการติดต่อฝ่ายบุคคล (HR)',
@@ -74,7 +98,7 @@ function createHumanEscalationResponse(employeeName = '') {
         paddingAll: '16px',
         contents: [
           { type: 'text', text: '👩‍💼 ฝ่ายทรัพยากรบุคคล (HR)', weight: 'bold', size: 'md', color: '#ffffff' },
-          { type: 'text', text: 'บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด', size: 'xs', color: '#ddd6fe', margin: 'xs' },
+          { type: 'text', text: companyName, size: 'xs', color: '#ddd6fe', margin: 'xs' },
         ],
       },
       body: {
@@ -98,11 +122,11 @@ function createHumanEscalationResponse(employeeName = '') {
             paddingAll: '12px',
             cornerRadius: '8px',
             contents: [
-              { type: 'text', text: '📞 โทรศัพท์: 02-123-4567 ต่อ 101-104', size: 'xs', weight: 'bold', color: '#1f2937' },
+              { type: 'text', text: `📞 โทรศัพท์: ${companyPhone}`, size: 'xs', weight: 'bold', color: '#1f2937' },
               { type: 'text', text: '⏰ เวลาทำการ: จันทร์ - ศุกร์ 08:30 - 17:30 น.', size: 'xs', color: '#4b5563' },
-              { type: 'text', text: '✉️ อีเมล: hr@ddtransport.co.th', size: 'xs', color: '#4b5563' },
+              { type: 'text', text: `✉️ อีเมล: ${companyEmail}`, size: 'xs', color: '#4b5563' },
               { type: 'separator', margin: 'sm' },
-              { type: 'text', text: '🚨 เหตุฉุกเฉิน/อุบัติเหตุ 24 ชม.: โทร 1669 / สายด่วนศูนย์ควบคุม', size: 'xs', color: '#dc2626', weight: 'bold' },
+              { type: 'text', text: '🚨 เหตุฉุกเฉิน/อุบัติเหตุ 24 ชม.: โทร 1669 / สายด่วนฉุกเฉินของบริษัท', size: 'xs', color: '#dc2626', weight: 'bold' },
             ],
           },
         ],
@@ -111,21 +135,7 @@ function createHumanEscalationResponse(employeeName = '') {
         type: 'box',
         layout: 'vertical',
         spacing: 'sm',
-        contents: [
-          {
-            type: 'button',
-            action: { type: 'uri', label: '📞 โทรหาฝ่ายบุคคล', uri: 'tel:021234567' },
-            style: 'primary',
-            color: '#7c3aed',
-            height: 'sm',
-          },
-          {
-            type: 'button',
-            action: { type: 'message', label: 'แจ้งให้ HR โทรกลับ', text: 'ต้องการให้เจ้าหน้าที่ HR ติดต่อกลับด่วน' },
-            style: 'secondary',
-            height: 'sm',
-          },
-        ],
+        contents: footerButtons,
       },
     },
   };
@@ -135,7 +145,7 @@ function createHumanEscalationResponse(employeeName = '') {
  * Flex Message สำหรับการแสดงคำตอบและเอกสารแนบ
  */
 function createFlexResponse(text, documents = [], userName = '', downloadUser = null) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hr-ai-chatbot-tawny.vercel.app';
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/$/, '');
   const contents = {
     type: 'bubble',
     header: {
@@ -204,7 +214,8 @@ function createFlexResponse(text, documents = [], userName = '', downloadUser = 
 /**
  * Flex Message ชวนลงทะเบียนครั้งแรก
  */
-function createRegistrationPrompt() {
+function createRegistrationPrompt(companyProfile = null) {
+  const companyName = companyProfile?.legalName || companyProfile?.displayName || companyProfile?.name || 'HR Pro Suite';
   return {
     type: 'flex',
     altText: 'ลงทะเบียนเพื่อใช้งาน HR Assistant',
@@ -217,7 +228,7 @@ function createRegistrationPrompt() {
         paddingAll: '16px',
         contents: [
           { type: 'text', text: '🤖 ระบบ HR Assistant', weight: 'bold', size: 'lg', color: '#ffffff', align: 'center' },
-          { type: 'text', text: 'บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด', size: 'xs', color: '#ddd6fe', align: 'center', margin: 'xs' },
+          { type: 'text', text: companyName, size: 'xs', color: '#ddd6fe', align: 'center', margin: 'xs' },
         ],
       },
       body: {
@@ -234,7 +245,7 @@ function createRegistrationPrompt() {
             paddingAll: '10px',
             cornerRadius: '6px',
             contents: [
-              { type: 'text', text: 'ตัวอย่างการพิมพ์: ลงทะเบียน DD-001', weight: 'bold', size: 'xs', color: '#6d28d9', align: 'center' },
+              { type: 'text', text: 'ตัวอย่างการพิมพ์: ลงทะเบียน EMP-001', weight: 'bold', size: 'xs', color: '#6d28d9', align: 'center' },
             ],
           },
         ],
@@ -247,15 +258,18 @@ function createRegistrationPrompt() {
  * Quick Reply buttons อัจฉริยะตามหมวดหมู่คำถาม (คุม Label ไม่เกิน 12-14 ตัวอักษร ป้องกันจอตัดคำ)
  */
 function getQuickReply(intentType = '') {
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/$/, '');
   if (intentType === 'leave' || intentType === 'leave_submit_guide' || intentType === 'data_query') {
-    return {
-      items: [
-        { type: 'action', action: { type: 'uri', label: '🌐 ยื่นลาในระบบ', uri: 'https://hr-ai-chatbot-tawny.vercel.app/me' } },
-        { type: 'action', action: { type: 'message', label: '📅 วันลาคงเหลือ', text: 'วันลาคงเหลือ' } },
-        { type: 'action', action: { type: 'message', label: '📋 กฎการลาป่วย', text: 'ระเบียบการลาป่วยต้องใช้ใบรับรองแพทย์ไหม' } },
-        { type: 'action', action: { type: 'message', label: '📞 ติดต่อ HR', text: 'ติดต่อ HR' } },
-      ],
-    };
+    const items = [];
+    if (appUrl) {
+      items.push({ type: 'action', action: { type: 'uri', label: '🌐 ยื่นลาในระบบ', uri: `${appUrl}/me` } });
+    }
+    items.push(
+      { type: 'action', action: { type: 'message', label: '📅 วันลาคงเหลือ', text: 'วันลาคงเหลือ' } },
+      { type: 'action', action: { type: 'message', label: '📋 กฎการลาป่วย', text: 'ระเบียบการลาป่วยต้องใช้ใบรับรองแพทย์ไหม' } },
+      { type: 'action', action: { type: 'message', label: '📞 ติดต่อ HR', text: 'ติดต่อ HR' } },
+    );
+    return { items };
   }
 
   return {
@@ -354,10 +368,11 @@ export async function POST(request) {
         }
 
         // 2. ตรวจสอบว่าผู้ใช้ผูกบัญชีหรือยัง
+        const companyProfile = await getTenantCompanyProfile(getDeploymentTenantId());
         const lineMappings = await getLineMappings();
         const userMapping = lineMappings[userId];
         if (!userMapping) {
-          await replyMessage(event.replyToken, [createRegistrationPrompt()]);
+          await replyMessage(event.replyToken, [createRegistrationPrompt(companyProfile)]);
           continue;
         }
 
@@ -386,7 +401,7 @@ export async function POST(request) {
           });
 
           await replyMessage(event.replyToken, [
-            createHumanEscalationResponse(activeUser.name),
+            createHumanEscalationResponse(activeUser.name, companyProfile),
           ]);
           continue;
         }
@@ -439,7 +454,7 @@ export async function POST(request) {
                   },
                 ],
               },
-              footer: {
+              footer: (process.env.NEXT_PUBLIC_APP_URL || '').trim() ? {
                 type: 'box',
                 layout: 'vertical',
                 spacing: 'sm',
@@ -449,14 +464,14 @@ export async function POST(request) {
                     action: {
                       type: 'uri',
                       label: '🌐 เข้าสู่ระบบเพื่อยื่นใบลา',
-                      uri: 'https://hr-ai-chatbot-tawny.vercel.app/me',
+                      uri: `${(process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/$/, '')}/me`,
                     },
                     style: 'primary',
                     color: '#7c3aed',
                     height: 'sm',
                   },
                 ],
-              },
+              } : undefined,
             },
             quickReply: getQuickReply(response.intent),
           });

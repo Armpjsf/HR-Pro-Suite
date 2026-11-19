@@ -17,18 +17,26 @@ const hooks=registerHooks({ resolve(specifier,context,next) {
 } });
 
 test('real API handlers with cookies and isolated PostgreSQL', async (t)=>{
+  const prevProfileEnv = process.env.HR_COMPANY_PROFILE_JSON;
+  process.env.HR_COMPANY_PROFILE_JSON = JSON.stringify({
+    legalName: 'บริษัท ทดสอบระบบ จำกัด',
+    name: 'บริษัท ทดสอบระบบ',
+    taxId: '0105560000011',
+    address: '100 ถนนทดสอบ กรุงเทพฯ 10120',
+  });
   process.env.LINE_CHANNEL_ACCESS_TOKEN='';process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY='';process.env.VAPID_PRIVATE_KEY='';
   const {database:db,files}=await import('./support/isolated-supabase.mjs');
   try {
     await db.exec('create role anon;create role authenticated;create role service_role;');
     for(const file of ['schema.sql','schema-hr.sql',...[1,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21].map(n=>`schema-phase${n}.sql`)])await db.exec(await fs.readFile(new URL('supabase/'+file,root),'utf8'));
-    for (const file of ['007_integration_links_outbox_inbox.sql','008_payroll_import_batches.sql','010_driving_income.sql']) await db.exec(await fs.readFile(new URL('supabase/migrations/'+file,root),'utf8'));
+    for (const file of ['008_payroll_import_batches.sql','010_driving_income.sql']) await db.exec(await fs.readFile(new URL('supabase/migrations/'+file,root),'utf8'));
     const password='test-password-only';const hash=await bcrypt.hash(password,4);
     for(const [id,role,manager] of [['ADMIN','admin',null],['HR','hr',null],['MANAGER','manager',null],['EMP','employee','MANAGER'],['OTHER','employee',null]]) {
       await db.query('insert into users(id,username,password,name,role,employee_id,manager_id) values($1,$1,$2,$1,$3,$1,$4)',[id,hash,role,manager]);
       await db.query('insert into employee_records(employee_id,salary) values($1,20000)',[id]);
     }
     await db.exec("update leave_types set days_per_year=10,deduct_balance=true where code='annual'");
+    await db.exec("insert into employee_leave_balances(employee_id,leave_type,year,total_days,used_days) values('EMP','annual',2026,10,0)");
     const login=await import('../app/api/auth/login/route.js');
     const auth=await import('../app/api/auth/me/route.js');
     const leave=await import('../app/api/me/leave/route.js');
@@ -105,5 +113,9 @@ test('real API handlers with cookies and isolated PostgreSQL', async (t)=>{
       assert.deepEqual((await db.query('select * from role_permissions order by role')).rows,before);
       assert.equal((await permissions.GET(request('/api/hr/permissions',cookies.ADMIN))).status,200);
     });
-  } finally { await db.close();hooks.deregister(); }
+  } finally {
+    if (prevProfileEnv === undefined) delete process.env.HR_COMPANY_PROFILE_JSON;
+    else process.env.HR_COMPANY_PROFILE_JSON = prevProfileEnv;
+    await db.close();hooks.deregister();
+  }
 });

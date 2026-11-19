@@ -17,8 +17,8 @@ const ibmPlexThai = IBM_Plex_Sans_Thai({
 });
 
 export const metadata = {
-  title: "HR Pro Suite — ระบบบริหารงานบุคคลและปฏิบัติการขนส่ง",
-  description: "ระบบ HR และปฏิบัติการขนส่งครบวงจร บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด",
+  title: "HR Pro Suite — ระบบบริหารงานบุคคลและปฏิบัติการองค์กร",
+  description: "ระบบบริหารทรัพยากรบุคคลและเอกสารองค์กรครบวงจร (HR Pro Suite)",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

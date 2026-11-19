@@ -19,7 +19,7 @@ const audienceBadge = (doc) => {
   const roles = Array.isArray(doc.accessRoles) ? doc.accessRoles : [];
   const hasEmp = roles.includes('employee');
   const hasPartner = roles.includes('partner_driver');
-  if (hasEmp && !hasPartner && doc.category === 'driver-manuals') return { label: '🏢 พนักงานบริษัทดีดี', color: 'blue' };
+  if (hasEmp && !hasPartner && doc.category === 'driver-manuals') return { label: '🏢 พนักงานบริษัท', color: 'blue' };
   if (!hasEmp && hasPartner) return { label: '🚚 พนักงานขับรถร่วม', color: 'yellow' };
   if (hasEmp && hasPartner && doc.category === 'driver-manuals') return { label: '👥 ทั้งบริษัทและรถร่วม', color: 'purple' };
   return null;
@@ -278,8 +278,8 @@ export default function HrDocumentsPage() {
                   value={videoForm.targetGroup}
                   onChange={(e) => setVideoForm((p) => ({ ...p, targetGroup: e.target.value }))}
                 >
-                  <option value="all">👥 ดูได้ทั้งหมด (พนักงานบริษัทดีดี + พนักงานขับรถร่วม)</option>
-                  <option value="company">🏢 เฉพาะพนักงานบริษัทดีดี (Employee)</option>
+                  <option value="all">👥 ดูได้ทั้งหมด (พนักงานบริษัท + พนักงานขับรถร่วม)</option>
+                  <option value="company">🏢 เฉพาะพนักงานบริษัท (Employee)</option>
                   <option value="partner">🚚 เฉพาะพนักงานขับรถร่วม (Partner Driver)</option>
                 </select>
               </div>

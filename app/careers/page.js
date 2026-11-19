@@ -11,8 +11,13 @@ export default function CareersPage() {
   const [form, setForm] = useState({ name: '', phone: '', email: '', note: '' });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [brandName, setBrandName] = useState('องค์กรของเรา');
 
   useEffect(() => {
+    fetch('/api/company/public', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => { if (b?.displayName && b.displayName !== 'HR Pro Suite') setBrandName(b.displayName); })
+      .catch(() => {});
     fetch('/api/hr/recruitment')
       .then((r) => r.json())
       .then((d) => {
@@ -60,10 +65,10 @@ export default function CareersPage() {
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{ fontSize: 32, fontWeight: 800, color: '#1e1b4b', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             <AppIcon name="truck" size={32} style={{ color: '#0284C7' }} />
-            <span>ร่วมงานกับ ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต</span>
+            <span>ร่วมงานกับ {brandName}</span>
           </div>
           <div style={{ fontSize: 16, color: '#64748b' }}>
-            บริษัท ดีดี เซอร์วิส แอนด์ ทรานสปอร์ต จำกัด — เปิดรับสมัครบุคลากรมืออาชีพ
+            {brandName} — เปิดรับสมัครบุคลากรมืออาชีพ
           </div>
         </div>
 
