@@ -21,3 +21,5 @@ export async function POST(request) {
   catch { return NextResponse.json({ error: 'Outbox worker failed' }, { status: 500 }); }
 }
 export const GET = POST;
+
+export const maxDuration = 60;

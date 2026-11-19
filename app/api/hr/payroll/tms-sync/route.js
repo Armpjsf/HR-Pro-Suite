@@ -26,3 +26,5 @@ export async function POST(request) {
   try { return NextResponse.json(await runIntegrationOutbox()); }
   catch { return NextResponse.json({ error: 'ยังส่งไม่สำเร็จ ระบบจะลองใหม่ตามรอบ' }, { status: 503 }); }
 }
+
+export const maxDuration = 60;

@@ -104,3 +104,5 @@ export async function POST(request) {
     message: `ยืนยันจ่าย ${slips.length} รายการ แจ้งในแอพ ${inAppSentCount} รายการ ส่ง LINE ${lineSentCount} รายการ`,
   });
 }
+
+export const maxDuration = 60;
