@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test tests/*.test.mjs",
-    "build:apk": "cd android && gradlew.bat assembleDebug"
+    "build:apk": "cd android && gradlew.bat :app:assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",
