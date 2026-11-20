@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireMenu } from '@/lib/hr-access';
 import { supabase } from '@/lib/supabase';
 import { computeSlip, isValidPeriod } from '@/lib/payroll';
-import { selectPayrollRecords } from '@/lib/payroll-generation';
+import { selectPayrollRecords, computeWorkDaysByEmployee, isUnpaidLeaveType } from '@/lib/payroll-generation';
 import { unpaidDaysByEmployee } from '@/lib/leave-policy';
 import { addAuditEntry } from '@/lib/db';
 import { getDeploymentTenantId } from '@/lib/tenantContext';
@@ -70,7 +70,7 @@ export async function POST(request) {
     supabase.from('benefits_loans').select('employee_id, amount, start_date, end_date').eq('type', 'loan').eq('status', 'active'),
     supabase.from('time_records').select('employee_id, work_date, status, clock_in').gte('work_date', periodStart).lte('work_date', periodEnd),
     supabase.from('leave_requests').select('employee_id, leave_type, days, start_date, end_date, session, work_dates').eq('status', 'approved').lte('start_date', periodEnd).gte('end_date', periodStart),
-    supabase.from('leave_types').select('code, paid'),
+    supabase.from('leave_types').select('code, name, paid'),
     supabase.from('expense_claims').select('employee_id, amount').eq('status', 'approved').gte('claim_date', periodStart).lte('claim_date', periodEnd),
     supabase.from('social_security').select('employee_id, status, monthly_contribution'),
   ]);
@@ -97,7 +97,7 @@ export async function POST(request) {
   const existMap = new Map((existing || []).map((s) => [s.employee_id, s]));
   const allowMap = new Map((allowances || []).map((a) => [a.employee_id, a.data || {}]));
   const unpaidLeaveTypes = new Set(
-    (leaveTypes || []).filter((lt) => lt.paid === false).map((lt) => lt.code),
+    (leaveTypes || []).filter(isUnpaidLeaveType).map((lt) => lt.code),
   );
 
   // 1. รวม OT อนุมัติแล้วของงวดนี้ รายพนักงาน
@@ -113,15 +113,7 @@ export async function POST(request) {
   }
 
   // 3. นับวันทำงานจริงสำหรับพนักงานรายวัน (daily) และวันขาดงาน (absent)
-  const workDaysMap = new Map();
-  const absentDaysMap = new Map();
-  for (const tr of timeRows || []) {
-    if (tr.status === 'absent') {
-      absentDaysMap.set(tr.employee_id, (absentDaysMap.get(tr.employee_id) || 0) + 1);
-    } else if (tr.status === 'normal' || tr.status === 'present' || tr.status === 'late' || tr.clock_in) {
-      workDaysMap.set(tr.employee_id, (workDaysMap.get(tr.employee_id) || 0) + 1);
-    }
-  }
+  const { workDaysMap, absentDaysMap } = computeWorkDaysByEmployee(timeRows || [], leaveRows || []);
 
   // 4. นับวันลาไม่รับค่าจ้าง (Leave Without Pay)
   let unpaidMap;
