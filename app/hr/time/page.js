@@ -16,8 +16,8 @@ export default function TimePage() {
           { key: 'clock_out', label: 'ออก' },
           {
             key: 'status', label: 'สถานะ',
-            badge: { normal: 'green', late: 'yellow', absent: 'red', leave: 'blue' },
-            badgeLabels: { normal: 'ปกติ', late: 'สาย', absent: 'ขาด', leave: 'ลา' },
+            badge: { normal: 'green', late: 'yellow', absent: 'red', leave: 'blue', half_leave: 'purple' },
+            badgeLabels: { normal: 'ปกติ', late: 'สาย', absent: 'ขาด', leave: 'ลา', half_leave: 'ลาครึ่งวัน' },
           },
           { key: 'note', label: 'หมายเหตุ' },
         ],
@@ -33,6 +33,7 @@ export default function TimePage() {
               { value: 'late', label: 'สาย' },
               { value: 'absent', label: 'ขาด' },
               { value: 'leave', label: 'ลา' },
+              { value: 'half_leave', label: 'ลาครึ่งวัน' },
             ],
           },
           { key: 'note', label: 'หมายเหตุ', type: 'text' },

@@ -4,6 +4,7 @@ import { RESOURCES } from '@/lib/hr-resources';
 import { requireMenu, resourceMenuKey } from '@/lib/hr-access';
 import { createNotification } from '@/lib/notifications';
 import { preparePayrollDraft } from '@/lib/payroll';
+import { enrichHalfDayLeaves } from '@/lib/work-calendar';
 
 /**
  * GET /api/hr/[resource] — list (รองรับ ?q= ค้นหา และ ?eq_<col>= filter)
@@ -36,7 +37,34 @@ export async function GET(request, { params }) {
   const { data, error: dbError } = await query;
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 
-  return NextResponse.json({ items: data || [] });
+  let items = data || [];
+  if (resource === 'time' && items.length > 0) {
+    try {
+      const empIds = [...new Set(items.map((r) => r.employee_id).filter(Boolean))];
+      const dates = items.map((r) => r.work_date).filter(Boolean).sort();
+      if (empIds.length > 0 && dates.length > 0) {
+        const minDate = dates[0];
+        const maxDate = dates[dates.length - 1];
+        const { data: halfLeaves, error: leaveErr } = await supabase
+          .from('leave_requests')
+          .select('employee_id, leave_type, session, start_date, end_date, work_dates')
+          .eq('status', 'approved')
+          .in('session', ['half_morning', 'half_afternoon'])
+          .in('employee_id', empIds)
+          .lte('start_date', maxDate)
+          .gte('end_date', minDate);
+        if (leaveErr) {
+          console.warn('Failed to load half-day leaves for /api/hr/time:', leaveErr);
+        } else if (halfLeaves?.length) {
+          items = enrichHalfDayLeaves(items, halfLeaves);
+        }
+      }
+    } catch (err) {
+      console.warn('Half-day leave enrichment failed for /api/hr/time:', err);
+    }
+  }
+
+  return NextResponse.json({ items });
 }
 
 /**
